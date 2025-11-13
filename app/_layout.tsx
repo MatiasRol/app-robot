@@ -6,7 +6,7 @@ import { Colors } from '../src/constants/Colors';
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="light" backgroundColor={Colors.background} />
       <Stack
         screenOptions={{
           headerStyle: {
@@ -19,13 +19,14 @@ export default function RootLayout() {
           contentStyle: {
             backgroundColor: Colors.background,
           },
+          animation: 'slide_from_right',
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="map-detail/[id]" 
           options={{ 
-            title: 'Detalle del Mapa',
+            title: 'Mapa',
             presentation: 'card'
           }} 
         />
@@ -39,9 +40,9 @@ export default function RootLayout() {
         <Stack.Screen 
           name="connecting" 
           options={{ 
-            title: 'Conectando',
-            presentation: 'modal',
-            headerShown: false
+            presentation: 'transparentModal',
+            headerShown: false,
+            animation: 'fade',
           }} 
         />
       </Stack>

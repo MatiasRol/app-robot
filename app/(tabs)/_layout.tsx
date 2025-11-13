@@ -9,16 +9,27 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: Colors.background,
+          backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
         },
         headerStyle: {
           backgroundColor: Colors.background,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
         },
         headerTintColor: Colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontSize: 18,
         },
       }}
     >
@@ -44,7 +55,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="camera"
         options={{
-          title: 'Cámara',
+          title: 'Conectando cámara',
+          tabBarLabel: 'Cámara',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="camera" size={size} color={color} />
           ),
@@ -54,6 +66,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Perfil',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
