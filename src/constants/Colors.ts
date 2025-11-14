@@ -1,16 +1,16 @@
 export const Colors = {
-  primary: '#6DA6B9',      // Azul principal (de la paleta)
-  secondary: '#326B7E',    // Azul oscuro
-  accent: '#ADE2E0',       // Azul claro
-  background: '#1a1d23',   // Fondo más oscuro
-  surface: '#252932',      // Superficie gris oscuro
-  card: '#2b2f38',         // Tarjetas
-  text: '#EDEDED',         // Texto blanco
-  textSecondary: '#8a8d93', // Texto gris más claro
-  success: '#4CAF50',      // Verde
-  error: '#F44336',        // Rojo
-  warning: '#FF9800',      // Naranja
-  border: '#3A3E47',       // Bordes
+  primary: '#6DA6B9',
+  secondary: '#326B7E',
+  accent: '#ADE2E0',
+  background: '#2C2F36',
+  surface: '#E8E8E8',
+  card: '#FFFFFF',
+  text: '#000000',
+  textSecondary: '#6F7075',
+  success: '#00FF00',
+  error: '#F44336',
+  warning: '#FF9800',
+  border: '#3A3E47',
   
   palette: {
     gray: '#6F7075',

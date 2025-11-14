@@ -45,10 +45,10 @@ export default function MapsScreen() {
           style={styles.actionButton}
           onPress={() => router.push('/connecting')}
         >
-          <Ionicons name="help-circle-outline" size={24} color={Colors.text} />
+          <Ionicons name="checkmark-circle" size={24} color={Colors.text} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="checkmark-circle" size={24} color={Colors.text} />
+          <Ionicons name="help-circle-outline" size={24} color={Colors.text} />
         </TouchableOpacity>
       </View>
     </View>

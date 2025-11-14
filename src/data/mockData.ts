@@ -1,13 +1,24 @@
-import { ColorPaletteItem, MapItem, Robot } from '../types';
+import { Robot, MapItem, ColorPaletteItem } from '../types';
 
-export const mockRobot: Robot = {
-  id: '1',
-  name: 'Robot 1',
-  model: 'Modelo del robot',
-  status: 'online',
-  battery: 85,
-  lastConnection: new Date(),
-};
+// Cambiar de mockRobot a mockRobots (array)
+export const mockRobots: Robot[] = [
+  {
+    id: '1',
+    name: 'Robot 1',
+    model: 'Nombre del modelo',
+    status: 'online',
+    battery: 60,
+    lastConnection: new Date(),
+  },
+  {
+    id: '2',
+    name: 'Robot 2',
+    model: 'Nombre del modelo',
+    status: 'online',
+    battery: 85,
+    lastConnection: new Date(),
+  },
+];
 
 export const mockMaps: MapItem[] = [
   {
@@ -33,7 +44,7 @@ export const colorPalette: ColorPaletteItem[] = [
   { color: '#252932', label: 'Dark' },
   { color: '#3A3E47', label: 'Medium' },
   { color: '#ADE2E0', label: 'Light' },
-  { color: '#6DA6B8', label: 'Blue' },
+  { color: '#6DA6B9', label: 'Blue' },
   { color: '#326B7E', label: 'Dark Blue' },
   { color: '#EDEDED', label: 'White' },
 ];

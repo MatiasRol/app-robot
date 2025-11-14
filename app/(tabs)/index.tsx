@@ -1,20 +1,20 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import RobotCard from '../../src/components/RobotCard';
+import { mockRobots } from '../../src/data/mockData'; // Cambiar mockRobot a mockRobots
 import { Colors } from '../../src/constants/Colors';
-import { Layout } from '../../src/constants/Layout';
-import { mockRobot } from '../../src/data/mockData';
 
 export default function HomeScreen() {
+  const router = useRouter();
+
+  const handleProfilePress = () => {
+    router.push('/profile');
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <RobotCard robot={mockRobot} />
-      </ScrollView>
+      <RobotCard robots={mockRobots} onProfilePress={handleProfilePress} />
     </View>
   );
 }
@@ -23,11 +23,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingVertical: Layout.spacing.md,
   },
 });

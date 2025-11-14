@@ -7,30 +7,22 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarInactiveTintColor: '#6F7075',
         tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          backgroundColor: Colors.background,
+          borderTopColor: 'transparent',
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
         },
-        headerStyle: {
-          backgroundColor: Colors.background,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
+        tabBarIconStyle: {
+          marginTop: 5,
         },
-        headerTintColor: Colors.text,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 18,
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -38,38 +30,30 @@ export default function TabLayout() {
         options={{
           title: 'Principal',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="hardware-chip-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="maps"
         options={{
-          title: 'Lista de mapas',
-          tabBarLabel: 'Mapas',
+          title: 'Mapas',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map" size={size} color={color} />
+            <Ionicons name="map-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="camera"
         options={{
-          title: 'Conectando cámara',
-          tabBarLabel: 'Cámara',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera" size={size} color={color} />
-          ),
+          title: 'Cámara',
+          href: null, // Ocultar de la navegación
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
+          href: null, // Ocultar del tab
         }}
       />
     </Tabs>

@@ -1,229 +1,264 @@
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { Robot } from '../types';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH - 32;
+
 interface RobotCardProps {
-  robot: Robot;
+  robots: Robot[];
+  onProfilePress: () => void;
 }
 
-export default function RobotCard({ robot }: RobotCardProps) {
+export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   return (
-    <View style={styles.container}>
-      {/* Header with avatar */}
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle-outline" size={32} color={Colors.primary} />
-        </View>
-      </View>
+    <View style={styles.outerContainer}>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        snapToInterval={CARD_WIDTH}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {robots.map((robot, index) => (
+          <View key={robot.id} style={styles.cardContainer}>
+            <View style={styles.card}>
+              {/* Header con foto de perfil */}
+              <View style={styles.header}>
+                <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
+                  <Image
+                    source={{ uri: 'https://i.pravatar.cc/150?img=47' }}
+                    style={styles.profileImage}
+                  />
+                </TouchableOpacity>
+              </View>
 
-      {/* Robot Display */}
-      <View style={styles.robotDisplay}>
-        {/* Robot Icon - estilo Figma */}
-        <View style={styles.robotIcon}>
-          <View style={styles.robotHead}>
-            <View style={styles.robotEye} />
-            <View style={styles.robotEye} />
-          </View>
-          <View style={styles.robotBody}>
-            <View style={styles.robotDots}>
-              <View style={styles.dot} />
-              <View style={styles.dot} />
-              <View style={styles.dot} />
+              {/* Nombre del Robot */}
+              <Text style={styles.robotName}>{robot.name}</Text>
+              <Text style={styles.robotModel}>{robot.model}</Text>
+
+              {/* Robot Imagen y Estado */}
+              <View style={styles.robotContainer}>
+                <View style={styles.robotImageContainer}>
+                  <Image
+                    source={require('../../assets/images/robot.png')}
+                    style={styles.robotImage}
+                    resizeMode="contain"
+                  />
+                </View>
+
+                {/* Barra de batería lateral */}
+                <View style={styles.batteryColumn}>
+                  <Text style={styles.batteryPercentage}>{robot.battery}%</Text>
+                  <View style={styles.batteryVertical}>
+                    <View style={[styles.batteryFill, { height: `${robot.battery}%` }]} />
+                  </View>
+                  <View style={styles.checkmarkContainer}>
+                    <Ionicons name="checkmark-circle" size={40} color={Colors.success} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Botones de acción */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={styles.cameraButton}
+                  onPress={() => router.push('/camera')}
+                >
+                  <Ionicons name="camera-outline" size={48} color="#000" />
+                  <Text style={styles.buttonText}>Ver cámara</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.mapButton}
+                  onPress={() => router.push('/maps')}
+                >
+                  <Image
+                    source={require('../../assets/images/map-icon.png')}
+                    style={styles.mapIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.mapButtonText}>Mapa relacionado</Text>
+                  <Text style={styles.mapButtonSubtext}>Mapa 1</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-        
-        {/* Robot Info */}
-        <Text style={styles.robotName}>{robot.name}</Text>
-        <Text style={styles.robotModel}>{robot.model}</Text>
-      </View>
+        ))}
+      </ScrollView>
 
-      {/* Status and Battery */}
-      <View style={styles.statusRow}>
-        <View style={styles.batteryContainer}>
-          <Text style={styles.batteryLabel}>60%</Text>
-          <View style={styles.batteryBar}>
-            <View style={[styles.batteryFill, { width: '60%' }]} />
-          </View>
+      {/* Indicadores de página (dots) */}
+      {robots.length > 1 && (
+        <View style={styles.pagination}>
+          {robots.map((_, index) => (
+            <View key={index} style={styles.paginationDot} />
+          ))}
         </View>
-        <View style={styles.checkmark}>
-          <Ionicons name="checkmark-circle" size={32} color={Colors.success} />
-        </View>
-      </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => router.push('/camera')}
-        >
-          <Ionicons name="camera-outline" size={24} color={Colors.text} />
-          <Text style={styles.actionButtonText}>Ver cámara</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.mapButton}
-          onPress={() => router.push('/maps')}
-        >
-          <Ionicons name="map-outline" size={24} color={Colors.text} />
-          <Text style={styles.actionButtonText}>Mapa interactivo</Text>
-          <Text style={styles.mapSubtext}>Mapa 1</Text>
-        </TouchableOpacity>
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+  },
+  cardContainer: {
+    width: CARD_WIDTH,
+  },
+  card: {
     backgroundColor: Colors.surface,
-    borderRadius: Layout.borderRadius.xl,
-    margin: Layout.spacing.md,
-    overflow: 'hidden',
+    borderRadius: 30,
+    padding: 20,
+    marginVertical: 10,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: Layout.spacing.md,
+    alignItems: 'flex-end',
+    marginBottom: 10,
   },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
+  profileButton: {
+    borderRadius: 30,
+    overflow: 'hidden',
   },
-  robotDisplay: {
-    alignItems: 'center',
-    paddingVertical: Layout.spacing.lg,
-  },
-  robotIcon: {
-    width: 120,
-    height: 120,
-    marginBottom: Layout.spacing.md,
-  },
-  robotHead: {
-    width: 120,
+  profileImage: {
+    width: 60,
     height: 60,
-    backgroundColor: Colors.primary,
-    borderTopLeftRadius: 60,
-    borderTopRightRadius: 60,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 20,
-    paddingTop: 15,
-  },
-  robotEye: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.text,
-  },
-  robotBody: {
-    width: 120,
-    height: 60,
-    backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  robotDots: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.text,
+    borderRadius: 30,
+    borderWidth: 3,
+    borderColor: Colors.primary,
   },
   robotName: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: Colors.text,
+    textAlign: 'center',
     marginBottom: 4,
   },
   robotModel: {
     fontSize: 14,
     color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  statusRow: {
+  robotContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.md,
+    justifyContent: 'center',
+    marginBottom: 20,
+    minHeight: 280,
   },
-  batteryContainer: {
+  robotImageContainer: {
     flex: 1,
-    marginRight: Layout.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  batteryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  robotImage: {
+    width: 220,
+    height: 280,
+  },
+  batteryColumn: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginLeft: 20,
+    height: 280,
+    paddingVertical: 10,
+  },
+  batteryPercentage: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: 6,
+    marginBottom: 10,
   },
-  batteryBar: {
-    height: 12,
-    backgroundColor: Colors.card,
-    borderRadius: 6,
+  batteryVertical: {
+    width: 30,
+    flex: 1,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 15,
     overflow: 'hidden',
+    justifyContent: 'flex-end',
+    marginVertical: 10,
   },
   batteryFill: {
-    height: '100%',
+    width: '100%',
     backgroundColor: Colors.success,
-    borderRadius: 6,
+    borderRadius: 15,
   },
-  checkmark: {
-    marginLeft: Layout.spacing.sm,
+  checkmarkContainer: {
+    marginTop: 10,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: Layout.spacing.sm,
-    padding: Layout.spacing.md,
+    gap: 16,
   },
-  actionButton: {
+  cameraButton: {
     flex: 1,
-    flexDirection: 'column',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: Layout.spacing.md,
-    backgroundColor: Colors.card,
-    borderRadius: Layout.borderRadius.md,
-    minHeight: 80,
+    minHeight: 120,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
   },
   mapButton: {
     flex: 1,
-    flexDirection: 'column',
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: Layout.spacing.md,
-    backgroundColor: Colors.primary,
-    borderRadius: Layout.borderRadius.md,
-    minHeight: 80,
+    minHeight: 120,
   },
-  actionButtonText: {
+  buttonText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.text,
+    marginTop: 8,
     textAlign: 'center',
   },
-  mapSubtext: {
-    fontSize: 12,
-    color: Colors.text,
-    opacity: 0.8,
+  mapIcon: {
+    width: 48,
+    height: 48,
+    tintColor: '#FFFFFF',
+  },
+  mapButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  mapButtonSubtext: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    opacity: 0.5,
   },
 });

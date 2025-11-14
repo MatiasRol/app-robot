@@ -21,7 +21,7 @@ export default function ProfileScreen() {
       {/* User Profile Card */}
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Ionicons name="person" size={48} color={Colors.primary} />
+          <Ionicons name="person-outline" size={48} color={Colors.primary} />
         </View>
         <Text style={styles.userName}>Usuario</Text>
         <Text style={styles.userEmail}>usuario@example.com</Text>
