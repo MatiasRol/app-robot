@@ -1,10 +1,11 @@
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useState } from 'react';
-import { Modal, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Joystick from '../../src/components/Joystick';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Colors } from '../../src/constants/Colors';
+import Joystick from '../../src/components/Joystick';
 
 type CameraMode = 'view' | 'control';
 
@@ -13,12 +14,13 @@ export default function CameraScreen() {
   const navigation = useNavigation();
   const [mode, setMode] = useState<CameraMode>('view');
   const [showModeModal, setShowModeModal] = useState(false);
-  const [joystickData, setJoystickData] = useState({ x: 0, y: 0, angle: 0, distance: 0 });
+  
+  // Ref para trackear si el wake lock está activo
+  const isKeepAwakeActive = useRef(false);
 
   // Ocultar tab bar y bloquear orientación horizontal
   useFocusEffect(
     React.useCallback(() => {
-      // Ocultar la barra de navegación inferior
       const parent = navigation.getParent();
       if (parent) {
         parent.setOptions({
@@ -28,8 +30,18 @@ export default function CameraScreen() {
 
       // Bloquear orientación horizontal
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      
+      // Activar wake lock de forma segura
+      activateKeepAwakeAsync()
+        .then(() => {
+          isKeepAwakeActive.current = true;
+          console.log('✅ Wake lock activated');
+        })
+        .catch((error) => {
+          console.warn('⚠️ Failed to activate wake lock:', error);
+        });
 
-      // Limpiar al salir
+      // Cleanup al salir
       return () => {
         if (parent) {
           parent.setOptions({
@@ -42,40 +54,70 @@ export default function CameraScreen() {
             }
           });
         }
+        
+        // Volver a orientación vertical
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+        
+        // Desactivar wake lock solo si está activo
+        if (isKeepAwakeActive.current) {
+          try {
+            deactivateKeepAwake();
+            isKeepAwakeActive.current = false;
+            console.log('✅ Wake lock deactivated');
+          } catch (error) {
+            console.warn('⚠️ Failed to deactivate wake lock:', error);
+          }
+        }
       };
     }, [navigation])
   );
 
   const handleModeChange = () => {
     setShowModeModal(false);
-    setMode(mode === 'view' ? 'control' : 'view');
+    const newMode = mode === 'view' ? 'control' : 'view';
+    setMode(newMode);
   };
 
   const handleBack = async () => {
-    // Volver a vertical
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    // Desactivar wake lock antes de salir
+    if (isKeepAwakeActive.current) {
+      try {
+        deactivateKeepAwake();
+        isKeepAwakeActive.current = false;
+      } catch (error) {
+        console.warn('⚠️ Failed to deactivate wake lock on back:', error);
+      }
+    }
     
-    // Navegar a la pantalla principal
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
     router.back();
   };
 
-  const handleJoystickMove = (data: { x: number; y: number; angle: number; distance: number }) => {
-    setJoystickData(data);
-    console.log('Joystick:', data);
-    // Aquí puedes enviar los comandos al robot
+  const handleJoystickMove = (data: { 
+    direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right' | 'center'; 
+    distance: number 
+  }) => {
+    console.log('🎮 Direction:', data.direction, 'Speed:', Math.round(data.distance * 100) + '%');
+    
+    // Aquí enviarías el comando al robot
+    // sendControl({
+    //   type: 'move',
+    //   direction: data.direction,
+    //   speed: Math.round(data.distance * 100),
+    // });
   };
 
   const handleJoystickStop = () => {
-    setJoystickData({ x: 0, y: 0, angle: 0, distance: 0 });
-    console.log('Joystick stopped');
-    // Aquí puedes detener el robot
+    console.log('🎮 Robot stopped');
+    
+    // Aquí enviarías el comando de stop
+    // sendControl({
+    //   type: 'stop',
+    // });
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden />
-      
       {/* Camera View - Fondo */}
       <View style={styles.cameraBackground}>
         <Ionicons name="videocam-outline" size={80} color="rgba(255, 255, 255, 0.3)" />
@@ -110,7 +152,7 @@ export default function CameraScreen() {
         {/* Spacer */}
         <View style={styles.spacer} />
 
-        {/* Joystick - Abajo a la izquierda */}
+        {/* Joystick - Más abajo y a la izquierda */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <Joystick 
@@ -118,16 +160,6 @@ export default function CameraScreen() {
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
             />
-            
-            {/* Indicador de dirección (opcional) */}
-            <View style={styles.directionIndicator}>
-              <Text style={styles.directionText}>
-                {joystickData.distance > 0.1 ? 
-                  `${Math.round(joystickData.angle)}° - ${Math.round(joystickData.distance * 100)}%` 
-                  : 'Centro'
-                }
-              </Text>
-            </View>
           </View>
         )}
 
@@ -267,24 +299,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Joystick Container
+  // Joystick
   joystickContainer: {
     position: 'absolute',
-    bottom: 100,
-    left: 50,
+    bottom: 80,
+    left: 40,
     alignItems: 'center',
-  },
-  directionIndicator: {
-    marginTop: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  directionText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
 
   // Bottom Bar
