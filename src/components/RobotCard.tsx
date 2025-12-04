@@ -1,9 +1,8 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React, { useRef } from 'react';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
 import { Robot } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,7 +31,8 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
         {robots.map((robot, index) => (
           <View key={robot.id} style={styles.cardContainer}>
             <View style={styles.card}>
-              {/* Header con foto de perfil */}
+              
+              {/* Header */}
               <View style={styles.header}>
                 <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
                   <Image
@@ -42,11 +42,11 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                 </TouchableOpacity>
               </View>
 
-              {/* Nombre del Robot */}
+              {/* Nombre */}
               <Text style={styles.robotName}>{robot.name}</Text>
               <Text style={styles.robotModel}>{robot.model}</Text>
 
-              {/* Robot Imagen y Estado */}
+              {/* Robot + batería */}
               <View style={styles.robotContainer}>
                 <View style={styles.robotImageContainer}>
                   <Image
@@ -56,7 +56,6 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                   />
                 </View>
 
-                {/* Barra de batería lateral */}
                 <View style={styles.batteryColumn}>
                   <Text style={styles.batteryPercentage}>{robot.battery}%</Text>
                   <View style={styles.batteryVertical}>
@@ -68,16 +67,24 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                 </View>
               </View>
 
-              {/* Botones de acción */}
+              {/* Botones */}
               <View style={styles.actionButtons}>
-                <TouchableOpacity
+
+                {/* 🔥 VER CÁMARA — YA INTEGRADO */}
+                <TouchableOpacity 
                   style={styles.cameraButton}
-                  onPress={() => router.push('/camera')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/connecting',
+                      params: { robotName: robot.name }
+                    })
+                  }
                 >
                   <Ionicons name="camera-outline" size={48} color="#000" />
                   <Text style={styles.buttonText}>Ver cámara</Text>
                 </TouchableOpacity>
 
+                {/* MAPA */}
                 <TouchableOpacity
                   style={styles.mapButton}
                   onPress={() => router.push('/maps')}
@@ -90,13 +97,14 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                   <Text style={styles.mapButtonText}>Mapa relacionado</Text>
                   <Text style={styles.mapButtonSubtext}>Mapa 1</Text>
                 </TouchableOpacity>
+
               </View>
             </View>
           </View>
         ))}
       </ScrollView>
 
-      {/* Indicadores de página (dots) */}
+      {/* Paginación */}
       {robots.length > 1 && (
         <View style={styles.pagination}>
           {robots.map((_, index) => (
@@ -202,6 +210,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
   },
+
   cameraButton: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -213,6 +222,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E0E0E0',
   },
+
   mapButton: {
     flex: 1,
     backgroundColor: Colors.primary,
@@ -222,6 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 120,
   },
+
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
@@ -229,6 +240,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+
   mapIcon: {
     width: 48,
     height: 48,

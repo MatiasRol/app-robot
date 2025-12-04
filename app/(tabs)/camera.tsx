@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Colors } from '../../src/constants/Colors';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import React, { useRef, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Joystick from '../../src/components/Joystick';
+import { Colors } from '../../src/constants/Colors';
 
 type CameraMode = 'view' | 'control';
 
@@ -14,8 +14,6 @@ export default function CameraScreen() {
   const navigation = useNavigation();
   const [mode, setMode] = useState<CameraMode>('view');
   const [showModeModal, setShowModeModal] = useState(false);
-  
-  // Ref para trackear si el wake lock está activo
   const isKeepAwakeActive = useRef(false);
 
   // Ocultar tab bar y bloquear orientación horizontal
@@ -28,20 +26,16 @@ export default function CameraScreen() {
         });
       }
 
-      // Bloquear orientación horizontal
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
       
-      // Activar wake lock de forma segura
       activateKeepAwakeAsync()
         .then(() => {
           isKeepAwakeActive.current = true;
-          console.log('✅ Wake lock activated');
         })
         .catch((error) => {
           console.warn('⚠️ Failed to activate wake lock:', error);
         });
 
-      // Cleanup al salir
       return () => {
         if (parent) {
           parent.setOptions({
@@ -55,15 +49,12 @@ export default function CameraScreen() {
           });
         }
         
-        // Volver a orientación vertical
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
         
-        // Desactivar wake lock solo si está activo
         if (isKeepAwakeActive.current) {
           try {
             deactivateKeepAwake();
             isKeepAwakeActive.current = false;
-            console.log('✅ Wake lock deactivated');
           } catch (error) {
             console.warn('⚠️ Failed to deactivate wake lock:', error);
           }
@@ -79,7 +70,6 @@ export default function CameraScreen() {
   };
 
   const handleBack = async () => {
-    // Desactivar wake lock antes de salir
     if (isKeepAwakeActive.current) {
       try {
         deactivateKeepAwake();
@@ -98,134 +88,72 @@ export default function CameraScreen() {
     distance: number 
   }) => {
     console.log('🎮 Direction:', data.direction, 'Speed:', Math.round(data.distance * 100) + '%');
-    
-    // Aquí enviarías el comando al robot
-    // sendControl({
-    //   type: 'move',
-    //   direction: data.direction,
-    //   speed: Math.round(data.distance * 100),
-    // });
   };
 
   const handleJoystickStop = () => {
     console.log('🎮 Robot stopped');
-    
-    // Aquí enviarías el comando de stop
-    // sendControl({
-    //   type: 'stop',
-    // });
   };
 
   return (
     <View style={styles.container}>
-      {/* Camera View - Fondo */}
+      {/* Camera View - Fondo (mantener tu fondo actual) */}
       <View style={styles.cameraBackground}>
-        <Ionicons name="videocam-outline" size={80} color="rgba(255, 255, 255, 0.3)" />
-        <Text style={styles.placeholderText}>Mostrando cámara</Text>
+        {/* Aquí puedes poner tu imagen de fondo o video */}
+        <Image 
+          source={require('../../assets/images/camera-visor-black-background.png')} 
+          style={styles.cameraImage}
+          resizeMode="cover"
+        />
+        {/* Overlay oscuro para mejor contraste */}
+        <View style={styles.cameraOverlay} />
       </View>
 
-      {/* Overlay Controls */}
+      {/* UI Overlay */}
       <View style={styles.overlay}>
-        {/* Top Bar */}
+        {/* Top Bar - Minimalista */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={32} color="#FFFFFF" />
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.robotInfo}>
-            <Text style={styles.robotName}>Robot 1</Text>
-            <View style={styles.statusDot} />
+        {/* Tabs de Visualización/Control - Centro Superior */}
+        <View style={styles.tabsContainer}>
+          <View style={styles.tabs}>
+            <TouchableOpacity 
+              style={[styles.tab, mode === 'view' && styles.tabActive]}
+              onPress={() => setMode('view')}
+            >
+              <Text style={[styles.tabText, mode === 'view' && styles.tabTextActive]}>
+                Visualización
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.tab, mode === 'control' && styles.tabActive]}
+              onPress={() => setMode('control')}
+            >
+              <Text style={[styles.tabText, mode === 'control' && styles.tabTextActive]}>
+                Control
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity 
-            onPress={() => setShowModeModal(true)}
-            style={styles.transparentButton}
-          >
-            <Ionicons 
-              name={mode === 'view' ? 'game-controller-outline' : 'eye-outline'} 
-              size={28} 
-              color="#FFFFFF" 
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Spacer */}
         <View style={styles.spacer} />
 
-        {/* Joystick - Más abajo y a la izquierda */}
+        {/* Joystick - Solo visible en modo control */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <Joystick 
-              size={160} 
+              size={180} 
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
             />
           </View>
         )}
-
-        {/* Bottom Bar */}
-        <View style={styles.bottomBar}>
-          <View style={styles.bottomInfo}>
-            <Ionicons name="battery-half" size={20} color="#00FF00" />
-            <Text style={styles.bottomInfoText}>60%</Text>
-          </View>
-          
-          {mode === 'view' && (
-            <Text style={styles.bottomInfoText}>Toca el ícono del control para manejar el robot</Text>
-          )}
-          
-          {mode === 'control' && (
-            <Text style={styles.bottomInfoText}>Mueve el joystick para controlar el robot</Text>
-          )}
-          
-          <View style={styles.bottomInfo}>
-            <Ionicons name="time-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.bottomInfoText}>00:00:00</Text>
-          </View>
-        </View>
       </View>
-
-      {/* Modal de Confirmación */}
-      <Modal
-        visible={showModeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowModeModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Ionicons 
-              name={mode === 'view' ? 'game-controller' : 'eye'} 
-              size={56} 
-              color={Colors.primary} 
-            />
-            <Text style={styles.modalTitle}>
-              {mode === 'view' ? 'Activar Modo Control' : 'Volver a Modo Vista'}
-            </Text>
-            <Text style={styles.modalText}>
-              {mode === 'view' 
-                ? '¿Deseas activar los controles para manejar el robot?'
-                : '¿Deseas desactivar los controles y solo ver la cámara?'}
-            </Text>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButtonCancel}
-                onPress={() => setShowModeModal(false)}
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalButtonConfirm}
-                onPress={handleModeChange}
-              >
-                <Text style={styles.modalButtonTextConfirm}>Aceptar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -237,61 +165,74 @@ const styles = StyleSheet.create({
   },
   cameraBackground: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'relative',
   },
-  placeholderText: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.3)',
-    marginTop: 16,
-    fontWeight: '600',
+  cameraImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)', // Overlay sutil
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
   },
   
-  // Top Bar
+  // Top Bar - Minimalista
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  transparentButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
+
+  // Tabs Container
+  tabsContainer: {
+    position: 'absolute',
+    top: 80,
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
-  robotInfo: {
+  tabs: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 25,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  robotName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 20,
+  },
+  tabActive: {
+    backgroundColor: Colors.primary,
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextActive: {
     color: '#FFFFFF',
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#00FF00',
   },
 
   // Spacer
@@ -302,90 +243,8 @@ const styles = StyleSheet.create({
   // Joystick
   joystickContainer: {
     position: 'absolute',
-    bottom: 80,
-    left: 40,
+    bottom: 40,
+    right: 40,
     alignItems: 'center',
-  },
-
-  // Bottom Bar
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  bottomInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  bottomInfoText: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: Colors.surface,
-    borderRadius: 24,
-    padding: 32,
-    width: '70%',
-    maxWidth: 500,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginTop: 16,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 16,
-    width: '100%',
-  },
-  modalButtonCancel: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.border,
-  },
-  modalButtonConfirm: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-  },
-  modalButtonTextCancel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  modalButtonTextConfirm: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
   },
 });

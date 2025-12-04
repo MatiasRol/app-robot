@@ -1,86 +1,60 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../src/constants/Colors';
 import { Layout } from '../src/constants/Layout';
 
 export default function ConnectingScreen() {
   const router = useRouter();
-  const [status, setStatus] = useState<'connecting' | 'success' | 'error'>('connecting');
+  const { robotName = 'Robot 1' } = useLocalSearchParams();
+  const [dots, setDots] = useState('');
 
+  // Animación de puntos suspensivos
   useEffect(() => {
-    // Simular conexión
+    const interval = setInterval(() => {
+      setDots(prev => {
+        if (prev === '...') return '';
+        return prev + '.';
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Simular conexión y navegar a cámara
+  useEffect(() => {
     const timer = setTimeout(() => {
-      setStatus('success');
-      // Auto-cerrar después de 1 segundo si fue exitoso
-      setTimeout(() => {
-        router.back();
-      }, 1500);
-    }, 3000);
+      router.replace('/camera');
+    }, 3000); // 3 segundos
 
     return () => clearTimeout(timer);
   }, []);
 
-  const getIcon = () => {
-    switch (status) {
-      case 'connecting':
-        return <ActivityIndicator size="large" color={Colors.primary} />;
-      case 'success':
-        return <Ionicons name="checkmark-circle" size={80} color={Colors.success} />;
-      case 'error':
-        return <Ionicons name="alert-circle" size={80} color={Colors.error} />;
-    }
-  };
-
-  const getMessage = () => {
-    switch (status) {
-      case 'connecting':
-        return 'Conectando a Robot 1...';
-      case 'success':
-        return '¡Conexión exitosa!';
-      case 'error':
-        return 'Error al conectar';
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.closeButton}
-        onPress={() => router.back()}
-      >
-        <Ionicons name="close" size={28} color={Colors.text} />
-      </TouchableOpacity>
-
-      <View style={styles.content}>
-        <View style={styles.robotIcon}>
-          <Ionicons name="hardware-chip" size={64} color={Colors.primary} />
+      {/* Tarjeta de conexión */}
+      <View style={styles.card}>
+        {/* Ícono del robot */}
+        <View style={styles.robotIconContainer}>
+          <View style={styles.robotIcon}>
+            <View style={styles.robotHead}>
+              <View style={styles.robotEye} />
+              <View style={styles.robotEye} />
+            </View>
+            <View style={styles.robotAntenna} />
+          </View>
         </View>
 
-        <Text style={styles.robotName}>Robot 1</Text>
+        {/* Texto */}
+        <Text style={styles.connectingText}>Conectando a {dots}</Text>
+        <Text style={styles.robotName}>{robotName}</Text>
 
-        <View style={styles.statusContainer}>
-          {getIcon()}
-        </View>
-
-        <Text style={styles.statusText}>{getMessage()}</Text>
-
-        {status === 'connecting' && (
-          <Text style={styles.subText}>
-            Por favor espera mientras establecemos la conexión...
-          </Text>
-        )}
-
-        {status === 'error' && (
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={() => setStatus('connecting')}
-          >
-            <Ionicons name="refresh" size={24} color={Colors.text} />
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
-        )}
+        {/* Indicador de carga */}
+        <ActivityIndicator 
+          size="large" 
+          color={Colors.primary} 
+          style={styles.loader}
+        />
       </View>
     </View>
   );
@@ -90,67 +64,72 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
-    padding: Layout.spacing.sm,
-  },
-  content: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Layout.spacing.xl,
+    padding: Layout.spacing.lg,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: Layout.borderRadius.xl,
+    padding: Layout.spacing.xl * 2,
+    alignItems: 'center',
+    width: '90%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  robotIconContainer: {
+    marginBottom: Layout.spacing.xl,
   },
   robotIcon: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.surface,
+    position: 'relative',
+  },
+  robotHead: {
+    width: 120,
+    height: 80,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Layout.spacing.lg,
+    gap: 30,
+    paddingTop: 10,
+  },
+  robotEye: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  robotAntenna: {
+    position: 'absolute',
+    top: -15,
+    left: '50%',
+    marginLeft: -5,
+    width: 10,
+    height: 20,
+    backgroundColor: Colors.primary,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
+  },
+  connectingText: {
+    fontSize: 18,
+    color: Colors.textSecondary,
+    marginBottom: Layout.spacing.xs,
+    fontWeight: '500',
   },
   robotName: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: Layout.spacing.xl,
-  },
-  statusContainer: {
-    height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: Layout.spacing.lg,
   },
-  statusText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.text,
-    textAlign: 'center',
-    marginBottom: Layout.spacing.sm,
-  },
-  subText: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: Layout.spacing.sm,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.md,
-    borderRadius: Layout.borderRadius.md,
-    marginTop: Layout.spacing.xl,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
+  loader: {
+    marginTop: Layout.spacing.md,
   },
 });
