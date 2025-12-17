@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
 import { MapItem } from '../types';
 
 interface MapCardProps {
@@ -17,32 +16,25 @@ export default function MapCard({ map }: MapCardProps) {
     <TouchableOpacity 
       style={styles.container}
       onPress={() => router.push(`/map-detail/${map.id}`)}
+      activeOpacity={0.8}
     >
-      {/* Thumbnail Placeholder */}
+      {/* Icono del mapa */}
+      <View style={styles.iconContainer}>
+        <Ionicons name="home" size={20} color={Colors.primary} />
+      </View>
+
+      {/* Thumbnail del mapa */}
       <View style={styles.thumbnail}>
-        <Ionicons name="map" size={48} color={Colors.primary} />
+        <Image
+          source={{ uri: map.thumbnail }}
+          style={styles.thumbnailImage}
+          resizeMode="cover"
+        />
       </View>
 
-      {/* Map Info */}
+      {/* Info del mapa - SOLO NOMBRE */}
       <View style={styles.info}>
-        <View style={styles.header}>
-          <Ionicons name="home" size={16} color={Colors.primary} />
-          <Text style={styles.mapName}>{map.name}</Text>
-        </View>
-        <Text style={styles.mapSize}>{map.size}</Text>
-        <Text style={styles.mapDate}>
-          {map.createdAt.toLocaleDateString('es-ES')}
-        </Text>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionIcon}>
-          <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionIcon}>
-          <Ionicons name="ellipsis-horizontal" size={24} color={Colors.textSecondary} />
-        </TouchableOpacity>
+        <Text style={styles.mapName}>{map.name}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -50,51 +42,46 @@ export default function MapCard({ map }: MapCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderRadius: Layout.borderRadius.md,
-    padding: Layout.spacing.md,
-    marginHorizontal: Layout.spacing.md,
-    marginBottom: Layout.spacing.sm,
-    alignItems: 'center',
-  },
-  thumbnail: {
-    width: 80,
-    height: 80,
     backgroundColor: Colors.surface,
-    borderRadius: Layout.borderRadius.sm,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Layout.spacing.md,
+    marginRight: 12,
+  },
+  thumbnail: {
+    width: 100,
+    height: 80,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
   info: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: Layout.spacing.xs,
+    justifyContent: 'center',
   },
   mapName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.text,
-  },
-  mapSize: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  mapDate: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'column',
-    gap: Layout.spacing.sm,
-  },
-  actionIcon: {
-    padding: Layout.spacing.xs,
   },
 });

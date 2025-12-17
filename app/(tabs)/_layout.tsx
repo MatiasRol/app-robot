@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Image, StyleSheet } from 'react-native';
 import { Colors } from '../../src/constants/Colors';
 
 export default function TabLayout() {
@@ -29,8 +29,15 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Principal',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="hardware-chip-outline" size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={require('../../assets/images/robotNav.png')}
+              style={[
+                styles.tabIcon,
+                { tintColor: focused ? Colors.primary : '#6F7075' }
+              ]}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -38,8 +45,15 @@ export default function TabLayout() {
         name="maps"
         options={{
           title: 'Mapas',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={require('../../assets/images/mapaNav.png')}
+              style={[
+                styles.tabIcon,
+                { tintColor: focused ? Colors.primary : '#6F7075' }
+              ]}
+              resizeMode="contain"
+            />
           ),
         }}
       />
@@ -47,15 +61,22 @@ export default function TabLayout() {
         name="camera"
         options={{
           title: 'Cámara',
-          href: null, // Ocultar de la navegación
+          href: null,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          href: null, // Ocultar del tab
+          href: null,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIcon: {
+    width: 28,
+    height: 28,
+  },
+});

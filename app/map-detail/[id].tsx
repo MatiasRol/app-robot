@@ -1,80 +1,69 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React from 'react';
+import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../src/constants/Colors';
-import { Layout } from '../../src/constants/Layout';
-import { mockMaps } from '../../src/data/mockData';
 
 export default function MapDetailScreen() {
-  const { id } = useLocalSearchParams();
   const router = useRouter();
-  const map = mockMaps.find(m => m.id === id);
-
-  if (!map) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Mapa no encontrado</Text>
-      </View>
-    );
-  }
+  const { id } = useLocalSearchParams();
 
   return (
-    <View style={styles.container}>
-      {/* Map Preview */}
-      <View style={styles.mapPreview}>
-        <View style={styles.mapPlaceholder}>
-          <Ionicons name="map-outline" size={80} color={Colors.primary} />
-          <Text style={styles.mapPlaceholderText}>Vista del mapa</Text>
-        </View>
-      </View>
-
-      {/* Map Info */}
-      <ScrollView style={styles.infoSection}>
-        <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Ionicons name="home" size={24} color={Colors.primary} />
-            <Text style={styles.mapName}>{map.name}</Text>
-          </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <View style={styles.container}>
+        
+        {/* Área del mapa con imagen de fondo - ocupa toda la pantalla */}
+        <ImageBackground
+          source={require('../../assets/images/map-background.png')}
+          style={styles.mapCanvas}
+          imageStyle={styles.mapImage}
+          resizeMode="cover"
+        >
           
-          <View style={styles.infoRow}>
-            <Ionicons name="resize-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.infoLabel}>Tamaño:</Text>
-            <Text style={styles.infoValue}>{map.size}</Text>
+          {/* Campo de texto para nombre del mapa - DENTRO del mapa */}
+          <View style={styles.nameInputContainer}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={24} color={Colors.primary} />
+            </TouchableOpacity>
+            <View style={styles.nameInput}>
+              <Text style={styles.nameInputText}>Nombre del Mapa</Text>
+            </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.infoLabel}>Creado:</Text>
-            <Text style={styles.infoValue}>
-              {map.createdAt.toLocaleDateString('es-ES', { 
-                day: 'numeric', 
-                month: 'long', 
-                year: 'numeric' 
-              })}
-            </Text>
+          {/* Área central del mapa (contenido flexible) */}
+          <View style={styles.mapContent}>
+            <Text style={styles.mapPlaceholder}>Mapa {id}</Text>
           </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="share-outline" size={24} color={Colors.text} />
-            <Text style={styles.actionButtonText}>Compartir</Text>
-          </TouchableOpacity>
+          {/* Botones inferiores - DENTRO del mapa */}
+          <View style={styles.bottomButtons}>
+            {/* Botón de ayuda separado */}
+            <TouchableOpacity style={styles.iconButton}>
+              <Ionicons name="help-circle-outline" size={32} color={Colors.text} />
+            </TouchableOpacity>
+            
+            {/* Contenedor blanco con los 3 iconos - funciona como UN SOLO botón */}
+            <TouchableOpacity style={styles.multiIconButton}>
+              <Ionicons name="add-circle-outline" size={28} color={Colors.text} />
+              
+              <View style={styles.iconDivider} />
+              
+              <Ionicons name="ellipsis-horizontal" size={28} color={Colors.text} />
+              
+              <View style={styles.iconDivider} />
+              
+              <Ionicons name="checkmark" size={28} color={Colors.text} />
+            </TouchableOpacity>
+            
+            {/* Sin botón adicional aquí */}
+          </View>
 
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="download-outline" size={24} color={Colors.text} />
-            <Text style={styles.actionButtonText}>Descargar</Text>
-          </TouchableOpacity>
+        </ImageBackground>
 
-          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]}>
-            <Ionicons name="trash-outline" size={24} color={Colors.error} />
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Eliminar</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -82,88 +71,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  mapPreview: {
-    height: 300,
-    backgroundColor: Colors.surface,
+  mapCanvas: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 50,
+    justifyContent: 'space-between',
+  },
+  mapImage: {
+    borderRadius: 0,
+  },
+  nameInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  nameInput: {
+    flex: 1,
+  },
+  nameInputText: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '500',
+  },
+  mapContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mapPlaceholder: {
-    flex: 1,
+    fontSize: 18,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  bottomButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  iconButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mapPlaceholderText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginTop: Layout.spacing.md,
-  },
-  infoSection: {
+  multiIconButton: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    padding: Layout.spacing.md,
-  },
-  infoCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Layout.borderRadius.lg,
-    padding: Layout.spacing.lg,
-    marginBottom: Layout.spacing.md,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.surface,
-  },
-  mapName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.md,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
-  infoValue: {
-    fontSize: 16,
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  actionButtons: {
-    gap: Layout.spacing.sm,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: Layout.spacing.sm,
-    backgroundColor: Colors.card,
-    padding: Layout.spacing.md,
-    borderRadius: Layout.borderRadius.md,
   },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  deleteButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  deleteButtonText: {
-    color: Colors.error,
-  },
-  errorText: {
-    fontSize: 16,
-    color: Colors.error,
-    textAlign: 'center',
-    marginTop: Layout.spacing.xl,
+  iconDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E0E0E0',
   },
 });

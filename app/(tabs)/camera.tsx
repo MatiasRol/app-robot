@@ -13,12 +13,16 @@ export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const [mode, setMode] = useState<CameraMode>('view');
-  const [showModeModal, setShowModeModal] = useState(false);
   const isKeepAwakeActive = useRef(false);
 
   // Ocultar tab bar y bloquear orientación horizontal
   useFocusEffect(
     React.useCallback(() => {
+      // Ocultar la barra de tabs
+      navigation.setOptions({
+        tabBarStyle: { display: 'none' }
+      });
+
       const parent = navigation.getParent();
       if (parent) {
         parent.setOptions({
@@ -37,6 +41,17 @@ export default function CameraScreen() {
         });
 
       return () => {
+        // Restaurar la barra de tabs al salir
+        navigation.setOptions({
+          tabBarStyle: {
+            backgroundColor: Colors.background,
+            borderTopColor: 'transparent',
+            height: 70,
+            paddingBottom: 10,
+            paddingTop: 10,
+          }
+        });
+
         if (parent) {
           parent.setOptions({
             tabBarStyle: {
@@ -62,12 +77,6 @@ export default function CameraScreen() {
       };
     }, [navigation])
   );
-
-  const handleModeChange = () => {
-    setShowModeModal(false);
-    const newMode = mode === 'view' ? 'control' : 'view';
-    setMode(newMode);
-  };
 
   const handleBack = async () => {
     if (isKeepAwakeActive.current) {
@@ -96,29 +105,22 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Camera View - Fondo (mantener tu fondo actual) */}
-      <View style={styles.cameraBackground}>
-        {/* Aquí puedes poner tu imagen de fondo o video */}
-        <Image 
-          source={require('../../assets/images/camera-visor-black-background.png')} 
-          style={styles.cameraImage}
-          resizeMode="cover"
-        />
-        {/* Overlay oscuro para mejor contraste */}
-        <View style={styles.cameraOverlay} />
-      </View>
+      {/* Camera View - Fondo que ocupa toda la pantalla */}
+      <Image 
+        source={require('../../assets/images/camera-visor-black-background.png')} 
+        style={styles.cameraImage}
+        resizeMode="cover"
+      />
 
       {/* UI Overlay */}
       <View style={styles.overlay}>
-        {/* Top Bar - Minimalista */}
+        {/* Top Bar - Back izquierda, Tabs derecha */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={32} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
 
-        {/* Tabs de Visualización/Control - Centro Superior */}
-        <View style={styles.tabsContainer}>
+          {/* Tabs alineados a la derecha */}
           <View style={styles.tabs}>
             <TouchableOpacity 
               style={[styles.tab, mode === 'view' && styles.tabActive]}
@@ -140,9 +142,6 @@ export default function CameraScreen() {
           </View>
         </View>
 
-        {/* Spacer */}
-        <View style={styles.spacer} />
-
         {/* Joystick - Solo visible en modo control */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
@@ -163,50 +162,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  cameraBackground: {
-    flex: 1,
-    position: 'relative',
-  },
   cameraImage: {
+    position: 'absolute',
     width: '100%',
     height: '100%',
   },
-  cameraOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)', // Overlay sutil
-  },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
+    flex: 1,
   },
   
-  // Top Bar - Minimalista
+  // Top Bar - Back button izquierda, tabs derecha
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
   },
   backButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 
-  // Tabs Container
-  tabsContainer: {
-    position: 'absolute',
-    top: 80,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
+  // Tabs
   tabs: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -219,15 +204,15 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   tab: {
-    paddingVertical: 10,
-    paddingHorizontal: 28,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
     borderRadius: 20,
   },
   tabActive: {
     backgroundColor: Colors.primary,
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#666',
   },
@@ -235,12 +220,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Spacer
-  spacer: {
-    flex: 1,
-  },
-
-  // Joystick
+  // Joystick - Posicionado en la esquina inferior derecha
   joystickContainer: {
     position: 'absolute',
     bottom: 40,
