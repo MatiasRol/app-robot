@@ -26,7 +26,7 @@ export default function RootLayout() {
         <Stack.Screen 
           name="map-detail/[id]" 
           options={{ 
-            title: 'Mapa',
+            headerShown: false, 
             presentation: 'card'
           }} 
         />
