@@ -1,18 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { Animated, Dimensions, Image, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, Modal, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../src/constants/Colors';
+import { useApp } from '../../src/context/AppContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;
-const BOTTOM_SHEET_MIN_HEIGHT = 60; // Altura para mostrar solo el handle con más espacio
+const BOTTOM_SHEET_MIN_HEIGHT = 60;
 
 type OperationMode = 'vigilancia' | 'servicio';
 
 export default function MapDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { getMapRoutes, addRoute, updateRoute, deleteRoute } = useApp();
   
   const bottomSheetAnimation = useRef(new Animated.Value(BOTTOM_SHEET_MIN_HEIGHT)).current;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -20,11 +22,16 @@ export default function MapDetailScreen() {
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<OperationMode | null>(null);
 
-  const routes = [
-    { id: '1', name: 'Ruta 1', schedule: 'Vie 27 Dic 2024 a las 18:30' },
-    { id: '2', name: 'Ruta 2', schedule: 'Se inicia al finalizar el anterior' },
-    { id: '3', name: 'Ruta 3', schedule: '' },
-  ];
+  // Estados para agregar/editar rutas
+  const [showAddRouteModal, setShowAddRouteModal] = useState(false);
+  const [newRouteName, setNewRouteName] = useState('');
+  const [newRouteSchedule, setNewRouteSchedule] = useState('');
+  
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [editRouteName, setEditRouteName] = useState('');
+  const [editRouteSchedule, setEditRouteSchedule] = useState('');
+
+  const routes = getMapRoutes(id as string);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -97,10 +104,53 @@ export default function MapDetailScreen() {
     setPendingMode(null);
   };
 
+  // Agregar ruta
+  const handleAddRoute = () => {
+    if (newRouteName.trim()) {
+      addRoute(id as string, newRouteName.trim(), newRouteSchedule.trim() || undefined);
+      setNewRouteName('');
+      setNewRouteSchedule('');
+      setShowAddRouteModal(false);
+    }
+  };
+
+  // Editar ruta
+  const handleEditRoute = (routeId: string, name: string, schedule?: string) => {
+    setEditingRouteId(routeId);
+    setEditRouteName(name);
+    setEditRouteSchedule(schedule || '');
+  };
+
+  const handleSaveRoute = () => {
+    if (editingRouteId && editRouteName.trim()) {
+      updateRoute(editingRouteId, {
+        name: editRouteName.trim(),
+        schedule: editRouteSchedule.trim() || undefined,
+      });
+      setEditingRouteId(null);
+    }
+  };
+
+  // Eliminar ruta
+  const handleDeleteRoute = (routeId: string, routeName: string) => {
+    Alert.alert(
+      'Eliminar ruta',
+      `¿Estás seguro de que deseas eliminar "${routeName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: () => deleteRoute(routeId)
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       
-      {/* Área del mapa (ocupa toda la pantalla) */}
+      {/* Área del mapa */}
       <View style={styles.mapCanvas}>
         <Text style={styles.mapPlaceholder}>Mapa {id}</Text>
       </View>
@@ -127,12 +177,12 @@ export default function MapDetailScreen() {
           }
         ]}
       >
-        {/* Handle para arrastrar */}
+        {/* Handle */}
         <View style={styles.handleContainer} {...panResponder.panHandlers}>
           <View style={styles.handle} />
         </View>
 
-        {/* Contenido del Bottom Sheet - Solo visible cuando está expandido */}
+        {/* Contenido */}
         {isExpanded && (
           <ScrollView 
             style={styles.bottomSheetContent}
@@ -150,7 +200,6 @@ export default function MapDetailScreen() {
                 <Text style={styles.robotText}>Robot 1 en desplazamiento</Text>
               </View>
 
-              {/* Selector de modo */}
               <View style={styles.modeSelector}>
                 <Text style={styles.modeTitle}>Modo de operación</Text>
                 <View style={styles.modeTabs}>
@@ -190,7 +239,10 @@ export default function MapDetailScreen() {
             <View style={styles.routesSection}>
               <View style={styles.routesHeader}>
                 <Text style={styles.routesTitle}>Rutas</Text>
-                <TouchableOpacity style={styles.addRouteButton}>
+                <TouchableOpacity 
+                  style={styles.addRouteButton}
+                  onPress={() => setShowAddRouteModal(true)}
+                >
                   <Ionicons name="add" size={24} color={Colors.text} />
                 </TouchableOpacity>
               </View>
@@ -211,13 +263,24 @@ export default function MapDetailScreen() {
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.editRouteButton}>
-                    <Image
-                      source={require('../../assets/images/lapiz.png')}
-                      style={styles.editIcon}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
+                  <View style={styles.routeActions}>
+                    <TouchableOpacity 
+                      style={styles.editRouteButton}
+                      onPress={() => handleEditRoute(route.id, route.name, route.schedule)}
+                    >
+                      <Image
+                        source={require('../../assets/images/lapiz.png')}
+                        style={styles.editIcon}
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.deleteRouteButton}
+                      onPress={() => handleDeleteRoute(route.id, route.name)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#F44336" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
@@ -227,7 +290,97 @@ export default function MapDetailScreen() {
 
       </Animated.View>
 
-      {/* Alerta de cambio de modo */}
+      {/* Modal agregar ruta */}
+      <Modal
+        visible={showAddRouteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddRouteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Nueva Ruta</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre de la ruta"
+              placeholderTextColor={Colors.textSecondary}
+              value={newRouteName}
+              onChangeText={setNewRouteName}
+              autoFocus
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Horario (opcional)"
+              placeholderTextColor={Colors.textSecondary}
+              value={newRouteSchedule}
+              onChangeText={setNewRouteSchedule}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowAddRouteModal(false);
+                  setNewRouteName('');
+                  setNewRouteSchedule('');
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonConfirm}
+                onPress={handleAddRoute}
+              >
+                <Text style={styles.modalButtonConfirmText}>Crear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal editar ruta */}
+      <Modal
+        visible={editingRouteId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingRouteId(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Editar Ruta</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre de la ruta"
+              placeholderTextColor={Colors.textSecondary}
+              value={editRouteName}
+              onChangeText={setEditRouteName}
+              autoFocus
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Horario (opcional)"
+              placeholderTextColor={Colors.textSecondary}
+              value={editRouteSchedule}
+              onChangeText={setEditRouteSchedule}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel}
+                onPress={() => setEditingRouteId(null)}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonConfirm}
+                onPress={handleSaveRoute}
+              >
+                <Text style={styles.modalButtonConfirmText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Alerta cambio de modo */}
       {showModeAlert && (
         <View style={styles.alertOverlay}>
           <View style={styles.alertBox}>
@@ -273,8 +426,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '600',
   },
-
-  // NOMBRE DEL MAPA - Fuera del Bottom Sheet
   mapNameContainer: {
     position: 'absolute',
     top: 50,
@@ -315,8 +466,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
   },
-
-  // BOTTOM SHEET
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
@@ -341,14 +490,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#D0D0D0',
     borderRadius: 3,
   },
-
   bottomSheetContent: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 8,
   },
-
-  // ROBOT Y MODO
   robotSection: {
     marginBottom: 24,
   },
@@ -406,8 +552,6 @@ const styles = StyleSheet.create({
   modeTabTextActive: {
     color: '#FFFFFF',
   },
-
-  // RUTAS
   routesSection: {
     marginBottom: 20,
   },
@@ -462,68 +606,130 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
-  editRouteButton: {
+  routeActions: {flexDirection: 'row',
+    gap: 8,
+    },
+    editRouteButton: {
     padding: 8,
-  },
-  editIcon: {
+    },
+    deleteRouteButton: {
+    padding: 8,
+    },
+    editIcon: {
     width: 20,
     height: 20,
-  },
-
-  // ALERTA
-  alertOverlay: {
+    },
+    // MODALES
+    modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    },
+    modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    },
+    modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+    },
+    modalInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.text,
+    marginBottom: 16,
+    },
+    modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    },
+    modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    },
+    modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    },
+    modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    },
+    modalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textLight,
+    },
+    // ALERTA
+    alertOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
-  },
-  alertBox: {
+    },
+    alertBox: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 24,
     width: '80%',
     maxWidth: 350,
-  },
-  alertTitle: {
+    },
+    alertTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.text,
     marginBottom: 12,
     textAlign: 'center',
-  },
-  alertMessage: {
+    },
+    alertMessage: {
     fontSize: 14,
     color: Colors.textSecondary,
     marginBottom: 24,
     textAlign: 'center',
-  },
-  alertButtons: {
+    },
+    alertButtons: {
     flexDirection: 'row',
     gap: 12,
-  },
-  alertButtonCancel: {
+    },
+    alertButtonCancel: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
     backgroundColor: '#F0F0F0',
     alignItems: 'center',
-  },
-  alertButtonCancelText: {
+    },
+    alertButtonCancelText: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.text,
-  },
-  alertButtonConfirm: {
+    },
+    alertButtonConfirm: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
     backgroundColor: Colors.primary,
     alignItems: 'center',
-  },
-  alertButtonConfirmText: {
+    },
+    alertButtonConfirmText: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.textLight,
-  },
-});
+    },
+    });

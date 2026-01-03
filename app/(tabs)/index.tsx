@@ -1,12 +1,13 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import RobotCard from '../../src/components/RobotCard';
-import { mockRobots } from '../../src/data/mockData'; // Cambiar mockRobot a mockRobots
 import { Colors } from '../../src/constants/Colors';
+import { useApp } from '../../src/context/AppContext';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { robots } = useApp();
 
   const handleProfilePress = () => {
     router.push('/profile');
@@ -14,7 +15,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <RobotCard robots={mockRobots} onProfilePress={handleProfilePress} />
+      <RobotCard robots={robots} onProfilePress={handleProfilePress} />
     </View>
   );
 }

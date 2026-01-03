@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useRef } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { useApp } from '../context/AppContext';
 import { Robot } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -16,6 +17,21 @@ interface RobotCardProps {
 export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { updateRobotName } = useApp();
+  const [editingRobotId, setEditingRobotId] = useState<string | null>(null);
+  const [tempName, setTempName] = useState('');
+
+  const handleEditName = (robot: Robot) => {
+    setEditingRobotId(robot.id);
+    setTempName(robot.name);
+  };
+
+  const handleSaveName = (robotId: string) => {
+    if (tempName.trim()) {
+      updateRobotName(robotId, tempName.trim());
+    }
+    setEditingRobotId(null);
+  };
 
   return (
     <View style={styles.outerContainer}>
@@ -31,10 +47,8 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
         {robots.map((robot) => (
           <View key={robot.id} style={styles.cardContainer}>
             
-            {/* TARJETA BLANCA - SOLO ROBOT */}
             <View style={styles.card}>
               
-              {/* Header con foto de perfil */}
               <View style={styles.header}>
                 <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
                   <Image
@@ -44,10 +58,23 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                 </TouchableOpacity>
               </View>
 
-              {/* Nombre del robot con botón editar */}
+              {/* Nombre editable */}
               <View style={styles.nameContainer}>
-                <Text style={styles.robotName}>{robot.name}</Text>
-                <TouchableOpacity style={styles.editButton}>
+                {editingRobotId === robot.id ? (
+                  <TextInput
+                    style={styles.nameInput}
+                    value={tempName}
+                    onChangeText={setTempName}
+                    onBlur={() => handleSaveName(robot.id)}
+                    autoFocus
+                  />
+                ) : (
+                  <Text style={styles.robotName}>{robot.name}</Text>
+                )}
+                <TouchableOpacity 
+                  style={styles.editButton}
+                  onPress={() => handleEditName(robot)}
+                >
                   <Image
                     source={require('../../assets/images/lapiz.png')}
                     style={styles.editIcon}
@@ -57,7 +84,6 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
               </View>
               <Text style={styles.robotModel}>{robot.model}</Text>
 
-              {/* Robot + batería */}
               <View style={styles.robotContainer}>
                 <View style={styles.robotImageContainer}>
                   <Image
@@ -79,10 +105,7 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
               </View>
             </View>
 
-            {/* BOTONES FUERA DE LA TARJETA BLANCA */}
             <View style={styles.actionButtons}>
-
-              {/* Botón Ver Cámara */}
               <TouchableOpacity 
                 style={styles.cameraButton}
                 onPress={() =>
@@ -100,10 +123,9 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                 <Text style={styles.cameraButtonText}>Ver cámara</Text>
               </TouchableOpacity>
 
-              {/* Botón Mapa - NAVEGA AL MAPA ESPECÍFICO */}
               <TouchableOpacity
                 style={styles.mapButton}
-                onPress={() => router.push('/map-detail/1')}
+                onPress={() => router.push(`/map-detail/${robot.currentMapId || '1'}`)}
               >
                 <Image
                   source={require('../../assets/images/mapaBoton.png')}
@@ -113,14 +135,12 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                 <Text style={styles.mapButtonText}>Mapa relacionado</Text>
                 <Text style={styles.mapButtonSubtext}>Mapa 1</Text>
               </TouchableOpacity>
-
             </View>
 
           </View>
         ))}
       </ScrollView>
 
-      {/* Indicadores de paginación */}
       {robots.length > 1 && (
         <View style={styles.pagination}>
           {robots.map((_, index) => (
@@ -182,6 +202,15 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textAlign: 'center',
   },
+  nameInput: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+    minWidth: 200,
+  },
   editButton: {
     padding: 4,
   },
@@ -240,13 +269,10 @@ const styles = StyleSheet.create({
   checkmarkContainer: {
     marginTop: 8,
   },
-  
-  // BOTONES FUERA DE LA TARJETA
   actionButtons: {
     flexDirection: 'row',
     gap: 16,
   },
-
   cameraButton: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -258,12 +284,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E0E0E0',
   },
-
   cameraIcon: {
     width: 56,
     height: 56,
   },
-
   cameraButtonText: {
     fontSize: 15,
     fontWeight: '600',
@@ -271,7 +295,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
-
   mapButton: {
     flex: 1,
     backgroundColor: Colors.primary,
@@ -281,13 +304,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 140,
   },
-
   mapIcon: {
     width: 56,
     height: 56,
     tintColor: '#FFFFFF',
   },
-
   mapButtonText: {
     fontSize: 15,
     fontWeight: '600',

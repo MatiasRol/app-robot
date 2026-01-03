@@ -1,12 +1,23 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapCard from '../../src/components/MapCard';
 import { Colors } from '../../src/constants/Colors';
-import { mockMaps } from '../../src/data/mockData';
+import { useApp } from '../../src/context/AppContext';
 
 export default function MapsScreen() {
   const router = useRouter();
+  const { maps, addMap } = useApp();
+  const [showAddMapModal, setShowAddMapModal] = useState(false);
+  const [newMapName, setNewMapName] = useState('');
+
+  const handleAddMap = () => {
+    if (newMapName.trim()) {
+      addMap(newMapName.trim());
+      setNewMapName('');
+      setShowAddMapModal(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -14,7 +25,7 @@ export default function MapsScreen() {
       {/* Header con foto de perfil, título y botón + */}
       <View style={styles.header}>
         
-        {/* Foto de perfil - Arriba derecha */}
+        {/* Foto de perfil */}
         <TouchableOpacity style={styles.profileButton}>
           <Image
             source={{ uri: 'https://i.pravatar.cc/150?img=47' }}
@@ -22,14 +33,17 @@ export default function MapsScreen() {
           />
         </TouchableOpacity>
 
-        {/* Título centrado */}
+        {/* Título */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>¡TUS</Text>
           <Text style={styles.title}>MAPAS!</Text>
         </View>
 
-        {/* Botón + (más) - Más grande y mejor posicionado */}
-        <TouchableOpacity style={styles.addButton}>
+        {/* Botón + para agregar mapa */}
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowAddMapModal(true)}
+        >
           <Image
             source={require('../../assets/images/botonMas.png')}
             style={styles.addIcon}
@@ -45,10 +59,49 @@ export default function MapsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {mockMaps.map((map) => (
+        {maps.map((map) => (
           <MapCard key={map.id} map={map} />
         ))}
       </ScrollView>
+
+      {/* Modal para agregar mapa */}
+      <Modal
+        visible={showAddMapModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddMapModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Nuevo Mapa</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre del mapa"
+              placeholderTextColor={Colors.textSecondary}
+              value={newMapName}
+              onChangeText={setNewMapName}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowAddMapModal(false);
+                  setNewMapName('');
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonConfirm}
+                onPress={handleAddMap}
+              >
+                <Text style={styles.modalButtonConfirmText}>Crear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -62,7 +115,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#252932',
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 24,
     paddingHorizontal: 24,
     position: 'relative',
   },
@@ -83,7 +136,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     alignItems: 'flex-start',
-    marginBottom: 0,
+    marginBottom: 16,
   },
   title: {
     fontSize: 32,
@@ -120,5 +173,63 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 20,
     paddingHorizontal: 16,
+  },
+
+  // MODAL
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.text,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  modalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textLight,
   },
 });

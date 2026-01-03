@@ -17,10 +17,8 @@ export default function MapCard({ map }: MapCardProps) {
       onPress={() => router.push(`/map-detail/${map.id}`)}
       activeOpacity={0.9}
     >
-      {/* Header con icono y nombre */}
       <View style={styles.header}>
         
-        {/* Icono de casa */}
         <View style={styles.iconContainer}>
           <Image
             source={require('../../assets/images/casa.png')}
@@ -29,7 +27,6 @@ export default function MapCard({ map }: MapCardProps) {
           />
         </View>
 
-        {/* Nombre del mapa y robot */}
         <View style={styles.info}>
           <Text style={styles.mapName}>{map.name}</Text>
           <View style={styles.robotInfo}>
@@ -38,17 +35,14 @@ export default function MapCard({ map }: MapCardProps) {
               style={styles.robotIcon}
               resizeMode="contain"
             />
-            <Text style={styles.robotText}>Robot 1</Text>
+            <Text style={styles.robotText}>{map.size}</Text>
           </View>
         </View>
 
       </View>
 
-      {/* Thumbnail del mapa */}
       <View style={styles.thumbnail}>
-        <View style={styles.thumbnailPlaceholder}>
-          {/* Aquí irá la imagen real del mapa */}
-        </View>
+        <View style={styles.thumbnailPlaceholder} />
       </View>
 
     </TouchableOpacity>
