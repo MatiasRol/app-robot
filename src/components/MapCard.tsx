@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,26 +15,42 @@ export default function MapCard({ map }: MapCardProps) {
     <TouchableOpacity 
       style={styles.container}
       onPress={() => router.push(`/map-detail/${map.id}`)}
-      activeOpacity={0.8}
+      activeOpacity={0.9}
     >
-      {/* Icono del mapa */}
-      <View style={styles.iconContainer}>
-        <Ionicons name="home" size={20} color={Colors.primary} />
+      {/* Header con icono y nombre */}
+      <View style={styles.header}>
+        
+        {/* Icono de casa */}
+        <View style={styles.iconContainer}>
+          <Image
+            source={require('../../assets/images/casa.png')}
+            style={styles.houseIcon}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Nombre del mapa y robot */}
+        <View style={styles.info}>
+          <Text style={styles.mapName}>{map.name}</Text>
+          <View style={styles.robotInfo}>
+            <Image
+              source={require('../../assets/images/robotNav.png')}
+              style={styles.robotIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.robotText}>Robot 1</Text>
+          </View>
+        </View>
+
       </View>
 
       {/* Thumbnail del mapa */}
       <View style={styles.thumbnail}>
-        <Image
-          source={{ uri: map.thumbnail }}
-          style={styles.thumbnailImage}
-          resizeMode="cover"
-        />
+        <View style={styles.thumbnailPlaceholder}>
+          {/* Aquí irá la imagen real del mapa */}
+        </View>
       </View>
 
-      {/* Info del mapa - SOLO NOMBRE */}
-      <View style={styles.info}>
-        <Text style={styles.mapName}>{map.name}</Text>
-      </View>
     </TouchableOpacity>
   );
 }
@@ -43,45 +58,67 @@ export default function MapCard({ map }: MapCardProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
     backgroundColor: Colors.accent,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  thumbnail: {
-    width: 100,
-    height: 80,
-    backgroundColor: '#D0D0D0',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginRight: 16,
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
+  houseIcon: {
+    width: 28,
+    height: 28,
+    tintColor: Colors.primary,
   },
   info: {
     flex: 1,
-    justifyContent: 'center',
   },
   mapName: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: 'bold',
     color: Colors.text,
+    marginBottom: 4,
+  },
+  robotInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  robotIcon: {
+    width: 16,
+    height: 16,
+    tintColor: Colors.textSecondary,
+  },
+  robotText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  thumbnail: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  thumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#D0D0D0',
   },
 });

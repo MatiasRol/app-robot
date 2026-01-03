@@ -11,22 +11,32 @@ export default function MapsScreen() {
   return (
     <View style={styles.container}>
       
-      {/* Header con foto de perfil y título */}
+      {/* Header con foto de perfil, título y botón + */}
       <View style={styles.header}>
         
-        {/* ICONO DE CASA - ARRIBA IZQUIERDA */}
-        <TouchableOpacity style={styles.homeButton}>
+        {/* Foto de perfil - Arriba derecha */}
+        <TouchableOpacity style={styles.profileButton}>
           <Image
-            source={require('../../assets/images/casa.png')}
-            style={styles.homeIcon}
-            resizeMode="contain"
+            source={{ uri: 'https://i.pravatar.cc/150?img=47' }}
+            style={styles.profileImage}
           />
         </TouchableOpacity>
-        
+
+        {/* Título centrado */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>¡TUS</Text>
           <Text style={styles.title}>MAPAS!</Text>
         </View>
+
+        {/* Botón + (más) - Más grande y mejor posicionado */}
+        <TouchableOpacity style={styles.addButton}>
+          <Image
+            source={require('../../assets/images/botonMas.png')}
+            style={styles.addIcon}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+        
       </View>
 
       {/* Lista de mapas */}
@@ -47,27 +57,14 @@ export default function MapsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#252932',
   },
   header: {
-    backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    backgroundColor: '#252932',
     paddingTop: 60,
     paddingBottom: 32,
     paddingHorizontal: 24,
-    alignItems: 'center',
     position: 'relative',
-  },
-  homeButton: {
-    position: 'absolute',
-    top: 16,
-    left: 24,
-    padding: 8,
-  },
-  homeIcon: {
-    width: 40,
-    height: 40,
   },
   profileButton: {
     position: 'absolute',
@@ -75,29 +72,53 @@ const styles = StyleSheet.create({
     right: 24,
     borderRadius: 30,
     overflow: 'hidden',
+    zIndex: 10,
   },
   profileImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
     borderWidth: 3,
-    borderColor: Colors.textLight,
+    borderColor: Colors.primary,
   },
   titleContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 0,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: Colors.textLight,
-    textAlign: 'center',
     letterSpacing: 1,
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: -20,
+    right: 24,
+    width: 64,
+    height: 64,
+    backgroundColor: Colors.surface,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 10,
+  },
+  addIcon: {
+    width: 40,
+    height: 40,
+    tintColor: Colors.primary,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingVertical: 20,
+    paddingTop: 32,
+    paddingBottom: 20,
     paddingHorizontal: 16,
   },
 });
