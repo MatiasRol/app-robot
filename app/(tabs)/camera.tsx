@@ -13,12 +13,12 @@ export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const [mode, setMode] = useState<CameraMode>('view');
+  const [showModeAlert, setShowModeAlert] = useState(false);
+  const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
   const isKeepAwakeActive = useRef(false);
 
-  // Ocultar tab bar y bloquear orientación horizontal
   useFocusEffect(
     React.useCallback(() => {
-      // Ocultar la barra de tabs
       navigation.setOptions({
         tabBarStyle: { display: 'none' }
       });
@@ -41,7 +41,6 @@ export default function CameraScreen() {
         });
 
       return () => {
-        // Restaurar la barra de tabs al salir
         navigation.setOptions({
           tabBarStyle: {
             backgroundColor: Colors.background,
@@ -92,6 +91,26 @@ export default function CameraScreen() {
     router.back();
   };
 
+  const handleModeChange = (newMode: CameraMode) => {
+    if (newMode !== mode) {
+      setPendingMode(newMode);
+      setShowModeAlert(true);
+    }
+  };
+
+  const confirmModeChange = () => {
+    if (pendingMode) {
+      setMode(pendingMode);
+    }
+    setShowModeAlert(false);
+    setPendingMode(null);
+  };
+
+  const cancelModeChange = () => {
+    setShowModeAlert(false);
+    setPendingMode(null);
+  };
+
   const handleJoystickMove = (data: { 
     direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right' | 'center'; 
     distance: number 
@@ -105,7 +124,7 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Camera View - Fondo que ocupa toda la pantalla */}
+      {/* Camera View */}
       <Image 
         source={require('../../assets/images/camera-visor-black-background.png')} 
         style={styles.cameraImage}
@@ -114,17 +133,17 @@ export default function CameraScreen() {
 
       {/* UI Overlay */}
       <View style={styles.overlay}>
-        {/* Top Bar - Back izquierda, Tabs derecha */}
+        {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Tabs alineados a la derecha */}
+          {/* Tabs */}
           <View style={styles.tabs}>
             <TouchableOpacity 
               style={[styles.tab, mode === 'view' && styles.tabActive]}
-              onPress={() => setMode('view')}
+              onPress={() => handleModeChange('view')}
             >
               <Text style={[styles.tabText, mode === 'view' && styles.tabTextActive]}>
                 Visualización
@@ -133,7 +152,7 @@ export default function CameraScreen() {
             
             <TouchableOpacity 
               style={[styles.tab, mode === 'control' && styles.tabActive]}
-              onPress={() => setMode('control')}
+              onPress={() => handleModeChange('control')}
             >
               <Text style={[styles.tabText, mode === 'control' && styles.tabTextActive]}>
                 Control
@@ -142,7 +161,7 @@ export default function CameraScreen() {
           </View>
         </View>
 
-        {/* Joystick - Solo visible en modo control */}
+        {/* Joystick */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <Joystick 
@@ -153,6 +172,32 @@ export default function CameraScreen() {
           </View>
         )}
       </View>
+
+      {/* Alerta de cambio de modo */}
+      {showModeAlert && (
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Cambiar modo de cámara</Text>
+            <Text style={styles.alertMessage}>
+              ¿Estás seguro de que deseas cambiar al modo {pendingMode === 'view' ? 'Visualización' : 'Control'}?
+            </Text>
+            <View style={styles.alertButtons}>
+              <TouchableOpacity 
+                style={styles.alertButtonCancel}
+                onPress={cancelModeChange}
+              >
+                <Text style={styles.alertButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.alertButtonConfirm}
+                onPress={confirmModeChange}
+              >
+                <Text style={styles.alertButtonConfirmText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -170,8 +215,6 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
   },
-  
-  // Top Bar - Back button izquierda, tabs derecha
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,8 +233,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-
-  // Tabs
   tabs: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -219,12 +260,67 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFFFFF',
   },
-
-  // Joystick - Posicionado en la esquina inferior derecha
   joystickContainer: {
     position: 'absolute',
     bottom: 40,
     right: 40,
     alignItems: 'center',
+  },
+
+  // ALERTA
+  alertOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  alertBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 400,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  alertButtonCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  alertButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  alertButtonConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  alertButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textLight,
   },
 });
