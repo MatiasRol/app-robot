@@ -5,7 +5,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
-import Joystick from '../../src/components/Joystick';
+import JoystickControl from '../../src/components/JoystickControl';
 import { Colors } from '../../src/constants/Colors';
 import { WebRTCService } from '../../src/services/WebRTCService';
 
@@ -63,10 +63,8 @@ export default function CameraScreen() {
 
       await webrtcService.current.connect();
     } catch (error: any) {
-      // Error ya manejado por el servicio
       setIsConnecting(false);
       
-      // Solo mostrar modal si no se mostró ya
       if (!showConnectionError) {
         setErrorMessage('No se pudo conectar al robot');
         setShowConnectionError(true);
@@ -112,9 +110,7 @@ export default function CameraScreen() {
         .then(() => {
           isKeepAwakeActive.current = true;
         })
-        .catch(() => {
-          // Silencioso
-        });
+        .catch(() => {});
 
       return () => {
         navigation.setOptions({
@@ -145,9 +141,7 @@ export default function CameraScreen() {
           try {
             deactivateKeepAwake();
             isKeepAwakeActive.current = false;
-          } catch (error) {
-            // Silencioso
-          }
+          } catch (error) {}
         }
       };
     }, [navigation])
@@ -160,9 +154,7 @@ export default function CameraScreen() {
       try {
         deactivateKeepAwake();
         isKeepAwakeActive.current = false;
-      } catch (error) {
-        // Silencioso
-      }
+      } catch (error) {}
     }
     
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
@@ -189,21 +181,18 @@ export default function CameraScreen() {
     setPendingMode(null);
   };
 
-  const handleJoystickMove = (data: { 
-    direction: 'up' | 'down' | 'left' | 'right' | 'up-left' | 'up-right' | 'down-left' | 'down-right' | 'center'; 
-    distance: number 
-  }) => {
+  // Manejar movimiento del joystick
+  const handleJoystickMove = (velocity: { linear: number; angular: number }) => {
     if (webrtcService.current) {
-      webrtcService.current.sendCommand('move', {
-        direction: data.direction,
-        speed: data.distance,
-      });
+      // Enviar TwistStamped (puedes cambiar a sendTwist si prefieres)
+      webrtcService.current.sendTwistStamped(velocity.linear, velocity.angular);
     }
   };
 
+  // Detener el robot
   const handleJoystickStop = () => {
     if (webrtcService.current) {
-      webrtcService.current.sendCommand('stop');
+      webrtcService.current.stopRobot();
     }
   };
 
@@ -276,8 +265,8 @@ export default function CameraScreen() {
 
         {mode === 'control' && connectionState === 'connected' && (
           <View style={styles.joystickContainer}>
-            <Joystick 
-              size={180} 
+            <JoystickControl 
+              size={180}
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
             />
@@ -449,8 +438,6 @@ const styles = StyleSheet.create({
     right: 40,
     alignItems: 'center',
   },
-
-  // MODAL DE ERROR
   errorOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -509,8 +496,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textLight,
   },
-
-  // ALERTA
   alertOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

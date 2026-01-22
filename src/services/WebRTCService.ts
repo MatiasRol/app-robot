@@ -22,6 +22,29 @@ type RTCDataChannelLike = {
   onerror: ((error: any) => void) | null;
 };
 
+// Tipos ROS2 Twist
+interface Vector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface Twist {
+  linear: Vector3;
+  angular: Vector3;
+}
+
+interface TwistStamped {
+  header: {
+    stamp: {
+      sec: number;
+      nanosec: number;
+    };
+    frame_id: string;
+  };
+  twist: Twist;
+}
+
 export class WebRTCService {
   private peerConnection: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannelLike | null = null;
@@ -140,6 +163,69 @@ export class WebRTCService {
         JSON.stringify({ type: 'ping', timestamp: Date.now() })
       );
     }
+  }
+
+  /**
+   * Envía comando Twist (sin timestamp)
+   */
+  sendTwist(linear: number, angular: number) {
+    if (this.dataChannel?.readyState !== 'open') {
+      console.warn('DataChannel no está abierto');
+      return;
+    }
+
+    const twist: Twist = {
+      linear: { x: linear, y: 0, z: 0 },
+      angular: { x: 0, y: 0, z: angular },
+    };
+
+    const message = JSON.stringify({
+      type: 'cmd_vel',
+      data: twist,
+    });
+
+    this.dataChannel.send(message);
+    console.log('Twist enviado:', { linear, angular });
+  }
+
+  /**
+   * Envía comando TwistStamped (con timestamp)
+   */
+  sendTwistStamped(linear: number, angular: number, frameId: string = 'base_link') {
+    if (this.dataChannel?.readyState !== 'open') {
+      console.warn('DataChannel no está abierto');
+      return;
+    }
+
+    const now = Date.now();
+    const sec = Math.floor(now / 1000);
+    const nanosec = (now % 1000) * 1000000;
+
+    const twistStamped: TwistStamped = {
+      header: {
+        stamp: { sec, nanosec },
+        frame_id: frameId,
+      },
+      twist: {
+        linear: { x: linear, y: 0, z: 0 },
+        angular: { x: 0, y: 0, z: angular },
+      },
+    };
+
+    const message = JSON.stringify({
+      type: 'cmd_vel_stamped',
+      data: twistStamped,
+    });
+
+    this.dataChannel.send(message);
+    console.log('TwistStamped enviado:', { linear, angular });
+  }
+
+  /**
+   * Detiene el robot enviando velocidades en 0
+   */
+  stopRobot() {
+    this.sendTwist(0, 0);
   }
 
   sendCommand(command: string, data?: any) {
