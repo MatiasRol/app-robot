@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Joystick from './Joystick';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
+import Joystick from './Joystick';
 
 interface JoystickControlProps {
   onMove: (velocity: { linear: number; angular: number }) => void;
@@ -132,22 +132,23 @@ const styles = StyleSheet.create({
   speedButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: Colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 8,
   },
   speedText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });

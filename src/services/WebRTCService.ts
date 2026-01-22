@@ -22,7 +22,6 @@ type RTCDataChannelLike = {
   onerror: ((error: any) => void) | null;
 };
 
-// Tipos ROS2 Twist
 interface Vector3 {
   x: number;
   y: number;
@@ -68,7 +67,6 @@ export class WebRTCService {
 
         const pc = this.peerConnection as any;
 
-        // 🎥 Stream remoto
         pc.ontrack = (event: any) => {
           const stream = event.streams?.[0];
           if (stream) {
@@ -79,7 +77,6 @@ export class WebRTCService {
           }
         };
 
-        // 🔌 Estado conexión
         pc.onconnectionstatechange = () => {
           const state = pc.connectionState ?? 'unknown';
           this.config.onConnectionStateChange?.(state);
@@ -90,10 +87,8 @@ export class WebRTCService {
           }
         };
 
-        // ❄ ICE
         pc.onicecandidate = () => {};
 
-        // 📡 DataChannel
         this.dataChannel = pc.createDataChannel('commands', {
           ordered: true,
         }) as RTCDataChannelLike;
@@ -107,7 +102,6 @@ export class WebRTCService {
           } catch {}
         };
 
-        // 📤 Offer
         const offer = await pc.createOffer({
           offerToReceiveVideo: true,
           offerToReceiveAudio: false,
@@ -115,7 +109,6 @@ export class WebRTCService {
 
         await pc.setLocalDescription(offer);
 
-        // 🌐 Señalización
         const controller = new AbortController();
         const fetchTimeout = setTimeout(() => controller.abort(), 8000);
 
@@ -165,9 +158,6 @@ export class WebRTCService {
     }
   }
 
-  /**
-   * Envía comando Twist (sin timestamp)
-   */
   sendTwist(linear: number, angular: number) {
     if (this.dataChannel?.readyState !== 'open') {
       console.warn('DataChannel no está abierto');
@@ -188,9 +178,6 @@ export class WebRTCService {
     console.log('Twist enviado:', { linear, angular });
   }
 
-  /**
-   * Envía comando TwistStamped (con timestamp)
-   */
   sendTwistStamped(linear: number, angular: number, frameId: string = 'base_link') {
     if (this.dataChannel?.readyState !== 'open') {
       console.warn('DataChannel no está abierto');
@@ -221,9 +208,6 @@ export class WebRTCService {
     console.log('TwistStamped enviado:', { linear, angular });
   }
 
-  /**
-   * Detiene el robot enviando velocidades en 0
-   */
   stopRobot() {
     this.sendTwist(0, 0);
   }
