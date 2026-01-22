@@ -1,183 +1,161 @@
 import {
-    MediaStream,
-    RTCPeerConnection,
-    RTCSessionDescription,
+  MediaStream,
+  RTCPeerConnection,
+  RTCSessionDescription,
 } from 'react-native-webrtc';
-  
-  interface WebRTCConfig {
-    serverUrl: string;
-    onStreamReceived?: (stream: MediaStream) => void;
-    onConnectionStateChange?: (state: string) => void;
-    onDataChannelMessage?: (message: any) => void;
+
+interface WebRTCConfig {
+  serverUrl: string;
+  onStreamReceived?: (stream: MediaStream) => void;
+  onConnectionStateChange?: (state: string) => void;
+  onDataChannelMessage?: (message: any) => void;
+  onError?: (error: string) => void;
+}
+
+type RTCDataChannelLike = {
+  readyState: 'connecting' | 'open' | 'closing' | 'closed';
+  send: (data: string) => void;
+  close: () => void;
+  onopen: (() => void) | null;
+  onmessage: ((event: { data: string }) => void) | null;
+  onclose: (() => void) | null;
+  onerror: ((error: any) => void) | null;
+};
+
+export class WebRTCService {
+  private peerConnection: RTCPeerConnection | null = null;
+  private dataChannel: RTCDataChannelLike | null = null;
+  private remoteStream: MediaStream | null = null;
+  private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private config: WebRTCConfig;
+
+  constructor(config: WebRTCConfig) {
+    this.config = config;
   }
-  
-  export class WebRTCService {
-    private peerConnection: RTCPeerConnection | null = null;
-    private dataChannel: any = null;
-    private config: WebRTCConfig;
-    private remoteStream: MediaStream | null = null;
-  
-    constructor(config: WebRTCConfig) {
-      this.config = config;
-    }
-  
-    async connect() {
+
+  async connect(): Promise<boolean> {
+    return new Promise(async (resolve, reject) => {
       try {
-        // Configuración sin STUN/TURN (red local directa)
-        const configuration = {
-          iceServers: [],
-        };
-  
-        this.peerConnection = new RTCPeerConnection(configuration);
-  
-        // Asignar callbacks directamente (API de react-native-webrtc)
-        (this.peerConnection as any).ontrack = (event: any) => {
-          console.log('📹 Track remoto recibido:', event.track?.kind);
-          
-          if (event.streams && event.streams[0]) {
-            this.remoteStream = event.streams[0];
-            if (this.config.onStreamReceived && this.remoteStream) {
-              this.config.onStreamReceived(this.remoteStream);
-            }
+        this.connectionTimeout = setTimeout(() => {
+          this.handleConnectionError('Tiempo de espera agotado');
+          reject(new Error('CONNECTION_TIMEOUT'));
+        }, 10000);
+
+        this.peerConnection = new RTCPeerConnection({ iceServers: [] });
+
+        const pc = this.peerConnection as any;
+
+        // 🎥 Stream remoto
+        pc.ontrack = (event: any) => {
+          const stream = event.streams?.[0];
+          if (stream) {
+            this.remoteStream = stream;
+            this.config.onStreamReceived?.(stream);
+            this.clearConnectionTimeout();
+            resolve(true);
           }
         };
-  
-        (this.peerConnection as any).onconnectionstatechange = () => {
-          const state = (this.peerConnection as any)?.connectionState || 'unknown';
-          console.log('🔌 Estado de conexión:', state);
-          
-          if (this.config.onConnectionStateChange) {
-            this.config.onConnectionStateChange(state);
+
+        // 🔌 Estado conexión
+        pc.onconnectionstatechange = () => {
+          const state = pc.connectionState ?? 'unknown';
+          this.config.onConnectionStateChange?.(state);
+
+          if (state === 'failed') {
+            this.handleConnectionError('Conexión fallida');
+            reject(new Error('CONNECTION_FAILED'));
           }
         };
-  
-        (this.peerConnection as any).onicecandidate = (event: any) => {
-          if (event.candidate) {
-            console.log('🧊 Candidato ICE:', event.candidate.candidate);
-          }
-        };
-  
-        // Crear DataChannel para comandos
-        this.dataChannel = this.peerConnection.createDataChannel('commands', {
+
+        // ❄ ICE
+        pc.onicecandidate = () => {};
+
+        // 📡 DataChannel
+        this.dataChannel = pc.createDataChannel('commands', {
           ordered: true,
-        });
-  
-        this.dataChannel.onopen = () => {
-          console.log('📡 DataChannel abierto');
-          this.sendPing();
-        };
-  
-        this.dataChannel.onmessage = (event: any) => {
+        }) as RTCDataChannelLike;
+
+        this.dataChannel.onopen = () => this.sendPing();
+
+        this.dataChannel.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('📨 Mensaje recibido:', data);
-            
-            if (this.config.onDataChannelMessage) {
-              this.config.onDataChannelMessage(data);
-            }
-  
-            if (data.type === 'pong') {
-              const latency = Date.now() - data.timestamp;
-              console.log(`⏱️ Latencia: ${latency}ms`);
-            }
-          } catch (e) {
-            console.error('Error parseando mensaje:', e);
-          }
+            this.config.onDataChannelMessage?.(data);
+          } catch {}
         };
-  
-        this.dataChannel.onclose = () => {
-          console.log('📡 DataChannel cerrado');
-        };
-  
-        this.dataChannel.onerror = (error: any) => {
-          console.error('❌ Error en DataChannel:', error);
-        };
-  
-        // Crear oferta
-        const offer = await this.peerConnection.createOffer({
+
+        // 📤 Offer
+        const offer = await pc.createOffer({
           offerToReceiveVideo: true,
           offerToReceiveAudio: false,
         });
-  
-        await this.peerConnection.setLocalDescription(offer);
-        console.log('📤 Oferta creada, enviando al servidor...');
-  
-        // Enviar oferta al servidor
+
+        await pc.setLocalDescription(offer);
+
+        // 🌐 Señalización
+        const controller = new AbortController();
+        const fetchTimeout = setTimeout(() => controller.abort(), 8000);
+
         const response = await fetch(`${this.config.serverUrl}/offer`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sdp: offer.sdp,
-            type: offer.type,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sdp: offer.sdp, type: offer.type }),
+          signal: controller.signal,
         });
-  
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-  
+
+        clearTimeout(fetchTimeout);
+
+        if (!response.ok) throw new Error('SERVER_ERROR');
+
         const answer = await response.json();
-        console.log('📥 Respuesta recibida del servidor');
-  
-        // Establecer respuesta del servidor
-        await this.peerConnection.setRemoteDescription(
-          new RTCSessionDescription({
-            type: answer.type,
-            sdp: answer.sdp,
-          })
+
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(answer)
         );
-  
-        console.log('✅ Conexión WebRTC establecida');
-        return true;
       } catch (error) {
-        console.error('❌ Error conectando WebRTC:', error);
-        throw error;
+        this.clearConnectionTimeout();
+        this.handleConnectionError('Error de conexión');
+        reject(error);
       }
-    }
-  
-    sendPing() {
-      if (this.dataChannel && this.dataChannel.readyState === 'open') {
-        const message = JSON.stringify({
-          type: 'ping',
-          timestamp: Date.now(),
-        });
-        this.dataChannel.send(message);
-        console.log('🏓 Ping enviado');
-      }
-    }
-  
-    sendCommand(command: string, data?: any) {
-      if (this.dataChannel && this.dataChannel.readyState === 'open') {
-        const message = JSON.stringify({
-          type: command,
-          data: data,
-          timestamp: Date.now(),
-        });
-        this.dataChannel.send(message);
-        console.log('📤 Comando enviado:', command);
-      } else {
-        console.warn('⚠️ DataChannel no está listo');
-      }
-    }
-  
-    getRemoteStream(): MediaStream | null {
-      return this.remoteStream;
-    }
-  
-    async disconnect() {
-      if (this.dataChannel) {
-        this.dataChannel.close();
-        this.dataChannel = null;
-      }
-  
-      if (this.peerConnection) {
-        this.peerConnection.close();
-        this.peerConnection = null;
-      }
-  
-      this.remoteStream = null;
-      console.log('🔌 Desconectado de WebRTC');
+    });
+  }
+
+  private handleConnectionError(message: string) {
+    this.clearConnectionTimeout();
+    this.config.onError?.(message);
+    this.peerConnection?.close();
+    this.peerConnection = null;
+  }
+
+  private clearConnectionTimeout() {
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
     }
   }
+
+  sendPing() {
+    if (this.dataChannel?.readyState === 'open') {
+      this.dataChannel.send(
+        JSON.stringify({ type: 'ping', timestamp: Date.now() })
+      );
+    }
+  }
+
+  sendCommand(command: string, data?: any) {
+    if (this.dataChannel?.readyState === 'open') {
+      this.dataChannel.send(
+        JSON.stringify({ type: command, data, timestamp: Date.now() })
+      );
+    }
+  }
+
+  async disconnect() {
+    this.clearConnectionTimeout();
+    this.dataChannel?.close();
+    this.peerConnection?.close();
+    this.dataChannel = null;
+    this.peerConnection = null;
+    this.remoteStream = null;
+  }
+}
