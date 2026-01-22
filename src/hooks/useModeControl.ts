@@ -17,10 +17,8 @@ export const useModeControl = (): UseModeControlReturn => {
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
 
   const handleModeChange = (newMode: CameraMode) => {
-    if (newMode !== mode) {
-      setPendingMode(newMode);
-      setShowModeAlert(true);
-    }
+    // Cambio directo sin confirmación
+    setMode(newMode);
   };
 
   const confirmModeChange = () => {

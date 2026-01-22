@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import JoystickControl from '../../src/components/JoystickControl';
 import { Colors } from '../../src/constants/Colors';
@@ -15,23 +15,12 @@ export default function CameraScreen() {
     remoteStream,
     isConnecting,
     errorMessage,
-    showConnectionError,
-    handleRetryConnection,
-    handleCancelConnection,
     sendTwistStamped,
     stopRobot,
     disconnectFromRobot,
   } = useCameraConnection();
 
-  const {
-    mode,
-    showModeAlert,
-    pendingMode,
-    handleModeChange,
-    confirmModeChange,
-    cancelModeChange,
-  } = useModeControl();
-
+  const { mode, handleModeChange } = useModeControl();
   const { handleBack } = useScreenControl(disconnectFromRobot);
 
   // Handlers del joystick
@@ -45,170 +34,138 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Video de la cámara */}
-      {remoteStream ? (
+      {/* Video de fondo - Pantalla completa */}
+      {remoteStream && (
         <RTCView
           streamURL={remoteStream.toURL()}
-          style={styles.cameraView}
+          style={styles.videoBackground}
           objectFit="cover"
         />
-      ) : (
-        <View style={styles.loadingContainer}>
-          {isConnecting ? (
-            <>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>Conectando al robot...</Text>
-            </>
-          ) : (
-            <Text style={styles.loadingText}>
-              {connectionState === 'disconnected' && 'Desconectado'}
-              {connectionState === 'failed' && 'Error de conexión'}
-            </Text>
-          )}
+      )}
+
+      {/* Overlay de conexión - Solo bloquea cuando está conectando o hay error */}
+      {(isConnecting || connectionState === 'failed' || (connectionState === 'connected' && !remoteStream)) && (
+        <View style={[
+          styles.connectionOverlay,
+          // Si solo está esperando video, hacer el overlay más transparente y permitir interacción
+          (connectionState === 'connected' && !remoteStream) && styles.connectionOverlayTransparent
+        ]}
+        pointerEvents={(connectionState === 'connected' && !remoteStream) ? 'none' : 'auto'}
+        >
+          <View style={styles.connectionBox}>
+            {isConnecting ? (
+              <>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={styles.connectionText}>Conectando al robot...</Text>
+                <Text style={styles.connectionSubtext}>Estableciendo conexión WebRTC</Text>
+              </>
+            ) : connectionState === 'failed' ? (
+              <>
+                <Ionicons name="cloud-offline-outline" size={64} color="#FF5252" />
+                <Text style={styles.connectionText}>Sin conexión</Text>
+                <Text style={styles.connectionSubtext}>{errorMessage || 'No se pudo conectar al robot'}</Text>
+              </>
+            ) : connectionState === 'connected' && !remoteStream ? (
+              <>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={styles.connectionText}>Esperando video...</Text>
+                <Text style={styles.connectionSubtext}>Conexión establecida, cargando stream</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="videocam-off-outline" size={64} color="#FFF" />
+                <Text style={styles.connectionText}>Sin video</Text>
+              </>
+            )}
+          </View>
         </View>
       )}
 
-      {/* Overlay con controles */}
-      <View style={styles.overlay}>
-        {/* Barra superior */}
-        <View style={styles.topBar}>
-          {/* Botón atrás */}
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* Espacio flexible */}
-          <View style={styles.topBarCenter}>
-            {/* Indicador de conexión */}
-            <View style={styles.connectionIndicator}>
-              <View 
-                style={[
-                  styles.connectionDot,
-                  connectionState === 'connected' && styles.connectionDotConnected,
-                  connectionState === 'connecting' && styles.connectionDotConnecting,
-                ]}
-              />
-              <Text style={styles.connectionText}>
+      {/* Controles superpuestos */}
+      <View style={styles.controlsOverlay}>
+        {/* Header - Superior */}
+        <View style={styles.header}>
+          {/* Lado izquierdo: Botón back + Estado */}
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            
+            <View style={styles.statusBadge}>
+              <View style={[
+                styles.statusDot,
+                connectionState === 'connected' && styles.statusDotConnected,
+                connectionState === 'connecting' && styles.statusDotConnecting,
+                connectionState === 'failed' && styles.statusDotFailed,
+              ]} />
+              <Text style={styles.statusText}>
                 {connectionState === 'connected' && 'Conectado'}
-                {connectionState === 'connecting' && 'Conectando...'}
-                {connectionState === 'failed' && 'Error'}
-                {connectionState === 'disconnected' && 'Desconectado'}
+                {connectionState === 'connecting' && 'Conectando'}
+                {connectionState === 'failed' && 'Desconectado'}
+                {connectionState === 'disconnected' && 'Sin conexión'}
               </Text>
             </View>
           </View>
 
-          {/* Tabs de modo */}
-          <View style={styles.tabs}>
-            <TouchableOpacity 
-              style={[styles.tab, mode === 'view' && styles.tabActive]}
+          {/* Centro: Tabs de modo */}
+          <View style={styles.modeTabs}>
+            <TouchableOpacity
+              style={[styles.modeTab, mode === 'view' && styles.modeTabActive]}
               onPress={() => handleModeChange('view')}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name="eye-outline" 
-                size={20} 
-                color={mode === 'view' ? '#FFFFFF' : '#666'} 
+              <Ionicons
+                name="eye"
+                size={20}
+                color={mode === 'view' ? '#FFFFFF' : 'rgba(255,255,255,0.6)'}
               />
-              <Text style={[styles.tabText, mode === 'view' && styles.tabTextActive]}>
-                Ver
+              <Text style={[styles.modeTabText, mode === 'view' && styles.modeTabTextActive]}>
+                Vista
               </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.tab, mode === 'control' && styles.tabActive]}
+
+            <TouchableOpacity
+              style={[styles.modeTab, mode === 'control' && styles.modeTabActive]}
               onPress={() => handleModeChange('control')}
+              activeOpacity={0.7}
             >
-              <Ionicons 
-                name="game-controller-outline" 
-                size={20} 
-                color={mode === 'control' ? '#FFFFFF' : '#666'} 
+              <Ionicons
+                name="game-controller"
+                size={20}
+                color={mode === 'control' ? '#FFFFFF' : 'rgba(255,255,255,0.6)'}
               />
-              <Text style={[styles.tabText, mode === 'control' && styles.tabTextActive]}>
+              <Text style={[styles.modeTabText, mode === 'control' && styles.modeTabTextActive]}>
                 Control
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Lado derecho: Espacio vacío para balance */}
+          <View style={styles.headerRight} />
         </View>
 
-        {/* Joystick en modo control */}
-        {mode === 'control' && connectionState === 'connected' && (
-          <View style={styles.controlPanel}>
-            <JoystickControl 
-              size={160}
-              onMove={handleJoystickMove}
-              onStop={handleJoystickStop}
-            />
+        {/* Joystick - Esquina inferior derecha */}
+        {mode === 'control' && (
+          <View style={styles.joystickContainer}>
+            <View style={styles.joystickWrapper}>
+              <JoystickControl
+                size={180}
+                onMove={handleJoystickMove}
+                onStop={handleJoystickStop}
+              />
+            </View>
+            <Text style={styles.joystickLabel}>Control de movimiento</Text>
+          </View>
+        )}
+
+        {/* Indicador de modo vista */}
+        {mode === 'view' && (
+          <View style={styles.viewModeIndicator}>
+            <Ionicons name="eye-outline" size={24} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.viewModeText}>Modo Visualización</Text>
           </View>
         )}
       </View>
-
-      {/* Modal de error de conexión */}
-      <Modal
-        visible={showConnectionError}
-        transparent
-        animationType="fade"
-        onRequestClose={() => handleCancelConnection()}
-      >
-        <View style={styles.errorOverlay}>
-          <View style={styles.errorBox}>
-            <Ionicons name="warning-outline" size={48} color="#FF9800" />
-            <Text style={styles.errorTitle}>Error de conexión</Text>
-            <Text style={styles.errorMessage}>
-              {errorMessage}{'\n\n'}
-              Verifica que el robot esté encendido y que estés conectado a la misma red WiFi.
-            </Text>
-            <View style={styles.errorButtons}>
-              <TouchableOpacity 
-                style={styles.errorButtonCancel}
-                onPress={handleCancelConnection}
-              >
-                <Text style={styles.errorButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.errorButtonRetry}
-                onPress={handleRetryConnection}
-              >
-                <Text style={styles.errorButtonRetryText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Alerta de cambio de modo */}
-      <Modal
-        visible={showModeAlert}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelModeChange}
-      >
-        <View style={styles.alertOverlay}>
-          <View style={styles.alertBox}>
-            <Ionicons 
-              name={pendingMode === 'control' ? 'game-controller' : 'eye'} 
-              size={40} 
-              color={Colors.primary} 
-            />
-            <Text style={styles.alertTitle}>Cambiar modo</Text>
-            <Text style={styles.alertMessage}>
-              ¿Cambiar a modo {pendingMode === 'view' ? 'Visualización' : 'Control'}?
-            </Text>
-            <View style={styles.alertButtons}>
-              <TouchableOpacity 
-                style={styles.alertButtonCancel}
-                onPress={cancelModeChange}
-              >
-                <Text style={styles.alertButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.alertButtonConfirm}
-                onPress={confirmModeChange}
-              >
-                <Text style={styles.alertButtonConfirmText}>Confirmar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -218,242 +175,179 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  cameraView: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-    gap: 16,
-  },
-  loadingText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  overlay: {
-    flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
+  videoBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
-  topBarCenter: {
-    flex: 1,
-    alignItems: 'center',
+  
+  // Overlay de conexión
+  connectionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
-    marginHorizontal: 16,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  connectionOverlayTransparent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  connectionBox: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  connectionText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  connectionSubtext: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  // Overlay de controles
+  controlsOverlay: {
+    flex: 1,
+    position: 'relative',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  headerRight: {
+    flex: 1,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  connectionIndicator: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  connectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F44336',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#9E9E9E',
   },
-  connectionDotConnected: {
+  statusDotConnected: {
     backgroundColor: '#4CAF50',
   },
-  connectionDotConnecting: {
+  statusDotConnecting: {
     backgroundColor: '#FF9800',
   },
-  connectionText: {
-    color: '#FFF',
+  statusDotFailed: {
+    backgroundColor: '#F44336',
+  },
+  statusText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
   },
-  tabs: {
+
+  // Tabs de modo
+  modeTabs: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 25,
     padding: 4,
     gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-  },
-  tabActive: {
-    backgroundColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  controlPanel: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 20,
-    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    zIndex: 5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  
-  // Modal de error
-  errorOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 28,
-    width: '80%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginTop: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  errorButtons: {
+  modeTab: {
     flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  errorButtonCancel: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  errorButtonCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#666',
-  },
-  errorButtonRetry: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+  modeTabActive: {
     backgroundColor: Colors.primary,
-    alignItems: 'center',
   },
-  errorButtonRetryText: {
+  modeTabText: {
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 15,
     fontWeight: '600',
+  },
+  modeTabTextActive: {
     color: '#FFFFFF',
   },
 
-  // Alerta de modo
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+  // Joystick
+  joystickContainer: {
+    position: 'absolute',
+    right: 30,
+    bottom: 30,
     alignItems: 'center',
+    gap: 12,
   },
-  alertBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    width: '75%',
-    maxWidth: 350,
-    alignItems: 'center',
+  joystickWrapper: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 100,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginTop: 12,
-    marginBottom: 8,
+  joystickLabel: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '600',
     textAlign: 'center',
   },
-  alertMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  alertButtons: {
+
+  // Indicador modo vista
+  viewModeIndicator: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
     flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  alertButtonCancel: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
-  },
-  alertButtonCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  alertButtonConfirm: {
-    flex: 1,
+    gap: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  alertButtonConfirmText: {
-    fontSize: 14,
+  viewModeText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
