@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { WebRTCService } from '../services/WebRTCService';
+import { WebRTCVideoService } from '../services/WebRTCVideoService';
+import { WebSocketService } from '../services/WebSocketService';
 
-const ROBOT_SERVER_URL = 'http://Xico.local:8080';
+const VIDEO_SERVER_URL = 'http://192.168.18.183:8889';
+const VIDEO_STREAM_PATH = 'cam';
+const COMMAND_SERVER_URL = 'ws://192.168.18.163:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 
+interface ConnectionStatus {
+  video: ConnectionState;
+  commands: ConnectionState;
+}
+
 interface UseCameraConnectionReturn {
-  connectionState: ConnectionState;
+  connectionStatus: ConnectionStatus;
   remoteStream: any;
   isConnecting: boolean;
   errorMessage: string;
@@ -15,83 +23,203 @@ interface UseCameraConnectionReturn {
   disconnectFromRobot: () => void;
   handleRetryConnection: () => void;
   handleCancelConnection: () => void;
-  sendTwistStamped: (linear: number, angular: number) => void;
+  sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
+  isFullyConnected: boolean;
 }
 
 export const useCameraConnection = (): UseCameraConnectionReturn => {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [videoConnectionState, setVideoConnectionState] = useState<ConnectionState>('disconnected');
+  const [commandConnectionState, setCommandConnectionState] = useState<ConnectionState>('disconnected');
+  
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [showConnectionError, setShowConnectionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  const webrtcService = useRef<WebRTCService | null>(null);
+  
+  // Flags de control críticos
+  const canShowError = useRef(true);
+  const isDisconnecting = useRef(false);
+  const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const videoService = useRef<WebRTCVideoService | null>(null);
+  const commandService = useRef<WebSocketService | null>(null);
+
+  const showError = (message: string) => {
+    // Solo mostrar si está permitido
+    if (!canShowError.current || isDisconnecting.current) {
+      return;
+    }
+    
+    // Bloquear inmediatamente más errores
+    canShowError.current = false;
+    
+    // Limpiar timeout anterior si existe
+    if (errorTimeout.current) {
+      clearTimeout(errorTimeout.current);
+    }
+    
+    setErrorMessage(message);
+    setShowConnectionError(true);
+    
+    // Permitir mostrar error nuevamente después de 3 segundos
+    errorTimeout.current = setTimeout(() => {
+      canShowError.current = true;
+    }, 3000);
+  };
 
   const connectToRobot = async () => {
-    try {
-      setIsConnecting(true);
-      setConnectionState('connecting');
-      setShowConnectionError(false);
+    setIsConnecting(true);
+    setShowConnectionError(false);
+    canShowError.current = true;
+    isDisconnecting.current = false;
 
-      webrtcService.current = new WebRTCService({
-        serverUrl: ROBOT_SERVER_URL,
+    try {
+      await connectVideo();
+      await connectCommands();
+      setIsConnecting(false);
+    } catch (error: any) {
+      setIsConnecting(false);
+      showError('No se pudo conectar con el robot. Verifica que las Raspberry Pi estén encendidas.');
+    }
+  };
+
+  const connectVideo = async () => {
+    if (isDisconnecting.current) return;
+
+    try {
+      setVideoConnectionState('connecting');
+
+      videoService.current = new WebRTCVideoService({
+        serverUrl: VIDEO_SERVER_URL,
+        streamPath: VIDEO_STREAM_PATH,
         onStreamReceived: (stream) => {
+          if (isDisconnecting.current) return;
+          
           setRemoteStream(stream);
-          setConnectionState('connected');
-          setIsConnecting(false);
+          setVideoConnectionState('connected');
+          
+          if (commandService.current && videoService.current) {
+            const videoStartTime = videoService.current.getVideoStartTime();
+            commandService.current.updateVideoStartTime(videoStartTime);
+          }
         },
         onConnectionStateChange: (state) => {
-          setConnectionState(state as ConnectionState);
-        },
-        onDataChannelMessage: (data) => {
-          // Manejar mensajes del robot
+          if (isDisconnecting.current) return;
+          
+          if (state === 'connected' || state === 'connecting') {
+            setVideoConnectionState(state as ConnectionState);
+          }
         },
         onError: (message) => {
-          setErrorMessage(message);
-          setIsConnecting(false);
-          setShowConnectionError(true);
+          if (isDisconnecting.current) return;
+          setVideoConnectionState('failed');
+          showError('Error en video: ' + message);
         },
       });
 
-      await webrtcService.current.connect();
+      await videoService.current.connect();
     } catch (error: any) {
-      setIsConnecting(false);
-      
-      if (!showConnectionError) {
-        setErrorMessage('No se pudo conectar al robot');
-        setShowConnectionError(true);
-      }
+      if (isDisconnecting.current) return;
+      setVideoConnectionState('failed');
+      throw error;
+    }
+  };
+
+  const connectCommands = async () => {
+    if (isDisconnecting.current) return;
+
+    try {
+      setCommandConnectionState('connecting');
+
+      commandService.current = new WebSocketService({
+        serverUrl: COMMAND_SERVER_URL,
+        onConnected: () => {
+          if (isDisconnecting.current) return;
+          setCommandConnectionState('connected');
+        },
+        onDisconnected: () => {
+          if (isDisconnecting.current) return;
+          setCommandConnectionState('disconnected');
+        },
+        onMessage: (data) => {},
+        onError: (message) => {
+          if (isDisconnecting.current) return;
+          setCommandConnectionState('failed');
+          showError('Error en comandos: ' + message);
+        },
+      });
+
+      const videoStartTime = videoService.current?.getVideoStartTime() || 0;
+      await commandService.current.connect(videoStartTime);
+    } catch (error: any) {
+      if (isDisconnecting.current) return;
+      setCommandConnectionState('failed');
+      throw error;
     }
   };
 
   const disconnectFromRobot = () => {
-    if (webrtcService.current) {
-      webrtcService.current.disconnect();
-      webrtcService.current = null;
+    // Marcar como desconectando INMEDIATAMENTE
+    isDisconnecting.current = true;
+    canShowError.current = false;
+    
+    // Limpiar timeout de error
+    if (errorTimeout.current) {
+      clearTimeout(errorTimeout.current);
+      errorTimeout.current = null;
     }
+
+    // Cerrar servicios
+    if (videoService.current) {
+      videoService.current.disconnect();
+      videoService.current = null;
+    }
+
+    if (commandService.current) {
+      commandService.current.disconnect();
+      commandService.current = null;
+    }
+
+    // Limpiar estados
     setRemoteStream(null);
-    setConnectionState('disconnected');
+    setVideoConnectionState('disconnected');
+    setCommandConnectionState('disconnected');
+    setShowConnectionError(false);
   };
 
   const handleRetryConnection = () => {
+    // Cerrar modal inmediatamente
     setShowConnectionError(false);
+    
+    // Resetear flags
+    canShowError.current = true;
+    isDisconnecting.current = false;
+    
+    // Reconectar
     connectToRobot();
   };
 
   const handleCancelConnection = () => {
+    // Cerrar modal INMEDIATAMENTE
     setShowConnectionError(false);
-    setConnectionState('disconnected');
+    
+    // Bloquear más errores
+    canShowError.current = false;
+    
+    // Desconectar todo
+    disconnectFromRobot();
   };
 
-  const sendTwistStamped = (linear: number, angular: number) => {
-    if (webrtcService.current) {
-      webrtcService.current.sendTwistStamped(linear, angular);
+  const sendVelocityCommand = (linear: number, angular: number) => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.sendVelocityCommand(linear, angular);
     }
   };
 
   const stopRobot = () => {
-    if (webrtcService.current) {
-      webrtcService.current.stopRobot();
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.stopRobot();
     }
   };
 
@@ -99,12 +227,21 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
     connectToRobot();
 
     return () => {
+      // Cleanup al desmontar
+      if (errorTimeout.current) {
+        clearTimeout(errorTimeout.current);
+      }
       disconnectFromRobot();
     };
   }, []);
 
+  const isFullyConnected = videoConnectionState === 'connected' && commandConnectionState === 'connected';
+
   return {
-    connectionState,
+    connectionStatus: {
+      video: videoConnectionState,
+      commands: commandConnectionState,
+    },
     remoteStream,
     isConnecting,
     errorMessage,
@@ -113,7 +250,8 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
     disconnectFromRobot,
     handleRetryConnection,
     handleCancelConnection,
-    sendTwistStamped,
+    sendVelocityCommand,
     stopRobot,
+    isFullyConnected,
   };
 };
