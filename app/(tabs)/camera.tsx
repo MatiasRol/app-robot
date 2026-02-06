@@ -251,74 +251,84 @@ export default function CameraScreen() {
           animationType="fade"
           onRequestClose={handleCancelConnection}
         >
-          <View style={styles.errorOverlay}>
-            <View style={styles.errorBox}>
-              <Ionicons name="warning-outline" size={48} color="#FF9800" />
-              <Text style={styles.errorTitle}>Error de conexión</Text>
-              <Text style={styles.errorMessage}>
-                {errorMessage || 'No se pudo conectar al robot'}{'\n\n'}
-                Verifica que las Raspberry Pi estén encendidas.
-              </Text>
-              <View style={styles.errorButtons}>
-                <TouchableOpacity 
-                  style={styles.errorButtonCancel}
-                  onPress={handleCancelConnection}
-                >
-                  <Text style={styles.errorButtonCancelText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.errorButtonRetry}
-                  onPress={handleRetryConnection}
-                >
-                  <Text style={styles.errorButtonRetryText}>Reintentar</Text>
-                </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.errorOverlay}
+            activeOpacity={1}
+            onPress={handleCancelConnection}
+          >
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.errorBox}>
+                <Ionicons name="warning-outline" size={48} color="#FF9800" />
+                <Text style={styles.errorTitle}>Error de conexión</Text>
+                <Text style={styles.errorMessage}>
+                  {errorMessage || 'No se pudo conectar al robot'}{'\n\n'}
+                  Verifica que las Raspberry Pi estén encendidas.
+                </Text>
+                <View style={styles.errorButtons}>
+                  <TouchableOpacity 
+                    style={styles.errorButtonCancel}
+                    onPress={handleCancelConnection}
+                  >
+                    <Text style={styles.errorButtonCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.errorButtonRetry}
+                    onPress={handleRetryConnection}
+                  >
+                    <Text style={styles.errorButtonRetryText}>Reintentar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       )}
 
       {/* Modal de cambio de modo */}
-      <Modal
-      visible={showConnectionError}
-      transparent
-      animationType="fade"
-      onRequestClose={handleCancelConnection}
-    >
-      <TouchableOpacity 
-        style={styles.errorOverlay}
-        activeOpacity={1}
-        onPress={handleCancelConnection} // Cerrar al tocar fuera
-      >
-        <TouchableOpacity 
-          activeOpacity={1}
-          onPress={(e) => e.stopPropagation()} // Prevenir cierre al tocar el contenido
+      {showModeAlert && (
+        <Modal
+          visible={showModeAlert}
+          transparent
+          animationType="fade"
+          onRequestClose={cancelModeChange}
         >
-          <View style={styles.errorBox}>
-            <Ionicons name="warning-outline" size={48} color="#FF9800" />
-            <Text style={styles.errorTitle}>Error de conexión</Text>
-            <Text style={styles.errorMessage}>
-              {errorMessage || 'No se pudo conectar al robot'}{'\n\n'}
-              Verifica que las Raspberry Pi estén encendidas.
-            </Text>
-            <View style={styles.errorButtons}>
-              <TouchableOpacity 
-                style={styles.errorButtonCancel}
-                onPress={handleCancelConnection}
-              >
-                <Text style={styles.errorButtonCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.errorButtonRetry}
-                onPress={handleRetryConnection}
-              >
-                <Text style={styles.errorButtonRetryText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+          <TouchableOpacity 
+            style={styles.alertOverlay}
+            activeOpacity={1}
+            onPress={cancelModeChange}
+          >
+            <TouchableOpacity 
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.alertBox}>
+                <Ionicons name="information-circle-outline" size={48} color={Colors.primary} />
+                <Text style={styles.alertTitle}>Cambiar modo</Text>
+                <Text style={styles.alertMessage}>
+                  ¿Deseas cambiar al modo {pendingMode === 'control' ? 'Control' : 'Visualización'}?
+                </Text>
+                <View style={styles.alertButtons}>
+                  <TouchableOpacity 
+                    style={styles.alertButtonCancel}
+                    onPress={cancelModeChange}
+                  >
+                    <Text style={styles.alertButtonCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.alertButtonConfirm}
+                    onPress={confirmModeChange}
+                  >
+                    <Text style={styles.alertButtonConfirmText}>Confirmar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </View>
   );
 }
