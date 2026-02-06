@@ -11,10 +11,9 @@ interface JoystickControlProps {
 }
 
 const SPEED_LEVELS = [
-  { label: '1x', linear: 0.2, angular: 0.5 },
-  { label: '2x', linear: 0.4, angular: 0.8 },
-  { label: '3x', linear: 0.6, angular: 1.2 },
-  { label: '4x', linear: 0.8, angular: 1.5 },
+  { label: '1x', linear: 0.3, angular: 0.6 },
+  { label: '2x', linear: 0.6, angular: 1.0 },
+  { label: '3x', linear: 0.9, angular: 1.5 },
 ];
 
 export default function JoystickControl({ 
