@@ -4,7 +4,7 @@ import { WebSocketService } from '../services/WebSocketService';
 
 const VIDEO_SERVER_URL = 'http://192.168.18.183:8889';
 const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://192.168.18.163:9090';
+const COMMAND_SERVER_URL = 'ws://192.168.137.137:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 
@@ -42,6 +42,10 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
   const isDisconnecting = useRef(false);
   const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Tracking de intentos fallidos
+  const videoFailedAttempts = useRef(0);
+  const commandsFailedAttempts = useRef(0);
+  
   const videoService = useRef<WebRTCVideoService | null>(null);
   const commandService = useRef<WebSocketService | null>(null);
 
@@ -73,14 +77,36 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
     setShowConnectionError(false);
     canShowError.current = true;
     isDisconnecting.current = false;
+    
+    // Resetear contadores de fallos
+    videoFailedAttempts.current = 0;
+    commandsFailedAttempts.current = 0;
 
-    try {
-      await connectVideo();
-      await connectCommands();
-      setIsConnecting(false);
-    } catch (error: any) {
-      setIsConnecting(false);
-      showError('No se pudo conectar con el robot. Verifica que las Raspberry Pi estén encendidas.');
+    // Conectar ambos servicios de forma independiente
+    const videoPromise = connectVideo();
+    const commandsPromise = connectCommands();
+
+    // Esperar a que ambos intenten conectarse
+    const results = await Promise.allSettled([videoPromise, commandsPromise]);
+    
+    const videoResult = results[0];
+    const commandsResult = results[1];
+    
+    // Verificar si al menos UNO conectó exitosamente
+    const videoConnected = videoResult.status === 'fulfilled';
+    const commandsConnected = commandsResult.status === 'fulfilled';
+    
+    setIsConnecting(false);
+    
+    // Solo mostrar error si AMBOS fallaron
+    if (!videoConnected && !commandsConnected) {
+      showError('No se pudo conectar ni al video ni a los comandos. Verifica que las Raspberry Pi estén encendidas.');
+    } else if (!videoConnected) {
+      // Video falló pero comandos OK - solo advertencia en consola
+      console.warn('⚠️ Comandos conectados, pero video no disponible');
+    } else if (!commandsConnected) {
+      // Comandos fallaron pero video OK - solo advertencia en consola
+      console.warn('⚠️ Video conectado, pero comandos no disponibles');
     }
   };
 
@@ -98,7 +124,9 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
           
           setRemoteStream(stream);
           setVideoConnectionState('connected');
+          videoFailedAttempts.current = 0;
           
+          // Sincronizar timestamp con comandos si está conectado
           if (commandService.current && videoService.current) {
             const videoStartTime = videoService.current.getVideoStartTime();
             commandService.current.updateVideoStartTime(videoStartTime);
@@ -114,7 +142,12 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
         onError: (message) => {
           if (isDisconnecting.current) return;
           setVideoConnectionState('failed');
-          showError('Error en video: ' + message);
+          videoFailedAttempts.current++;
+          
+          // Solo mostrar error si comandos también falló
+          if (commandConnectionState === 'failed') {
+            showError('Error de conexión: Video y comandos no disponibles');
+          }
         },
       });
 
@@ -122,6 +155,7 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
     } catch (error: any) {
       if (isDisconnecting.current) return;
       setVideoConnectionState('failed');
+      videoFailedAttempts.current++;
       throw error;
     }
   };
@@ -137,6 +171,7 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
         onConnected: () => {
           if (isDisconnecting.current) return;
           setCommandConnectionState('connected');
+          commandsFailedAttempts.current = 0;
         },
         onDisconnected: () => {
           if (isDisconnecting.current) return;
@@ -146,7 +181,12 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
         onError: (message) => {
           if (isDisconnecting.current) return;
           setCommandConnectionState('failed');
-          showError('Error en comandos: ' + message);
+          commandsFailedAttempts.current++;
+          
+          // Solo mostrar error si video también falló
+          if (videoConnectionState === 'failed') {
+            showError('Error de conexión: Video y comandos no disponibles');
+          }
         },
       });
 
@@ -155,6 +195,7 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
     } catch (error: any) {
       if (isDisconnecting.current) return;
       setCommandConnectionState('failed');
+      commandsFailedAttempts.current++;
       throw error;
     }
   };
@@ -214,6 +255,9 @@ export const useCameraConnection = (): UseCameraConnectionReturn => {
   const sendVelocityCommand = (linear: number, angular: number) => {
     if (commandService.current && commandService.current.isConnected()) {
       commandService.current.sendVelocityCommand(linear, angular);
+    } else {
+      // Silencioso - no hacer nada si comandos no están disponibles
+      console.warn('⚠️ Comandos no disponibles - comando ignorado');
     }
   };
 
