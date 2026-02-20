@@ -15,7 +15,6 @@ export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   
-  // Hook de conexión
   const {
     connectionStatus,
     remoteStream,
@@ -28,7 +27,6 @@ export default function CameraScreen() {
     stopRobot,
   } = useCameraConnection();
 
-  // Estados UI
   const [mode, setMode] = useState<CameraMode>('view');
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
@@ -118,7 +116,6 @@ export default function CameraScreen() {
     try {
       sendVelocityCommand(velocity.linear, velocity.angular);
     } catch (error) {
-      // Silenciar errores de conexión en consola
     }
   };
 
@@ -126,7 +123,6 @@ export default function CameraScreen() {
     try {
       stopRobot();
     } catch (error) {
-      // Silenciar errores de conexión en consola
     }
   };
 
@@ -134,7 +130,6 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Video de fondo */}
       {remoteStream ? (
         <RTCView
           streamURL={remoteStream.toURL()}
@@ -157,47 +152,14 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Controles superpuestos */}
       <View style={styles.overlay}>
-        {/* Barra superior - PEGADA ARRIBA */}
         <View style={styles.topBar}>
-          {/* Botón de regresar - Izquierda */}
           <View style={styles.leftSection}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
-          {/* Indicadores de conexión - Centro */}
-          <View style={styles.centerSection}>
-            <View style={styles.connectionIndicators}>
-              {/* Video */}
-              <View style={styles.connectionIndicator}>
-                <View 
-                  style={[
-                    styles.connectionDot,
-                    connectionStatus?.video === 'connected' && styles.connectionDotConnected,
-                    connectionStatus?.video === 'connecting' && styles.connectionDotConnecting,
-                  ]}
-                />
-                <Text style={styles.connectionText}>Video</Text>
-              </View>
-              
-              {/* Comandos */}
-              <View style={styles.connectionIndicator}>
-                <View 
-                  style={[
-                    styles.connectionDot,
-                    connectionStatus?.commands === 'connected' && styles.connectionDotConnected,
-                    connectionStatus?.commands === 'connecting' && styles.connectionDotConnecting,
-                  ]}
-                />
-                <Text style={styles.connectionText}>CMD</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Tabs de modo - Derecha (estilo deslizable) */}
           <View style={styles.rightSection}>
             <View style={styles.tabs}>
               <TouchableOpacity 
@@ -231,7 +193,6 @@ export default function CameraScreen() {
           </View>
         </View>
 
-        {/* Joystick - Solo en modo control */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <JoystickControl 
@@ -287,7 +248,6 @@ export default function CameraScreen() {
         </Modal>
       )}
 
-      {/* Modal de cambio de modo */}
       {showModeAlert && (
         <Modal
           visible={showModeAlert}
