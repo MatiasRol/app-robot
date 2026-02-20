@@ -3,29 +3,28 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import JoystickControl from '../../src/components/JoystickControl';
 import { Colors } from '../../src/constants/Colors';
-import { useCameraConnection } from '../../src/hooks/useCameraConnection';
+import { useCameraConnectionContext } from '../../src/context/CameraConnectionContext';
 
 type CameraMode = 'view' | 'control';
 
 export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  
+
   const {
-    connectionStatus,
     remoteStream,
-    isConnecting,
     errorMessage,
     showConnectionError,
     handleRetryConnection,
     handleCancelConnection,
+    disconnectFromRobot,
     sendVelocityCommand,
     stopRobot,
-  } = useCameraConnection();
+  } = useCameraConnectionContext();
 
   const [mode, setMode] = useState<CameraMode>('view');
   const [showModeAlert, setShowModeAlert] = useState(false);
@@ -67,9 +66,9 @@ export default function CameraScreen() {
             }
           });
         }
-        
+
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-        
+
         if (isKeepAwakeActive.current) {
           try {
             deactivateKeepAwake();
@@ -87,7 +86,7 @@ export default function CameraScreen() {
         isKeepAwakeActive.current = false;
       } catch (error) {}
     }
-    
+    disconnectFromRobot();
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
     router.back();
   };
@@ -100,9 +99,7 @@ export default function CameraScreen() {
   };
 
   const confirmModeChange = () => {
-    if (pendingMode) {
-      setMode(pendingMode);
-    }
+    if (pendingMode) setMode(pendingMode);
     setShowModeAlert(false);
     setPendingMode(null);
   };
@@ -115,21 +112,18 @@ export default function CameraScreen() {
   const handleJoystickMove = (velocity: { linear: number; angular: number }) => {
     try {
       sendVelocityCommand(velocity.linear, velocity.angular);
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const handleJoystickStop = () => {
     try {
       stopRobot();
-    } catch (error) {
-    }
+    } catch (error) {}
   };
-
-  const isAnyConnecting = connectionStatus?.video === 'connecting' || connectionStatus?.commands === 'connecting';
 
   return (
     <View style={styles.container}>
+      {/* Video de fondo */}
       {remoteStream ? (
         <RTCView
           streamURL={remoteStream.toURL()}
@@ -138,52 +132,47 @@ export default function CameraScreen() {
         />
       ) : (
         <View style={styles.noVideoContainer}>
-          {isConnecting || isAnyConnecting ? (
-            <>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.noVideoText}>Conectando...</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="videocam-off-outline" size={64} color="#666" />
-              <Text style={styles.noVideoText}>Sin video</Text>
-            </>
-          )}
+          <Ionicons name="videocam-off-outline" size={64} color="#666" />
+          <Text style={styles.noVideoText}>Sin video</Text>
         </View>
       )}
 
+      {/* Controles superpuestos */}
       <View style={styles.overlay}>
+        {/* Barra superior */}
         <View style={styles.topBar}>
+          {/* Botón de regresar - Izquierda */}
           <View style={styles.leftSection}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
+          {/* Tabs de modo - Derecha */}
           <View style={styles.rightSection}>
             <View style={styles.tabs}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.tab, mode === 'view' && styles.tabActive]}
                 onPress={() => handleModeChange('view')}
               >
-                <Ionicons 
-                  name="eye-outline" 
-                  size={20} 
-                  color={mode === 'view' ? '#FFFFFF' : '#666'} 
+                <Ionicons
+                  name="eye-outline"
+                  size={20}
+                  color={mode === 'view' ? '#FFFFFF' : '#666'}
                 />
                 <Text style={[styles.tabText, mode === 'view' && styles.tabTextActive]}>
                   Ver
                 </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={[styles.tab, mode === 'control' && styles.tabActive]}
                 onPress={() => handleModeChange('control')}
               >
-                <Ionicons 
-                  name="game-controller-outline" 
-                  size={20} 
-                  color={mode === 'control' ? '#FFFFFF' : '#666'} 
+                <Ionicons
+                  name="game-controller-outline"
+                  size={20}
+                  color={mode === 'control' ? '#FFFFFF' : '#666'}
                 />
                 <Text style={[styles.tabText, mode === 'control' && styles.tabTextActive]}>
                   Control
@@ -193,9 +182,10 @@ export default function CameraScreen() {
           </View>
         </View>
 
+        {/* Joystick - Solo en modo control */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
-            <JoystickControl 
+            <JoystickControl
               size={160}
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
@@ -212,12 +202,12 @@ export default function CameraScreen() {
           animationType="fade"
           onRequestClose={handleCancelConnection}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.errorOverlay}
             activeOpacity={1}
             onPress={handleCancelConnection}
           >
-            <TouchableOpacity 
+            <TouchableOpacity
               activeOpacity={1}
               onPress={(e) => e.stopPropagation()}
             >
@@ -229,13 +219,13 @@ export default function CameraScreen() {
                   Verifica que las Raspberry Pi estén encendidas.
                 </Text>
                 <View style={styles.errorButtons}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.errorButtonCancel}
                     onPress={handleCancelConnection}
                   >
                     <Text style={styles.errorButtonCancelText}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.errorButtonRetry}
                     onPress={handleRetryConnection}
                   >
@@ -248,6 +238,7 @@ export default function CameraScreen() {
         </Modal>
       )}
 
+      {/* Modal de cambio de modo */}
       {showModeAlert && (
         <Modal
           visible={showModeAlert}
@@ -255,12 +246,12 @@ export default function CameraScreen() {
           animationType="fade"
           onRequestClose={cancelModeChange}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.alertOverlay}
             activeOpacity={1}
             onPress={cancelModeChange}
           >
-            <TouchableOpacity 
+            <TouchableOpacity
               activeOpacity={1}
               onPress={(e) => e.stopPropagation()}
             >
@@ -271,13 +262,13 @@ export default function CameraScreen() {
                   ¿Deseas cambiar al modo {pendingMode === 'control' ? 'Control' : 'Visualización'}?
                 </Text>
                 <View style={styles.alertButtons}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.alertButtonCancel}
                     onPress={cancelModeChange}
                   >
                     <Text style={styles.alertButtonCancelText}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.alertButtonConfirm}
                     onPress={confirmModeChange}
                   >
