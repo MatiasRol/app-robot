@@ -48,7 +48,10 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
             <View style={styles.card}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
-                  <Image source={{ uri: 'https://i.pravatar.cc/150?img=47' }} style={styles.profileImage} />
+                <Image source={require('../../../assets/images/avatar-placeholder.png')}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
                 </TouchableOpacity>
               </View>
 
@@ -122,8 +125,20 @@ const styles = StyleSheet.create({
   cardContainer: { width: CARD_WIDTH, marginRight: 20 },
   card: { backgroundColor: Colors.surface, borderRadius: 32, padding: 24, marginBottom: 16, elevation: 8 },
   header: { alignItems: 'flex-end', marginBottom: 8 },
-  profileButton: { borderRadius: 35, overflow: 'hidden' },
-  profileImage: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: Colors.primary },
+  profileButton: {
+    borderRadius: 35,
+    overflow: 'hidden',
+    width: 70,    
+    height: 70,     
+  },
+  profileImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 4,
+    borderColor: Colors.primary,
+    overflow: 'hidden',
+  },
   nameContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   robotName: { fontSize: 36, fontWeight: 'bold', color: Colors.text, textAlign: 'center' },
   nameInput: { fontSize: 36, fontWeight: 'bold', color: Colors.text, textAlign: 'center', borderBottomWidth: 2, borderBottomColor: Colors.primary, minWidth: 200 },

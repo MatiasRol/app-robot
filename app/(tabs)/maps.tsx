@@ -22,24 +22,20 @@ export default function MapsScreen() {
   return (
     <View style={styles.container}>
       
-      {/* Header con foto de perfil, título y botón + */}
       <View style={styles.header}>
         
-        {/* Foto de perfil */}
         <TouchableOpacity style={styles.profileButton}>
           <Image
-            source={{ uri: 'https://i.pravatar.cc/150?img=47' }}
+            source={require('../../assets/images/avatar-placeholder.png')}
             style={styles.profileImage}
           />
         </TouchableOpacity>
 
-        {/* Título */}
         <View style={styles.titleContainer}>
           <Text style={styles.title}>¡TUS</Text>
           <Text style={styles.title}>MAPAS!</Text>
         </View>
 
-        {/* Botón + para agregar mapa */}
         <TouchableOpacity 
           style={styles.addButton}
           onPress={() => setShowAddMapModal(true)}
@@ -53,7 +49,6 @@ export default function MapsScreen() {
         
       </View>
 
-      {/* Lista de mapas */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
@@ -64,7 +59,6 @@ export default function MapsScreen() {
         ))}
       </ScrollView>
 
-      {/* Modal para agregar mapa */}
       <Modal
         visible={showAddMapModal}
         transparent
@@ -175,7 +169,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // MODAL
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
