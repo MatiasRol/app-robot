@@ -1,9 +1,9 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Colors } from '../src/constants/Colors';
-import { AppProvider } from '../src/context/AppContext';
-import { CameraConnectionProvider } from '../src/context/CameraConnectionContext';
+import { Colors } from '../lib/core/constants/Colors';
+import { AppProvider } from '../lib/modules/app/context/AppContext';
+import { CameraConnectionProvider } from '../lib/modules/camera/context/CameraConnectionContext';
 
 export default function RootLayout() {
   return (

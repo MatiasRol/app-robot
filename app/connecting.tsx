@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../src/constants/Colors';
-import { useCameraConnectionContext } from '../src/context/CameraConnectionContext';
+import { Colors } from '../lib/core/constants/Colors';
+import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
 export default function ConnectingScreen() {
   const router = useRouter();

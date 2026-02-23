@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import RobotCard from '../../src/components/RobotCard';
-import { Colors } from '../../src/constants/Colors';
-import { useApp } from '../../src/context/AppContext';
+import { Colors } from '../../lib/core/constants/Colors';
+import { useApp } from '../../lib/modules/app/context/AppContext';
+import RobotCard from '../../src/components/organisms/RobotCard';
 
 export default function HomeScreen() {
   const router = useRouter();

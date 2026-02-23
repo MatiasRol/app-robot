@@ -2,7 +2,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useRef } from 'react';
-import { Colors } from '../constants/Colors';
+import { Colors } from '../../../core/constants/Colors';
 
 interface UseScreenControlReturn {
   handleBack: () => Promise<void>;

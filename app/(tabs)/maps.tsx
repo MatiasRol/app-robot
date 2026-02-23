@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapCard from '../../src/components/MapCard';
-import { Colors } from '../../src/constants/Colors';
-import { useApp } from '../../src/context/AppContext';
+import { Colors } from '../../lib/core/constants/Colors';
+import { useApp } from '../../lib/modules/app/context/AppContext';
+import MapCard from '../../src/components/molecules/MapCard';
 
 export default function MapsScreen() {
   const router = useRouter();

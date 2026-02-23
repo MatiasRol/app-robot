@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Robot, MapItem, Route } from '../types';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
+import { MapItem, Robot, Route } from '../../../core/types';
 
 interface AppContextType {
   // Robots

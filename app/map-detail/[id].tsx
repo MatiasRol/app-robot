@@ -3,8 +3,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Alert, Animated, Dimensions, Image, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../../src/constants/Colors';
-import { useApp } from '../../src/context/AppContext';
+import { Colors } from '../../lib/core/constants/Colors';
+import { useApp } from '../../lib/modules/app/context/AppContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;

@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../../src/constants/Colors';
-import { Layout } from '../../src/constants/Layout';
+import { Colors } from '../../lib/core/constants/Colors';
+import { Layout } from '../../lib/core/constants/Layout';
 
 export default function ProfileScreen() {
   const menuItems = [

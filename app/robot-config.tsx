@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import ColorPalette from '../src/components/ColorPalette';
-import { Colors } from '../src/constants/Colors';
-import { Layout } from '../src/constants/Layout';
+import { Colors } from '../lib/core/constants/Colors';
+import { Layout } from '../lib/core/constants/Layout';
+import ColorPalette from '../src/components/molecules/ColorPalette';
 
 export default function RobotConfigScreen() {
   const router = useRouter();

@@ -5,9 +5,9 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
-import JoystickControl from '../../src/components/JoystickControl';
-import { Colors } from '../../src/constants/Colors';
-import { useCameraConnectionContext } from '../../src/context/CameraConnectionContext';
+import { Colors } from '../../lib/core/constants/Colors';
+import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
+import JoystickControl from '../../src/components/organisms/JoystickControl';
 
 type CameraMode = 'view' | 'control';
 
