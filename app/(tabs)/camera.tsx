@@ -186,7 +186,7 @@ export default function CameraScreen() {
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <JoystickControl
-              size={160}
+             size={220}
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
             />
@@ -426,11 +426,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 30,
     bottom: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
     zIndex: 5,
   },
   
