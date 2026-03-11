@@ -8,7 +8,7 @@ import { useApp } from '../../../lib/modules/app/context/AppContext';
 import BatteryBar from '../atoms/BatteryBar'; // ← átomo
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 40;
+const CARD_WIDTH = SCREEN_WIDTH;
 
 interface RobotCardProps {
   robots: Robot[];
@@ -121,9 +121,25 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
 
 const styles = StyleSheet.create({
   outerContainer: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingVertical: 20 },
-  cardContainer: { width: CARD_WIDTH, marginRight: 20 },
-  card: { backgroundColor: Colors.surface, borderRadius: 32, padding: 24, marginBottom: 16, elevation: 8 },
+  scrollContent: {
+    paddingVertical: 20,
+  },
+  cardContainer: {
+    width: SCREEN_WIDTH,
+    marginRight: 0,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 32,
+    padding: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  
   header: { alignItems: 'flex-end', marginBottom: 8 },
   profileButton: {
     borderRadius: 35,
@@ -150,7 +166,12 @@ const styles = StyleSheet.create({
   robotImage: { width: 240, height: 300 },
   batteryColumn: { alignItems: 'center', justifyContent: 'space-between', marginLeft: 16, height: 300, paddingVertical: 12 },
   checkmarkContainer: { marginTop: 8 },
-  actionButtons: { flexDirection: 'row', gap: 16 },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
   cameraButton: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, alignItems: 'center', minHeight: 140, borderWidth: 2, borderColor: '#E0E0E0' },
   cameraIcon: { width: 56, height: 56 },
   cameraButtonText: { fontSize: 15, fontWeight: '600', color: Colors.text, marginTop: 12, textAlign: 'center' },
