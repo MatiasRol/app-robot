@@ -1,11 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { Robot } from '../../../lib/core/types';
 import { useApp } from '../../../lib/modules/app/context/AppContext';
-import BatteryBar from '../atoms/BatteryBar'; // ← átomo
+import BatteryBar from '../atoms/BatteryBar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH;
@@ -18,9 +28,11 @@ interface RobotCardProps {
 export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
-  const { updateRobotName } = useApp();
+  const { updateRobotName, maps, mapsLoading, selectedMapId, setSelectedMapId, selectedMap } = useApp();
+
   const [editingRobotId, setEditingRobotId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
+  const [showMapSelector, setShowMapSelector] = useState(false);
 
   const handleEditName = (robot: Robot) => {
     setEditingRobotId(robot.id);
@@ -30,6 +42,21 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
   const handleSaveName = (robotId: string) => {
     if (tempName.trim()) updateRobotName(robotId, tempName.trim());
     setEditingRobotId(null);
+  };
+
+  const handleMapButtonPress = () => {
+    if (selectedMapId) {
+      // Si ya hay un mapa seleccionado, ir directamente al detalle
+      router.push(`/map-detail/${selectedMapId}`);
+    } else {
+      // Si no hay mapa seleccionado, abrir selector
+      setShowMapSelector(true);
+    }
+  };
+
+  const handleSelectMap = (mapId: string) => {
+    setSelectedMapId(mapId);
+    setShowMapSelector(false);
   };
 
   return (
@@ -48,10 +75,11 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
             <View style={styles.card}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={onProfilePress} style={styles.profileButton}>
-                <Image source={require('../../../assets/images/avatar-placeholder.png')}
-                  style={styles.profileImage}
-                  resizeMode="cover"
-                />
+                  <Image
+                    source={require('../../../assets/images/avatar-placeholder.png')}
+                    style={styles.profileImage}
+                    resizeMode="cover"
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -68,18 +96,24 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
                   <Text style={styles.robotName}>{robot.name}</Text>
                 )}
                 <TouchableOpacity style={styles.editButton} onPress={() => handleEditName(robot)}>
-                  <Image source={require('../../../assets/images/lapiz.png')} style={styles.editIcon} resizeMode="contain" />
+                  <Image
+                    source={require('../../../assets/images/lapiz.png')}
+                    style={styles.editIcon}
+                    resizeMode="contain"
+                  />
                 </TouchableOpacity>
               </View>
               <Text style={styles.robotModel}>{robot.model}</Text>
 
               <View style={styles.robotContainer}>
                 <View style={styles.robotImageContainer}>
-                  <Image source={require('../../../assets/images/robot-prueba.png')}
-                    style={styles.robotImage} resizeMode="contain" />
+                  <Image
+                    source={require('../../../assets/images/robot-prueba.png')}
+                    style={styles.robotImage}
+                    resizeMode="contain"
+                  />
                 </View>
                 <View style={styles.batteryColumn}>
-                  {/* ← Usa el átomo BatteryBar */}
                   <BatteryBar percentage={robot.battery} />
                   <View style={styles.checkmarkContainer}>
                     <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
@@ -88,22 +122,45 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
               </View>
             </View>
 
+            {/* Botones de acción */}
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={styles.cameraButton}
-                onPress={() => router.push({ pathname: '/connecting', params: { robotName: robot.name } })}
+                onPress={() =>
+                  router.push({ pathname: '/connecting', params: { robotName: robot.name } })
+                }
               >
-                <Image source={require('../../../assets/images/camara.png')} style={styles.cameraIcon} resizeMode="contain" />
+                <Image
+                  source={require('../../../assets/images/camara.png')}
+                  style={styles.cameraIcon}
+                  resizeMode="contain"
+                />
                 <Text style={styles.cameraButtonText}>Ver cámara</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.mapButton}
-                onPress={() => router.push(`/map-detail/${robot.currentMapId || '1'}`)}
+                onPress={handleMapButtonPress}
+                onLongPress={() => setShowMapSelector(true)}
               >
-                <Image source={require('../../../assets/images/mapaBoton.png')} style={styles.mapIcon} resizeMode="contain" tintColor="#FFFFFF" />
+                <Image
+                  source={require('../../../assets/images/mapaBoton.png')}
+                  style={styles.mapIcon}
+                  resizeMode="contain"
+                  tintColor="#FFFFFF"
+                />
                 <Text style={styles.mapButtonText}>Mapa relacionado</Text>
-                <Text style={styles.mapButtonSubtext}>Mapa 1</Text>
+                <Text style={styles.mapButtonSubtext} numberOfLines={1}>
+                  {selectedMap ? selectedMap.name : 'Seleccionar mapa'}
+                </Text>
+                {selectedMap && (
+                  <TouchableOpacity
+                    style={styles.changeMapButton}
+                    onPress={() => setShowMapSelector(true)}
+                  >
+                    <Text style={styles.changeMapText}>Cambiar</Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -112,22 +169,78 @@ export default function RobotCard({ robots, onProfilePress }: RobotCardProps) {
 
       {robots.length > 1 && (
         <View style={styles.pagination}>
-          {robots.map((_, i) => <View key={i} style={styles.paginationDot} />)}
+          {robots.map((_, i) => (
+            <View key={i} style={styles.paginationDot} />
+          ))}
         </View>
       )}
+
+      {/* Modal selector de mapa */}
+      <Modal
+        visible={showMapSelector}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMapSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar mapa</Text>
+              <TouchableOpacity onPress={() => setShowMapSelector(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {mapsLoading ? (
+              <Text style={styles.modalEmptyText}>Cargando mapas...</Text>
+            ) : maps.length === 0 ? (
+              <Text style={styles.modalEmptyText}>
+                No hay mapas disponibles. Sube uno desde el script Python.
+              </Text>
+            ) : (
+              <ScrollView style={styles.mapList} showsVerticalScrollIndicator={false}>
+                {maps.map((map) => (
+                  <TouchableOpacity
+                    key={map.id}
+                    style={[
+                      styles.mapOption,
+                      selectedMapId === map.id && styles.mapOptionSelected,
+                    ]}
+                    onPress={() => handleSelectMap(map.id)}
+                  >
+                    <View style={styles.mapOptionInfo}>
+                      <Ionicons
+                        name="map-outline"
+                        size={24}
+                        color={selectedMapId === map.id ? Colors.primary : Colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.mapOptionName,
+                          selectedMapId === map.id && styles.mapOptionNameSelected,
+                        ]}
+                      >
+                        {map.name}
+                      </Text>
+                    </View>
+                    {selectedMapId === map.id && (
+                      <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   outerContainer: { flex: 1 },
-  scrollContent: {
-    paddingVertical: 20,
-  },
-  cardContainer: {
-    width: SCREEN_WIDTH,
-    marginRight: 0,
-  },
+  scrollContent: { paddingVertical: 20 },
+  cardContainer: { width: SCREEN_WIDTH, marginRight: 0 },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 32,
@@ -139,14 +252,8 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  
   header: { alignItems: 'flex-end', marginBottom: 8 },
-  profileButton: {
-    borderRadius: 35,
-    overflow: 'hidden',
-    width: 70,    
-    height: 70,     
-  },
+  profileButton: { borderRadius: 35, overflow: 'hidden', width: 70, height: 70 },
   profileImage: {
     width: 70,
     height: 70,
@@ -155,16 +262,40 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
     overflow: 'hidden',
   },
-  nameContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   robotName: { fontSize: 36, fontWeight: 'bold', color: Colors.text, textAlign: 'center' },
-  nameInput: { fontSize: 36, fontWeight: 'bold', color: Colors.text, textAlign: 'center', borderBottomWidth: 2, borderBottomColor: Colors.primary, minWidth: 200 },
+  nameInput: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+    minWidth: 200,
+  },
   editButton: { padding: 4 },
   editIcon: { width: 28, height: 28 },
   robotModel: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginBottom: 24 },
-  robotContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 300 },
+  robotContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 300,
+  },
   robotImageContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   robotImage: { width: 240, height: 300 },
-  batteryColumn: { alignItems: 'center', justifyContent: 'space-between', marginLeft: 16, height: 300, paddingVertical: 12 },
+  batteryColumn: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginLeft: 16,
+    height: 300,
+    paddingVertical: 12,
+  },
   checkmarkContainer: { marginTop: 8 },
   actionButtons: {
     flexDirection: 'row',
@@ -172,13 +303,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  cameraButton: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, alignItems: 'center', minHeight: 140, borderWidth: 2, borderColor: '#E0E0E0' },
+  cameraButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    minHeight: 140,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+  },
   cameraIcon: { width: 56, height: 56 },
   cameraButtonText: { fontSize: 15, fontWeight: '600', color: Colors.text, marginTop: 12, textAlign: 'center' },
-  mapButton: { flex: 1, backgroundColor: Colors.primary, borderRadius: 24, padding: 24, alignItems: 'center', minHeight: 140 },
+  mapButton: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    minHeight: 140,
+  },
   mapIcon: { width: 56, height: 56 },
   mapButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', marginTop: 12, textAlign: 'center' },
-  mapButtonSubtext: { fontSize: 17, fontWeight: 'bold', color: '#FFFFFF', marginTop: 4 },
+  mapButtonSubtext: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginTop: 4, textAlign: 'center' },
+  changeMapButton: {
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 12,
+  },
+  changeMapText: { fontSize: 11, color: '#FFFFFF', fontWeight: '600' },
   pagination: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 16, marginBottom: 20 },
   paginationDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary, opacity: 0.6 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.text },
+  modalEmptyText: {
+    textAlign: 'center',
+    color: Colors.textSecondary,
+    fontSize: 14,
+    paddingVertical: 32,
+  },
+  mapList: { maxHeight: 400 },
+  mapOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    marginBottom: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  mapOptionSelected: {
+    backgroundColor: `${Colors.primary}20`,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  mapOptionInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mapOptionName: { fontSize: 16, fontWeight: '500', color: Colors.text },
+  mapOptionNameSelected: { color: Colors.primary, fontWeight: '700' },
 });

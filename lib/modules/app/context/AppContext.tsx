@@ -1,16 +1,22 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot, Route } from '../../../core/types';
 
 interface AppContextType {
   // Robots
   robots: Robot[];
   updateRobotName: (robotId: string, newName: string) => void;
-  
+
   // Mapas
   maps: MapItem[];
-  addMap: (name: string) => void;
+  mapsLoading: boolean;
   deleteMap: (mapId: string) => void;
-  
+
+  // Mapa seleccionado
+  selectedMapId: string | null;
+  setSelectedMapId: (mapId: string | null) => void;
+  selectedMap: MapItem | null;
+
   // Rutas
   addRoute: (mapId: string, routeName: string, schedule?: string) => void;
   updateRoute: (routeId: string, updates: Partial<Route>) => void;
@@ -28,50 +34,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
       model: 'Nombre del modelo',
       status: 'online',
       battery: 86,
-      currentMapId: '1',
+      currentMapId: undefined,
     },
   ]);
 
-  const [maps, setMaps] = useState<MapItem[]>([
-    {
-      id: '1',
-      name: 'Mapa 1',
-      robotId: '1',
-      thumbnail: 'https://via.placeholder.com/300x200',
-      size: 'Robot 1',
-      createdAt: new Date(),
-      routes: [
-        {
-          id: '1',
-          name: 'Ruta 1',
-          mapId: '1',
-          schedule: 'Vie 27 Dic 2024 a las 18:30',
-        },
-        {
-          id: '2',
-          name: 'Ruta 2',
-          mapId: '1',
-          schedule: 'Se inicia al finalizar el anterior',
-        },
-        {
-          id: '3',
-          name: 'Ruta 3',
-          mapId: '1',
-        },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Mapa 2',
-      robotId: '1',
-      thumbnail: 'https://via.placeholder.com/300x200',
-      size: 'Robot 1',
-      createdAt: new Date(),
-      routes: [],
-    },
-  ]);
+  const [maps, setMaps] = useState<MapItem[]>([]);
+  const [mapsLoading, setMapsLoading] = useState(true);
+  const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
 
-  // Función para actualizar nombre del robot
+  const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
+
+  useEffect(() => {
+    const fetchMaps = async () => {
+      try {
+        setMapsLoading(true);
+        const { data, error } = await supabase
+          .from('maps')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const adapted: MapItem[] = (data || []).map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          robotId: '1',
+          thumbnail: item.png_url,
+          size: 'Robot 1',
+          createdAt: new Date(item.created_at),
+          routes: [],
+          png_url: item.png_url,
+          json_url: item.json_url,
+          resolution: item.resolution,
+          origin: item.origin,
+          width_px: item.width_px,
+          height_px: item.height_px,
+        }));
+
+        setMaps(adapted);
+      } catch (err) {
+        console.error('Error cargando mapas desde Supabase:', err);
+      } finally {
+        setMapsLoading(false);
+      }
+    };
+
+    fetchMaps();
+  }, []);
+
   const updateRobotName = (robotId: string, newName: string) => {
     setRobots((prev) =>
       prev.map((robot) =>
@@ -80,26 +90,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Función para agregar mapa
-  const addMap = (name: string) => {
-    const newMap: MapItem = {
-      id: Date.now().toString(),
-      name: name || 'Nuevo Mapa',
-      robotId: robots[0]?.id || '1',
-      thumbnail: 'https://via.placeholder.com/300x200',
-      size: robots[0]?.name || 'Robot 1',
-      createdAt: new Date(),
-      routes: [],
-    };
-    setMaps((prev) => [...prev, newMap]);
-  };
-
-  // Función para eliminar mapa
   const deleteMap = (mapId: string) => {
     setMaps((prev) => prev.filter((map) => map.id !== mapId));
+    if (selectedMapId === mapId) setSelectedMapId(null);
   };
 
-  // Función para agregar ruta
   const addRoute = (mapId: string, routeName: string, schedule?: string) => {
     const newRoute: Route = {
       id: Date.now().toString(),
@@ -107,7 +102,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mapId: mapId,
       schedule: schedule,
     };
-
     setMaps((prev) =>
       prev.map((map) =>
         map.id === mapId
@@ -117,7 +111,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Función para actualizar ruta
   const updateRoute = (routeId: string, updates: Partial<Route>) => {
     setMaps((prev) =>
       prev.map((map) => ({
@@ -129,7 +122,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Función para eliminar ruta
   const deleteRoute = (routeId: string) => {
     setMaps((prev) =>
       prev.map((map) => ({
@@ -139,7 +131,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Función para obtener rutas de un mapa
   const getMapRoutes = (mapId: string): Route[] => {
     const map = maps.find((m) => m.id === mapId);
     return map?.routes || [];
@@ -151,8 +142,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         robots,
         updateRobotName,
         maps,
-        addMap,
+        mapsLoading,
         deleteMap,
+        selectedMapId,
+        setSelectedMapId,
+        selectedMap,
         addRoute,
         updateRoute,
         deleteRoute,
