@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { WebRTCVideoService } from '../services/WebRTCVideoService';
-import { WebSocketService } from '../services/WebSocketService';
+import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
+import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
 const VIDEO_SERVER_URL = 'http://10.42.0.106:8889';
 const VIDEO_STREAM_PATH = 'cam';
@@ -39,26 +39,21 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Flags de control críticos
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
   const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Tracking de intentos fallidos
   const videoFailedAttempts = useRef(0);
   const commandsFailedAttempts = useRef(0);
 
-  const videoService = useRef<WebRTCVideoService | null>(null);
-  const commandService = useRef<WebSocketService | null>(null);
+  // Lazy refs — se asignan solo cuando se conecta
+  const videoService = useRef<WebRTCVideoServiceType | null>(null);
+  const commandService = useRef<WebSocketServiceType | null>(null);
 
   const showError = (message: string) => {
-    if (!canShowError.current || isDisconnecting.current) {
-      return;
-    }
+    if (!canShowError.current || isDisconnecting.current) return;
     canShowError.current = false;
-    if (errorTimeout.current) {
-      clearTimeout(errorTimeout.current);
-    }
+    if (errorTimeout.current) clearTimeout(errorTimeout.current);
     setErrorMessage(message);
     setShowConnectionError(true);
     errorTimeout.current = setTimeout(() => {
@@ -71,20 +66,13 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     setShowConnectionError(false);
     canShowError.current = true;
     isDisconnecting.current = false;
-
     videoFailedAttempts.current = 0;
     commandsFailedAttempts.current = 0;
 
-    const videoPromise = connectVideo();
-    const commandsPromise = connectCommands();
+    const results = await Promise.allSettled([connectVideo(), connectCommands()]);
 
-    const results = await Promise.allSettled([videoPromise, commandsPromise]);
-
-    const videoResult = results[0];
-    const commandsResult = results[1];
-
-    const videoConnected = videoResult.status === 'fulfilled';
-    const commandsConnected = commandsResult.status === 'fulfilled';
+    const videoConnected = results[0].status === 'fulfilled';
+    const commandsConnected = results[1].status === 'fulfilled';
 
     setIsConnecting(false);
 
@@ -103,12 +91,14 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     try {
       setVideoConnectionState('connecting');
 
+      // Import lazy — solo se carga cuando se necesita, no al iniciar la app
+      const { WebRTCVideoService } = await import('../services/WebRTCVideoService');
+
       videoService.current = new WebRTCVideoService({
         serverUrl: VIDEO_SERVER_URL,
         streamPath: VIDEO_STREAM_PATH,
         onStreamReceived: (stream) => {
           if (isDisconnecting.current) return;
-
           setRemoteStream(stream);
           setVideoConnectionState('connected');
           videoFailedAttempts.current = 0;
@@ -120,16 +110,14 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         },
         onConnectionStateChange: (state) => {
           if (isDisconnecting.current) return;
-
           if (state === 'connected' || state === 'connecting') {
             setVideoConnectionState(state as ConnectionState);
           }
         },
-        onError: (message) => {
+        onError: () => {
           if (isDisconnecting.current) return;
           setVideoConnectionState('failed');
           videoFailedAttempts.current++;
-
           if (commandConnectionState === 'failed') {
             showError('Error de conexión: Video y comandos no disponibles');
           }
@@ -151,6 +139,9 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     try {
       setCommandConnectionState('connecting');
 
+      // Import lazy — solo se carga cuando se necesita
+      const { WebSocketService } = await import('../services/WebSocketService');
+
       commandService.current = new WebSocketService({
         serverUrl: COMMAND_SERVER_URL,
         onConnected: () => {
@@ -162,12 +153,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
           if (isDisconnecting.current) return;
           setCommandConnectionState('disconnected');
         },
-        onMessage: (data) => {},
-        onError: (message) => {
+        onMessage: () => {},
+        onError: () => {
           if (isDisconnecting.current) return;
           setCommandConnectionState('failed');
           commandsFailedAttempts.current++;
-
           if (videoConnectionState === 'failed') {
             showError('Error de conexión: Video y comandos no disponibles');
           }
@@ -238,13 +228,12 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     return () => {
-      if (errorTimeout.current) {
-        clearTimeout(errorTimeout.current);
-      }
+      if (errorTimeout.current) clearTimeout(errorTimeout.current);
     };
   }, []);
 
-  const isFullyConnected = videoConnectionState === 'connected' && commandConnectionState === 'connected';
+  const isFullyConnected =
+    videoConnectionState === 'connected' && commandConnectionState === 'connected';
 
   return (
     <CameraConnectionContext.Provider
