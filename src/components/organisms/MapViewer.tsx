@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import {
   Gesture,
   GestureDetector,
@@ -11,30 +11,33 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import Svg, { G, Polygon } from 'react-native-svg';
-import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
 import { Colors } from '../../../lib/core/constants/Colors';
-import { MapVectorData, MapPolygon } from '../../../lib/core/types';
-
+import { MapPolygon, MapVectorData } from '../../../lib/core/types';
+import { pixelToWorld } from '../../../lib/core/utils/mapCoordinates';
+import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
+ 
 const SCALE_FACTOR = 5.0;
-
+ 
 interface MapViewerProps {
   mapData: MapVectorData | null;
   loading?: boolean;
   error?: string | null;
   renderOverlay?: () => React.ReactNode;
+  onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
 }
-
+ 
 function pointsToSvgString(points: [number, number][], height: number): string {
   return points
     .map(([x, y]) => `${x * SCALE_FACTOR},${(height - y) * SCALE_FACTOR}`)
     .join(' ');
 }
-
+ 
 export default function MapViewer({
   mapData,
   loading = false,
   error = null,
   renderOverlay,
+  onPointTap,
 }: MapViewerProps) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -44,7 +47,7 @@ export default function MapViewer({
   const savedTranslateY = useSharedValue(0);
   const rotation = useSharedValue(0);
   const savedRotation = useSharedValue(0);
-
+ 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       translateX.value = savedTranslateX.value + e.translationX;
@@ -54,7 +57,7 @@ export default function MapViewer({
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     });
-
+ 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
       const next = savedScale.value * e.scale;
@@ -63,7 +66,7 @@ export default function MapViewer({
     .onEnd(() => {
       savedScale.value = scale.value;
     });
-
+ 
   const rotationGesture = Gesture.Rotation()
     .onUpdate((e) => {
       rotation.value = savedRotation.value + e.rotation;
@@ -71,7 +74,7 @@ export default function MapViewer({
     .onEnd(() => {
       savedRotation.value = rotation.value;
     });
-
+ 
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
@@ -84,14 +87,39 @@ export default function MapViewer({
       rotation.value = withSpring(0);
       savedRotation.value = 0;
     });
-
+ 
+  // Single tap — calcular coordenadas del punto tocado
+  const singleTap = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd((e) => {
+      if (!onPointTap || !mapData) return;
+ 
+      // Deshacer la transformación actual para obtener coordenadas SVG
+      // (ignoramos rotación en esta primera fase)
+      const svgX = (e.x - translateX.value) / scale.value;
+      const svgY = (e.y - translateY.value) / scale.value;
+ 
+      // Convertir coordenadas SVG a píxeles del mapa
+      const pixelX = svgX / SCALE_FACTOR;
+      const pixelY = svgY / SCALE_FACTOR;
+ 
+      // Convertir píxeles a coordenadas del mundo
+      const { worldX, worldY } = pixelToWorld(
+        pixelX,
+        pixelY,
+        mapData.metadata as any
+      );
+ 
+      onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
+    });
+ 
   const gesture = Gesture.Simultaneous(
     panGesture,
     pinchGesture,
     rotationGesture,
-    doubleTap
+    Gesture.Exclusive(doubleTap, singleTap)
   );
-
+ 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
@@ -100,9 +128,9 @@ export default function MapViewer({
       { rotate: `${rotation.value}rad` },
     ],
   }));
-
+ 
   if (loading) return <MapLoadingIndicator />;
-
+ 
   if (error) {
     return (
       <View style={styles.center}>
@@ -110,7 +138,7 @@ export default function MapViewer({
       </View>
     );
   }
-
+ 
   if (!mapData) {
     return (
       <View style={styles.center}>
@@ -118,11 +146,11 @@ export default function MapViewer({
       </View>
     );
   }
-
+ 
   const { metadata, layers } = mapData;
   const svgWidth = metadata.width_px * SCALE_FACTOR;
   const svgHeight = metadata.height_px * SCALE_FACTOR;
-
+ 
   const renderLayer = (polygons: MapPolygon[], color: string) =>
     polygons.map((poly, i) => (
       <Polygon
@@ -133,7 +161,7 @@ export default function MapViewer({
         strokeWidth={1}
       />
     ));
-
+ 
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.infoBar}>
@@ -143,7 +171,7 @@ export default function MapViewer({
         </Text>
         <Text style={styles.infoHint}>Doble tap = reset</Text>
       </View>
-
+ 
       <GestureDetector gesture={gesture}>
         <View style={styles.viewport}>
           <Animated.View style={animatedStyle}>
@@ -165,7 +193,7 @@ export default function MapViewer({
     </GestureHandlerRootView>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
