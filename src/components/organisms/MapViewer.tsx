@@ -5,6 +5,7 @@ import {
   GestureDetector,
 } from 'react-native-gesture-handler';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -74,37 +75,60 @@ export default function MapViewer({
       savedRotation.value = rotation.value;
     });
 
+  // Función JS que se llama desde el worklet via runOnJS
+  const handleReset = () => {
+    scale.value = withSpring(1);
+    savedScale.value = 1;
+    translateX.value = withSpring(0);
+    translateY.value = withSpring(0);
+    savedTranslateX.value = 0;
+    savedTranslateY.value = 0;
+    rotation.value = withSpring(0);
+    savedRotation.value = 0;
+  };
+
+  const handleTap = (
+    tapX: number,
+    tapY: number,
+    currentTranslateX: number,
+    currentTranslateY: number,
+    currentScale: number
+  ) => {
+    if (!onPointTap || !mapData) return;
+
+    const svgX = (tapX - currentTranslateX) / currentScale;
+    const svgY = (tapY - currentTranslateY) / currentScale;
+
+    const pixelX = svgX / SCALE_FACTOR;
+    const pixelY = svgY / SCALE_FACTOR;
+
+    const { worldX, worldY } = pixelToWorld(
+      pixelX,
+      pixelY,
+      mapData.metadata as any
+    );
+
+    onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
+  };
+
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
-      scale.value = withSpring(1);
-      savedScale.value = 1;
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
-      rotation.value = withSpring(0);
-      savedRotation.value = 0;
+      'worklet';
+      runOnJS(handleReset)();
     });
 
   const singleTap = Gesture.Tap()
     .numberOfTaps(1)
     .onEnd((e) => {
-      if (!onPointTap || !mapData) return;
-
-      const svgX = (e.x - translateX.value) / scale.value;
-      const svgY = (e.y - translateY.value) / scale.value;
-
-      const pixelX = svgX / SCALE_FACTOR;
-      const pixelY = svgY / SCALE_FACTOR;
-
-      const { worldX, worldY } = pixelToWorld(
-        pixelX,
-        pixelY,
-        mapData.metadata as any
+      'worklet';
+      runOnJS(handleTap)(
+        e.x,
+        e.y,
+        translateX.value,
+        translateY.value,
+        scale.value
       );
-
-      onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
     });
 
   const gesture = Gesture.Simultaneous(
@@ -157,7 +181,6 @@ export default function MapViewer({
     ));
 
   return (
-    // ✅ Sin GestureHandlerRootView — ya existe en _layout.tsx
     <View style={styles.container}>
       <View style={styles.infoBar}>
         <Text style={styles.infoText}>Res: {metadata.resolution} m/px</Text>
