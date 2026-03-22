@@ -2,13 +2,12 @@
   "expo": {
     "name": "app-robot",
     "slug": "app-robot",
-    "newArchEnabled": false,  
+    "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/robotNav.png",
     "scheme": "approbot",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.approbot",
@@ -76,8 +75,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4cfe1b10-0841-4bf4-be13-9ecf522dfca6"
+        "projectId": "33992fe1-ee9a-4a38-abb8-f69a77c4019e"
       }
-    }
+    },
+    "owner": "matias_roldan"
   }
 }
