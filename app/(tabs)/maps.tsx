@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -13,8 +12,7 @@ import { useApp } from '../../lib/modules/app/context/AppContext';
 import MapCard from '../../src/components/molecules/MapCard';
 
 export default function MapsScreen() {
-  const router = useRouter();
-  const { maps, mapsLoading } = useApp();
+  const { maps, mapsLoading, selectedMapId } = useApp();
 
   return (
     <View style={styles.container}>
@@ -28,7 +26,6 @@ export default function MapsScreen() {
             resizeMode="cover"
           />
         </View>
-
         <View style={styles.titleContainer}>
           <Text style={styles.title}>¡TUS</Text>
           <Text style={styles.title}>MAPAS!</Text>
@@ -56,7 +53,11 @@ export default function MapsScreen() {
           </View>
         ) : (
           maps.map((map) => (
-            <MapCard key={map.id} map={map} />
+            <MapCard
+              key={map.id}
+              map={map}
+              isActive={map.id === selectedMapId}
+            />
           ))
         )}
       </ScrollView>
@@ -117,9 +118,7 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     gap: 12,
   },
-  emptyIcon: {
-    fontSize: 48,
-  },
+  emptyIcon: { fontSize: 48 },
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',

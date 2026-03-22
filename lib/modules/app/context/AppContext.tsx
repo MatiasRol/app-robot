@@ -1,10 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot, Route } from '../../../core/types';
-
-const CACHE_KEY_MAPS = 'cached_maps';
-const CACHE_KEY_SELECTED_MAP = 'selected_map_id';
 
 interface AppContextType {
   // Robots
@@ -14,7 +10,6 @@ interface AppContextType {
   // Mapas
   maps: MapItem[];
   mapsLoading: boolean;
-  isOffline: boolean;
   deleteMap: (mapId: string) => void;
 
   // Mapa seleccionado
@@ -45,47 +40,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [maps, setMaps] = useState<MapItem[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(false);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
 
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
-
-  // Persistir el mapa seleccionado cuando cambia
-  const setSelectedMapId = async (mapId: string | null) => {
-    setSelectedMapIdState(mapId);
-    try {
-      if (mapId) {
-        await AsyncStorage.setItem(CACHE_KEY_SELECTED_MAP, mapId);
-      } else {
-        await AsyncStorage.removeItem(CACHE_KEY_SELECTED_MAP);
-      }
-    } catch (err) {
-      console.error('Error guardando mapa seleccionado:', err);
-    }
-  };
 
   useEffect(() => {
     const fetchMaps = async () => {
       try {
         setMapsLoading(true);
 
-        // 1. Cargar caché local primero (para mostrar algo inmediatamente)
-        const cached = await AsyncStorage.getItem(CACHE_KEY_MAPS);
-        if (cached) {
-          const parsedCache: MapItem[] = JSON.parse(cached).map((item: any) => ({
-            ...item,
-            createdAt: new Date(item.createdAt),
-          }));
-          setMaps(parsedCache);
-        }
-
-        // 2. Cargar el mapa seleccionado guardado
-        const savedSelectedMapId = await AsyncStorage.getItem(CACHE_KEY_SELECTED_MAP);
-        if (savedSelectedMapId) {
-          setSelectedMapIdState(savedSelectedMapId);
-        }
-
-        // 3. Intentar cargar desde Supabase
         const { data, error } = await supabase
           .from('maps')
           .select('*')
@@ -107,17 +70,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           origin: item.origin,
           width_px: item.width_px,
           height_px: item.height_px,
+          is_active: item.is_active,
         }));
 
         setMaps(adapted);
-        setIsOffline(false);
 
-        // 4. Guardar en caché local
-        await AsyncStorage.setItem(CACHE_KEY_MAPS, JSON.stringify(adapted));
+        // Leer el mapa activo desde Supabase
+        const activeMap = adapted.find((m) => m.is_active === true);
+        if (activeMap) {
+          setSelectedMapIdState(activeMap.id);
+        }
 
       } catch (err) {
-        console.warn('Sin conexión, usando caché local:', err);
-        setIsOffline(true);
+        console.error('Error cargando mapas desde Supabase:', err);
       } finally {
         setMapsLoading(false);
       }
@@ -125,6 +90,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     fetchMaps();
   }, []);
+
+  // Cambiar mapa activo — actualiza Supabase (el trigger pone los demás en false)
+  const setSelectedMapId = async (mapId: string | null) => {
+    try {
+      if (mapId) {
+        const { error } = await supabase
+          .from('maps')
+          .update({ is_active: true })
+          .eq('id', mapId);
+
+        if (error) throw error;
+
+        // Actualizar estado local
+        setMaps((prev) =>
+          prev.map((m) => ({ ...m, is_active: m.id === mapId }))
+        );
+      } else {
+        // Desactivar todos
+        await supabase.from('maps').update({ is_active: false }).neq('id', '');
+        setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
+      }
+
+      setSelectedMapIdState(mapId);
+    } catch (err) {
+      console.error('Error actualizando mapa activo:', err);
+    }
+  };
 
   const updateRobotName = (robotId: string, newName: string) => {
     setRobots((prev) =>
@@ -136,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteMap = (mapId: string) => {
     setMaps((prev) => prev.filter((map) => map.id !== mapId));
-    if (selectedMapId === mapId) setSelectedMapId(null);
+    if (selectedMapId === mapId) setSelectedMapIdState(null);
   };
 
   const addRoute = (mapId: string, routeName: string, schedule?: string) => {
@@ -187,7 +179,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateRobotName,
         maps,
         mapsLoading,
-        isOffline,
         deleteMap,
         selectedMapId,
         setSelectedMapId,

@@ -6,9 +6,10 @@ import { MapItem } from '../../../lib/core/types';
 
 interface MapCardProps {
   map: MapItem;
+  isActive: boolean;
 }
 
-export default function MapCard({ map }: MapCardProps) {
+export default function MapCard({ map, isActive }: MapCardProps) {
   const router = useRouter();
 
   return (
@@ -19,14 +20,28 @@ export default function MapCard({ map }: MapCardProps) {
     >
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Image source={require('../../../assets/images/casa.png')}
-            style={styles.houseIcon} resizeMode="contain" />
+          <Image
+            source={require('../../../assets/images/casa.png')}
+            style={styles.houseIcon}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.info}>
-          <Text style={styles.mapName}>{map.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.mapName}>{map.name}</Text>
+            <View
+              style={[
+                styles.activeIndicator,
+                { backgroundColor: isActive ? '#4CAF50' : '#9E9E9E' },
+              ]}
+            />
+          </View>
           <View style={styles.robotInfo}>
-            <Image source={require('../../../assets/images/robotNav.png')}
-              style={styles.robotIcon} resizeMode="contain" />
+            <Image
+              source={require('../../../assets/images/robotNav.png')}
+              style={styles.robotIcon}
+              resizeMode="contain"
+            />
             <Text style={styles.robotText}>{map.size}</Text>
           </View>
         </View>
@@ -39,12 +54,37 @@ export default function MapCard({ map }: MapCardProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: Colors.surface, borderRadius: 24, padding: 20, marginBottom: 16, elevation: 4 },
+  container: {
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    elevation: 4,
+  },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  iconContainer: { width: 50, height: 50, backgroundColor: Colors.accent, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: Colors.accent,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   houseIcon: { width: 28, height: 28, tintColor: Colors.primary },
   info: { flex: 1 },
-  mapName: { fontSize: 20, fontWeight: 'bold', color: Colors.text, marginBottom: 4 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  mapName: { fontSize: 20, fontWeight: 'bold', color: Colors.text },
+  activeIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
   robotInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   robotIcon: { width: 16, height: 16, tintColor: Colors.textSecondary },
   robotText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },

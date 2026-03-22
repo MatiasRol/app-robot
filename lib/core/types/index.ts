@@ -5,7 +5,7 @@ export interface Robot {
   status: 'online' | 'offline' | 'connecting';
   battery: number;
   lastConnection?: Date;
-  currentMapId?: string; // ID del mapa que está usando
+  currentMapId?: string; 
 }
 
 export interface MapItem {
@@ -15,7 +15,7 @@ export interface MapItem {
   thumbnail: string;
   size: string;
   createdAt: Date;
-  routes: Route[]; // Rutas del mapa
+  routes: Route[]; 
 }
 
 export interface Route {
@@ -23,7 +23,7 @@ export interface Route {
   name: string;
   mapId: string;
   schedule?: string;
-  points?: RoutePoint[]; // Puntos de la ruta
+  points?: RoutePoint[]; 
 }
 
 export interface RoutePoint {
@@ -36,7 +36,7 @@ export interface ColorPaletteItem {
   color: string;
   label: string;
 }
-// Agregar a los tipos existentes:
+
 
 export interface MapLayer {
   color: string;
@@ -44,7 +44,7 @@ export interface MapLayer {
 }
 
 export interface MapPolygon {
-  exterior: [number, number][];   // coordenadas [x, y] en píxeles del mapa
+  exterior: [number, number][];   
   holes: [number, number][][];
   area: number;
 }
@@ -54,8 +54,8 @@ export interface MapVectorData {
   metadata: {
     width_px: number;
     height_px: number;
-    resolution: number;             // metros por pixel
-    origin: [number, number, number]; // [x, y, theta]
+    resolution: number;             
+    origin: [number, number, number]; 
     occupied_thresh: number;
     free_thresh: number;
   };
@@ -76,9 +76,10 @@ export interface MapItem {
   createdAt: Date;
   routes: Route[];
   png_url?: string;
-  json_url?: string;              // ← nuevo
+  json_url?: string;              
   resolution?: number;
   origin?: number[];
   width_px?: number;
   height_px?: number;
+  is_active?: boolean;
 }
