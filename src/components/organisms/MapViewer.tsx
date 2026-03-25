@@ -10,13 +10,24 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import Svg, { G, Polygon } from 'react-native-svg';
+import Svg, { G, Line, Polygon } from 'react-native-svg';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { MapPolygon, MapVectorData } from '../../../lib/core/types';
-import { pixelToWorld } from '../../../lib/core/utils/mapCoordinates';
+import { pixelToWorld, worldToSvgCoords } from '../../../lib/core/utils/mapCoordinates';
 import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
 
 const SCALE_FACTOR = 5.0;
+const ARROW_COLOR = '#00E5FF';
+
+export interface RobotPose {
+  worldX: number;
+  worldY: number;
+}
+
+export interface GoalPoint {
+  worldX: number;
+  worldY: number;
+}
 
 interface MapViewerProps {
   mapData: MapVectorData | null;
@@ -24,6 +35,8 @@ interface MapViewerProps {
   error?: string | null;
   renderOverlay?: () => React.ReactNode;
   onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
+  robotPose?: RobotPose | null;
+  goalPoint?: GoalPoint | null;
 }
 
 function pointsToSvgString(points: [number, number][], height: number): string {
@@ -32,12 +45,34 @@ function pointsToSvgString(points: [number, number][], height: number): string {
     .join(' ');
 }
 
+function arrowheadPoints(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  size: number = 22
+): string {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const tip = { x: x2, y: y2 };
+  const left = {
+    x: x2 - size * Math.cos(angle - Math.PI / 6),
+    y: y2 - size * Math.sin(angle - Math.PI / 6),
+  };
+  const right = {
+    x: x2 - size * Math.cos(angle + Math.PI / 6),
+    y: y2 - size * Math.sin(angle + Math.PI / 6),
+  };
+  return `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`;
+}
+
 export default function MapViewer({
   mapData,
   loading = false,
   error = null,
   renderOverlay,
   onPointTap,
+  robotPose = null,
+  goalPoint = null,
 }: MapViewerProps) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -75,7 +110,6 @@ export default function MapViewer({
       savedRotation.value = rotation.value;
     });
 
-  // Función JS que se llama desde el worklet via runOnJS
   const handleReset = () => {
     scale.value = withSpring(1);
     savedScale.value = 1;
@@ -98,7 +132,6 @@ export default function MapViewer({
 
     const svgX = (tapX - currentTranslateX) / currentScale;
     const svgY = (tapY - currentTranslateY) / currentScale;
-
     const pixelX = svgX / SCALE_FACTOR;
     const pixelY = svgY / SCALE_FACTOR;
 
@@ -180,6 +213,119 @@ export default function MapViewer({
       />
     ));
 
+  const renderArrow = () => {
+    if (!robotPose || !goalPoint) return null;
+
+    const from = worldToSvgCoords(
+      robotPose.worldX,
+      robotPose.worldY,
+      metadata as any,
+      SCALE_FACTOR
+    );
+    const to = worldToSvgCoords(
+      goalPoint.worldX,
+      goalPoint.worldY,
+      metadata as any,
+      SCALE_FACTOR
+    );
+
+    const ROBOT_RADIUS = 14;
+    const GOAL_RADIUS = 12;
+
+    // Acortar la línea para que no se superponga con la punta de flecha
+    const dx = to.svgX - from.svgX;
+    const dy = to.svgY - from.svgY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const shortenBy = 20;
+    const ratio = dist > shortenBy ? (dist - shortenBy) / dist : 0;
+    const lineEndX = from.svgX + dx * ratio;
+    const lineEndY = from.svgY + dy * ratio;
+
+    return (
+      <G>
+        {/* Sombra de la línea para contraste */}
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth={6}
+          strokeDasharray="12,8"
+        />
+
+        {/* Línea punteada principal */}
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke={ARROW_COLOR}
+          strokeWidth={3}
+          strokeDasharray="12,8"
+          strokeOpacity={0.95}
+        />
+
+        {/* Punta de flecha */}
+        <Polygon
+          points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)}
+          fill={ARROW_COLOR}
+          opacity={1}
+        />
+
+        {/* Robot: triángulo apuntando hacia el destino */}
+        <Polygon
+          points={`
+            ${from.svgX},${from.svgY - ROBOT_RADIUS}
+            ${from.svgX + ROBOT_RADIUS * 0.866},${from.svgY + ROBOT_RADIUS * 0.5}
+            ${from.svgX - ROBOT_RADIUS * 0.866},${from.svgY + ROBOT_RADIUS * 0.5}
+          `}
+          fill={ARROW_COLOR}
+          stroke="rgba(0,0,0,0.5)"
+          strokeWidth={2}
+        />
+
+        {/* Destino: X roja */}
+        <Line
+          x1={to.svgX - GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX + GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <Line
+          x1={to.svgX + GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX - GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <Line
+          x1={to.svgX - GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX + GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="#FF4444"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+        <Line
+          x1={to.svgX + GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX - GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="#FF4444"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+      </G>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.infoBar}>
@@ -202,6 +348,7 @@ export default function MapViewer({
                 {renderLayer(layers.free_space.polygons, layers.free_space.color)}
                 {renderLayer(layers.unknown.polygons, layers.unknown.color)}
                 {renderLayer(layers.obstacles.polygons, layers.obstacles.color)}
+                {renderArrow()}
               </G>
             </Svg>
             {renderOverlay && renderOverlay()}

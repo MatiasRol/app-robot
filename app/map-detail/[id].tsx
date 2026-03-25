@@ -20,7 +20,7 @@ import { Colors } from '../../lib/core/constants/Colors';
 import { formatDate } from '../../lib/core/utils/formatDate';
 import { useApp } from '../../lib/modules/app/context/AppContext';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
-import MapViewer from '../../src/components/organisms/MapViewer';
+import MapViewer, { GoalPoint, RobotPose } from '../../src/components/organisms/MapViewer';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;
@@ -40,7 +40,7 @@ export default function MapDetailScreen() {
   const { id } = useLocalSearchParams();
   const { getMapRoutes, addRoute, updateRoute, deleteRoute } = useApp();
 
-  // ── Mapa vectorial desde Supabase ───────────────────────────────────
+  // ── Mapa vectorial desde Supabase ────────────────────────────────────
   const {
     mapData,
     mapName,
@@ -48,8 +48,16 @@ export default function MapDetailScreen() {
     error: mapError,
   } = useMapDetail(id as string);
 
-  // ── Punto tocado ────────────────────────────────────────────────────
+  // ── Punto tocado (preview antes de confirmar) ────────────────────────
   const [tappedPoint, setTappedPoint] = useState<TappedPoint | null>(null);
+
+  // ── Punto destino confirmado (activa la flecha) ──────────────────────
+  const [goalPoint, setGoalPoint] = useState<GoalPoint | null>(null);
+
+  // ── Posición del robot ───────────────────────────────────────────────
+  // TODO: reemplazar con hook ROS cuando esté disponible
+  // Ejemplo: const { pose: robotPose } = useRobotPose();
+  const robotPose: RobotPose = { worldX: -1.5, worldY: -0.8 };
 
   const handlePointTap = (
     worldX: number,
@@ -60,18 +68,29 @@ export default function MapDetailScreen() {
     setTappedPoint({ worldX, worldY, pixelX, pixelY });
   };
 
-  // ── Bottom Sheet ────────────────────────────────────────────────────
+  const handleConfirmGoal = () => {
+    if (tappedPoint) {
+      setGoalPoint({ worldX: tappedPoint.worldX, worldY: tappedPoint.worldY });
+      setTappedPoint(null);
+    }
+  };
+
+  const handleClearGoal = () => {
+    setGoalPoint(null);
+  };
+
+  // ── Bottom Sheet ─────────────────────────────────────────────────────
   const bottomSheetAnimation = useRef(
     new Animated.Value(BOTTOM_SHEET_MIN_HEIGHT)
   ).current;
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // ── Modo de operación ───────────────────────────────────────────────
+  // ── Modo de operación ────────────────────────────────────────────────
   const [operationMode, setOperationMode] = useState<OperationMode>('vigilancia');
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<OperationMode | null>(null);
 
-  // ── Rutas ───────────────────────────────────────────────────────────
+  // ── Rutas ────────────────────────────────────────────────────────────
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
   const [newRouteName, setNewRouteName] = useState('');
   const [newRouteDate, setNewRouteDate] = useState(new Date());
@@ -86,7 +105,7 @@ export default function MapDetailScreen() {
 
   const routes = getMapRoutes(id as string);
 
-  // ── PanResponder para el Bottom Sheet ──────────────────────────────
+  // ── PanResponder para el Bottom Sheet ────────────────────────────────
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -95,7 +114,10 @@ export default function MapDetailScreen() {
         const newHeight = isExpanded
           ? BOTTOM_SHEET_MAX_HEIGHT - gestureState.dy
           : BOTTOM_SHEET_MIN_HEIGHT - gestureState.dy;
-        if (newHeight >= BOTTOM_SHEET_MIN_HEIGHT && newHeight <= BOTTOM_SHEET_MAX_HEIGHT) {
+        if (
+          newHeight >= BOTTOM_SHEET_MIN_HEIGHT &&
+          newHeight <= BOTTOM_SHEET_MAX_HEIGHT
+        ) {
           bottomSheetAnimation.setValue(newHeight);
         }
       },
@@ -106,7 +128,9 @@ export default function MapDetailScreen() {
           collapseBottomSheet();
         } else {
           Animated.spring(bottomSheetAnimation, {
-            toValue: isExpanded ? BOTTOM_SHEET_MAX_HEIGHT : BOTTOM_SHEET_MIN_HEIGHT,
+            toValue: isExpanded
+              ? BOTTOM_SHEET_MAX_HEIGHT
+              : BOTTOM_SHEET_MIN_HEIGHT,
             useNativeDriver: false,
           }).start();
         }
@@ -134,7 +158,7 @@ export default function MapDetailScreen() {
     }).start();
   };
 
-  // ── Cambio de modo ──────────────────────────────────────────────────
+  // ── Cambio de modo ───────────────────────────────────────────────────
   const handleModeChange = (newMode: OperationMode) => {
     if (newMode !== operationMode) {
       setPendingMode(newMode);
@@ -153,7 +177,7 @@ export default function MapDetailScreen() {
     setPendingMode(null);
   };
 
-  // ── Agregar ruta ────────────────────────────────────────────────────
+  // ── Agregar ruta ─────────────────────────────────────────────────────
   const handleAddRoute = () => {
     if (newRouteName.trim()) {
       const schedule = formatDate(newRouteDate);
@@ -164,8 +188,12 @@ export default function MapDetailScreen() {
     }
   };
 
-  // ── Editar ruta ─────────────────────────────────────────────────────
-  const handleEditRoute = (routeId: string, name: string, schedule?: string) => {
+  // ── Editar ruta ──────────────────────────────────────────────────────
+  const handleEditRoute = (
+    routeId: string,
+    name: string,
+    schedule?: string
+  ) => {
     setEditingRouteId(routeId);
     setEditRouteName(name);
     setEditRouteDate(new Date());
@@ -179,19 +207,23 @@ export default function MapDetailScreen() {
     }
   };
 
-  // ── Eliminar ruta ───────────────────────────────────────────────────
+  // ── Eliminar ruta ────────────────────────────────────────────────────
   const handleDeleteRoute = (routeId: string, routeName: string) => {
     Alert.alert(
       'Eliminar ruta',
       `¿Estás seguro de que deseas eliminar "${routeName}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => deleteRoute(routeId) },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => deleteRoute(routeId),
+        },
       ]
     );
   };
 
-  // ── DateTimePicker handlers ─────────────────────────────────────────
+  // ── DateTimePicker handlers ──────────────────────────────────────────
   const onChangeNewDate = (_: any, selectedDate?: Date) => {
     setShowNewDatePicker(false);
     if (selectedDate) setNewRouteDate(selectedDate);
@@ -233,12 +265,17 @@ export default function MapDetailScreen() {
           loading={mapLoading}
           error={mapError}
           onPointTap={handlePointTap}
+          robotPose={robotPose}
+          goalPoint={goalPoint}
         />
       </View>
 
       {/* ── BARRA SUPERIOR ── */}
       <View style={styles.mapNameContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
         <View style={styles.mapNameBox}>
@@ -246,7 +283,7 @@ export default function MapDetailScreen() {
         </View>
       </View>
 
-      {/* ── PANEL DE COORDENADAS ── */}
+      {/* ── PANEL DE COORDENADAS (punto tocado, pendiente de confirmar) ── */}
       {tappedPoint && (
         <View style={styles.coordPanel}>
           <View style={styles.coordHeader}>
@@ -255,13 +292,18 @@ export default function MapDetailScreen() {
               <Ionicons name="close" size={18} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
+
           <View style={styles.coordRow}>
             <Text style={styles.coordLabel}>X</Text>
-            <Text style={styles.coordValue}>{tappedPoint.worldX.toFixed(3)} m</Text>
+            <Text style={styles.coordValue}>
+              {tappedPoint.worldX.toFixed(3)} m
+            </Text>
           </View>
           <View style={styles.coordRow}>
             <Text style={styles.coordLabel}>Y</Text>
-            <Text style={styles.coordValue}>{tappedPoint.worldY.toFixed(3)} m</Text>
+            <Text style={styles.coordValue}>
+              {tappedPoint.worldY.toFixed(3)} m
+            </Text>
           </View>
           <View style={styles.coordRow}>
             <Text style={styles.coordLabel}>Píxel</Text>
@@ -269,20 +311,53 @@ export default function MapDetailScreen() {
               ({tappedPoint.pixelX}, {tappedPoint.pixelY})
             </Text>
           </View>
+
+          {/* Botón confirmar destino */}
+          <TouchableOpacity
+            style={styles.confirmGoalButton}
+            onPress={handleConfirmGoal}
+          >
+            <Ionicons name="navigate" size={14} color="#000" />
+            <Text style={styles.confirmGoalText}>Establecer como destino</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── BANNER: destino activo ── */}
+      {goalPoint && !tappedPoint && (
+        <View style={styles.goalBanner}>
+          <View style={styles.goalBannerLeft}>
+            <Ionicons name="navigate" size={16} color="#00E5FF" />
+            <Text style={styles.goalBannerText}>
+              Destino: ({goalPoint.worldX.toFixed(2)}, {goalPoint.worldY.toFixed(2)}) m
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleClearGoal}>
+            <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       )}
 
       {/* ── BOTTOM SHEET ── */}
-      <Animated.View style={[styles.bottomSheet, { height: bottomSheetAnimation }]}>
+      <Animated.View
+        style={[styles.bottomSheet, { height: bottomSheetAnimation }]}
+      >
         <View style={styles.handleContainer} {...panResponder.panHandlers}>
           <View style={styles.handle} />
         </View>
 
         {isExpanded && (
-          <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.bottomSheetContent}
+            showsVerticalScrollIndicator={false}
+          >
             <View style={styles.robotSection}>
               <View style={styles.robotInfo}>
-                <Ionicons name="hardware-chip-outline" size={20} color={Colors.textSecondary} />
+                <Ionicons
+                  name="hardware-chip-outline"
+                  size={20}
+                  color={Colors.textSecondary}
+                />
                 <Text style={styles.robotText}>Robot 1 en desplazamiento</Text>
               </View>
 
@@ -290,18 +365,36 @@ export default function MapDetailScreen() {
                 <Text style={styles.modeTitle}>Modo de operación</Text>
                 <View style={styles.modeTabs}>
                   <TouchableOpacity
-                    style={[styles.modeTab, operationMode === 'vigilancia' && styles.modeTabActive]}
+                    style={[
+                      styles.modeTab,
+                      operationMode === 'vigilancia' && styles.modeTabActive,
+                    ]}
                     onPress={() => handleModeChange('vigilancia')}
                   >
-                    <Text style={[styles.modeTabText, operationMode === 'vigilancia' && styles.modeTabTextActive]}>
+                    <Text
+                      style={[
+                        styles.modeTabText,
+                        operationMode === 'vigilancia' &&
+                          styles.modeTabTextActive,
+                      ]}
+                    >
                       Vigilancia
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modeTab, operationMode === 'servicio' && styles.modeTabActive]}
+                    style={[
+                      styles.modeTab,
+                      operationMode === 'servicio' && styles.modeTabActive,
+                    ]}
                     onPress={() => handleModeChange('servicio')}
                   >
-                    <Text style={[styles.modeTabText, operationMode === 'servicio' && styles.modeTabTextActive]}>
+                    <Text
+                      style={[
+                        styles.modeTabText,
+                        operationMode === 'servicio' &&
+                          styles.modeTabTextActive,
+                      ]}
+                    >
                       Servicio
                     </Text>
                   </TouchableOpacity>
@@ -323,33 +416,51 @@ export default function MapDetailScreen() {
               {routes.map((route) => (
                 <View key={route.id} style={styles.routeItem}>
                   <View style={styles.routeInfo}>
-                    <Ionicons name="map-outline" size={20} color={Colors.textSecondary} />
+                    <Ionicons
+                      name="map-outline"
+                      size={20}
+                      color={Colors.textSecondary}
+                    />
                     <View style={styles.routeDetails}>
                       <Text style={styles.routeName}>{route.name}</Text>
                       {route.schedule && (
-                        <Text style={styles.routeSchedule}>{route.schedule}</Text>
+                        <Text style={styles.routeSchedule}>
+                          {route.schedule}
+                        </Text>
                       )}
                     </View>
                   </View>
                   <View style={styles.routeActions}>
                     <TouchableOpacity
                       style={styles.editRouteButton}
-                      onPress={() => handleEditRoute(route.id, route.name, route.schedule)}
+                      onPress={() =>
+                        handleEditRoute(route.id, route.name, route.schedule)
+                      }
                     >
-                      <Ionicons name="pencil-outline" size={20} color={Colors.primary} />
+                      <Ionicons
+                        name="pencil-outline"
+                        size={20}
+                        color={Colors.primary}
+                      />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deleteRouteButton}
                       onPress={() => handleDeleteRoute(route.id, route.name)}
                     >
-                      <Ionicons name="trash-outline" size={20} color="#F44336" />
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color="#F44336"
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
               ))}
 
               {routes.length === 0 && (
-                <Text style={styles.noRoutesText}>No hay rutas. Toca + para agregar una.</Text>
+                <Text style={styles.noRoutesText}>
+                  No hay rutas. Toca + para agregar una.
+                </Text>
               )}
             </View>
           </ScrollView>
@@ -357,7 +468,12 @@ export default function MapDetailScreen() {
       </Animated.View>
 
       {/* ── MODAL: Agregar ruta ── */}
-      <Modal visible={showAddRouteModal} transparent animationType="fade" onRequestClose={() => setShowAddRouteModal(false)}>
+      <Modal
+        visible={showAddRouteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddRouteModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Nueva Ruta</Text>
@@ -371,35 +487,86 @@ export default function MapDetailScreen() {
             />
             <View style={styles.dateTimeContainer}>
               <Text style={styles.dateTimeLabel}>Programar inicio:</Text>
-              <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowNewDatePicker(true)}>
-                <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowNewDatePicker(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={Colors.primary}
+                />
                 <Text style={styles.dateTimeButtonText}>
-                  {newRouteDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  {newRouteDate.toLocaleDateString('es-ES', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowNewTimePicker(true)}>
-                <Ionicons name="time-outline" size={20} color={Colors.primary} />
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowNewTimePicker(true)}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={Colors.primary}
+                />
                 <Text style={styles.dateTimeButtonText}>
-                  {newRouteDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  {newRouteDate.toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => { setShowAddRouteModal(false); setNewRouteName(''); setNewRouteDate(new Date()); }}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowAddRouteModal(false);
+                  setNewRouteName('');
+                  setNewRouteDate(new Date());
+                }}
+              >
                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonConfirm} onPress={handleAddRoute}>
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={handleAddRoute}
+              >
                 <Text style={styles.modalButtonConfirmText}>Crear</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-        {showNewDatePicker && <DateTimePicker value={newRouteDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onChangeNewDate} />}
-        {showNewTimePicker && <DateTimePicker value={newRouteDate} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onChangeNewTime} />}
+        {showNewDatePicker && (
+          <DateTimePicker
+            value={newRouteDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeNewDate}
+          />
+        )}
+        {showNewTimePicker && (
+          <DateTimePicker
+            value={newRouteDate}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeNewTime}
+          />
+        )}
       </Modal>
 
       {/* ── MODAL: Editar ruta ── */}
-      <Modal visible={editingRouteId !== null} transparent animationType="fade" onRequestClose={() => setEditingRouteId(null)}>
+      <Modal
+        visible={editingRouteId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingRouteId(null)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Editar Ruta</Text>
@@ -413,31 +580,73 @@ export default function MapDetailScreen() {
             />
             <View style={styles.dateTimeContainer}>
               <Text style={styles.dateTimeLabel}>Programar inicio:</Text>
-              <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowEditDatePicker(true)}>
-                <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowEditDatePicker(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={Colors.primary}
+                />
                 <Text style={styles.dateTimeButtonText}>
-                  {editRouteDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  {editRouteDate.toLocaleDateString('es-ES', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowEditTimePicker(true)}>
-                <Ionicons name="time-outline" size={20} color={Colors.primary} />
+              <TouchableOpacity
+                style={styles.dateTimeButton}
+                onPress={() => setShowEditTimePicker(true)}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={Colors.primary}
+                />
                 <Text style={styles.dateTimeButtonText}>
-                  {editRouteDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  {editRouteDate.toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setEditingRouteId(null)}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={() => setEditingRouteId(null)}
+              >
                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonConfirm} onPress={handleSaveRoute}>
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={handleSaveRoute}
+              >
                 <Text style={styles.modalButtonConfirmText}>Guardar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-        {showEditDatePicker && <DateTimePicker value={editRouteDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onChangeEditDate} />}
-        {showEditTimePicker && <DateTimePicker value={editRouteDate} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onChangeEditTime} />}
+        {showEditDatePicker && (
+          <DateTimePicker
+            value={editRouteDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeEditDate}
+          />
+        )}
+        {showEditTimePicker && (
+          <DateTimePicker
+            value={editRouteDate}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onChangeEditTime}
+          />
+        )}
       </Modal>
 
       {/* ── ALERTA: Cambio de modo ── */}
@@ -450,10 +659,16 @@ export default function MapDetailScreen() {
               {pendingMode === 'servicio' ? 'Servicio' : 'Vigilancia'}?
             </Text>
             <View style={styles.alertButtons}>
-              <TouchableOpacity style={styles.alertButtonCancel} onPress={cancelModeChange}>
+              <TouchableOpacity
+                style={styles.alertButtonCancel}
+                onPress={cancelModeChange}
+              >
                 <Text style={styles.alertButtonCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.alertButtonConfirm} onPress={confirmModeChange}>
+              <TouchableOpacity
+                style={styles.alertButtonConfirm}
+                onPress={confirmModeChange}
+              >
                 <Text style={styles.alertButtonConfirmText}>Confirmar</Text>
               </TouchableOpacity>
             </View>
@@ -467,6 +682,8 @@ export default function MapDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   mapCanvas: { flex: 1 },
+
+  // Barra superior
   mapNameContainer: {
     position: 'absolute',
     top: 50,
@@ -504,7 +721,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.85)',
     borderRadius: 14,
     padding: 14,
-    minWidth: 180,
+    minWidth: 200,
     zIndex: 20,
     borderWidth: 1,
     borderColor: Colors.primary,
@@ -539,6 +756,49 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
+  confirmGoalButton: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  confirmGoalText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Banner de destino activo
+  goalBanner: {
+    position: 'absolute',
+    bottom: 80,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+  },
+  goalBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  goalBannerText: {
+    color: '#00E5FF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 
   // Bottom Sheet
   bottomSheet: {
@@ -553,54 +813,213 @@ const styles = StyleSheet.create({
   },
   handleContainer: { alignItems: 'center', paddingVertical: 12 },
   handle: { width: 40, height: 5, backgroundColor: '#D0D0D0', borderRadius: 3 },
-  bottomSheetContent: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
+  bottomSheetContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
   robotSection: { marginBottom: 24 },
-  robotInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  robotInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
   robotText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
   modeSelector: { marginBottom: 8 },
-  modeTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 12 },
-  modeTabs: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 25, padding: 4, elevation: 5 },
-  modeTab: { flex: 1, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
+  modeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 25,
+    padding: 4,
+    elevation: 5,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
   modeTabActive: { backgroundColor: Colors.primary },
   modeTabText: { fontSize: 14, fontWeight: '600', color: '#666' },
   modeTabTextActive: { color: '#FFFFFF' },
   routesSection: { marginBottom: 20 },
-  routesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  routesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   routesTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.text },
-  addRouteButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
-  routeItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  routeInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+  addRouteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  routeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  routeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
   routeDetails: { flex: 1 },
-  routeName: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 2 },
+  routeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 2,
+  },
   routeSchedule: { fontSize: 13, color: Colors.textSecondary },
   routeActions: { flexDirection: 'row', gap: 8 },
   editRouteButton: { padding: 8 },
   deleteRouteButton: { padding: 8 },
-  noRoutesText: { textAlign: 'center', color: Colors.textSecondary, fontSize: 14, paddingVertical: 20 },
+  noRoutesText: {
+    textAlign: 'center',
+    color: Colors.textSecondary,
+    fontSize: 14,
+    paddingVertical: 20,
+  },
 
   // Modales
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, width: '85%', maxWidth: 400 },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.text, marginBottom: 20, textAlign: 'center' },
-  modalInput: { backgroundColor: '#F5F5F5', borderRadius: 12, padding: 16, fontSize: 16, color: Colors.text, marginBottom: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.text,
+    marginBottom: 16,
+  },
   dateTimeContainer: { marginBottom: 20 },
-  dateTimeLabel: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 12 },
-  dateTimeButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 12, padding: 16, marginBottom: 12, gap: 12 },
+  dateTimeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  dateTimeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
   dateTimeButtonText: { fontSize: 16, color: Colors.text, flex: 1 },
   modalButtons: { flexDirection: 'row', gap: 12 },
-  modalButtonCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#F0F0F0', alignItems: 'center' },
-  modalButtonCancelText: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  modalButtonConfirm: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center' },
-  modalButtonConfirmText: { fontSize: 16, fontWeight: '600', color: Colors.textLight },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  modalButtonConfirm: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  modalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textLight,
+  },
 
   // Alerta
-  alertOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  alertBox: { backgroundColor: Colors.surface, borderRadius: 16, padding: 24, width: '80%', maxWidth: 350 },
-  alertTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.text, marginBottom: 12, textAlign: 'center' },
-  alertMessage: { fontSize: 14, color: Colors.textSecondary, marginBottom: 24, textAlign: 'center' },
+  alertOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  alertBox: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 350,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
   alertButtons: { flexDirection: 'row', gap: 12 },
-  alertButtonCancel: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F0F0F0', alignItems: 'center' },
-  alertButtonCancelText: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  alertButtonConfirm: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: Colors.primary, alignItems: 'center' },
-  alertButtonConfirmText: { fontSize: 16, fontWeight: '600', color: Colors.textLight },
+  alertButtonCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  alertButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  alertButtonConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+  },
+  alertButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textLight,
+  },
 });
