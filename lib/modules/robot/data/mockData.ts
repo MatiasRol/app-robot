@@ -1,6 +1,5 @@
 import { ColorPaletteItem, Robot } from '../../../core/types';
 
-// Cambiar de mockRobot a mockRobots (array)
 export const mockRobots: Robot[] = [
   {
     id: '1',

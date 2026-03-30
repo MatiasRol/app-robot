@@ -3,21 +3,17 @@ import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot, Route } from '../../../core/types';
 
 interface AppContextType {
-  // Robots
   robots: Robot[];
   updateRobotName: (robotId: string, newName: string) => void;
 
-  // Mapas
   maps: MapItem[];
   mapsLoading: boolean;
   deleteMap: (mapId: string) => void;
 
-  // Mapa seleccionado
   selectedMapId: string | null;
   setSelectedMapId: (mapId: string | null) => void;
   selectedMap: MapItem | null;
 
-  // Rutas
   addRoute: (mapId: string, routeName: string, schedule?: string) => void;
   updateRoute: (routeId: string, updates: Partial<Route>) => void;
   deleteRoute: (routeId: string) => void;
@@ -75,7 +71,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         setMaps(adapted);
 
-        // Leer el mapa activo desde Supabase
         const activeMap = adapted.find((m) => m.is_active === true);
         if (activeMap) {
           setSelectedMapIdState(activeMap.id);
@@ -91,7 +86,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchMaps();
   }, []);
 
-  // Cambiar mapa activo — actualiza Supabase (el trigger pone los demás en false)
   const setSelectedMapId = async (mapId: string | null) => {
     try {
       if (mapId) {
@@ -102,12 +96,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (error) throw error;
 
-        // Actualizar estado local
         setMaps((prev) =>
           prev.map((m) => ({ ...m, is_active: m.id === mapId }))
         );
       } else {
-        // Desactivar todos
         await supabase.from('maps').update({ is_active: false }).neq('id', '');
         setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
       }

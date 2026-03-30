@@ -1,9 +1,6 @@
 import { MapVectorData } from '../../../core/types';
 
 export class MapVectorService {
-  /**
-   * Descarga y parsea el JSON de polígonos vectoriales desde Supabase Storage.
-   */
   static async fetch(jsonUrl: string): Promise<MapVectorData> {
     const response = await fetch(jsonUrl);
     

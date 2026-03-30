@@ -123,7 +123,6 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Video de fondo */}
       {remoteStream ? (
         <RTCView
           streamURL={remoteStream.toURL()}
@@ -137,18 +136,14 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Controles superpuestos */}
       <View style={styles.overlay}>
-        {/* Barra superior */}
         <View style={styles.topBar}>
-          {/* Botón de regresar - Izquierda */}
           <View style={styles.leftSection}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
-          {/* Tabs de modo - Derecha */}
           <View style={styles.rightSection}>
             <View style={styles.tabs}>
               <TouchableOpacity
@@ -182,7 +177,6 @@ export default function CameraScreen() {
           </View>
         </View>
 
-        {/* Joystick - Solo en modo control */}
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <JoystickControl
@@ -194,7 +188,6 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {/* Modal de error */}
       {showConnectionError && (
         <Modal
           visible={showConnectionError}
@@ -238,7 +231,6 @@ export default function CameraScreen() {
         </Modal>
       )}
 
-      {/* Modal de cambio de modo */}
       {showModeAlert && (
         <Modal
           visible={showModeAlert}

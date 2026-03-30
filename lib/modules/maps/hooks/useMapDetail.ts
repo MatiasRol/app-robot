@@ -1,8 +1,3 @@
-/**
- * Hook para cargar el detalle completo de un mapa:
- * metadata desde Supabase + polígonos vectoriales desde Storage
- */
-
 import { useEffect, useState } from 'react';
 import { MapVectorData } from '../../../core/types';
 import { MapVectorService } from '../services/MapVectorService';
