@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Image, StyleSheet } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
+
 export default function TabLayout() {
   return (
     <Tabs
@@ -30,32 +31,36 @@ export default function TabLayout() {
           title: 'Principal',
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../assets/images/robotNav.png')}
-              style={[
-                styles.tabIcon,
-                { tintColor: focused ? Colors.primary : '#6F7075' }
-              ]}
+              source={
+                focused
+                  ? require('../../assets/images/robotNavSelecc.png')
+                  : require('../../assets/images/robotNav.png')
+              }
+              style={styles.tabIcon}
               resizeMode="contain"
             />
           ),
         }}
       />
+
       <Tabs.Screen
         name="maps"
         options={{
           title: 'Mapas',
           tabBarIcon: ({ focused }) => (
             <Image
-              source={require('../../assets/images/mapaNav.png')}
-              style={[
-                styles.tabIcon,
-                { tintColor: focused ? Colors.primary : '#6F7075' }
-              ]}
+              source={
+                focused
+                  ? require('../../assets/images/mapaNavSelecc.png')
+                  : require('../../assets/images/mapaNav.png')
+              }
+              style={styles.tabIcon}
               resizeMode="contain"
             />
           ),
         }}
       />
+
       <Tabs.Screen
         name="camera"
         options={{
@@ -63,6 +68,7 @@ export default function TabLayout() {
           href: null,
         }}
       />
+
       <Tabs.Screen
         name="profile"
         options={{

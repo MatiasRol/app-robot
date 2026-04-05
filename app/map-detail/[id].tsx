@@ -1,18 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
 import { useMapRoutes } from '../../lib/modules/maps/hooks/useMapRoutes';
 import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
-import MapViewer, { GoalPoint, RobotPose } from '../../src/components/organisms/MapViewer';
 import { CoordPanel, TappedPoint } from '../../src/components/molecules/CoordPanel';
 import { GoalBanner } from '../../src/components/molecules/GoalBanner';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import { RouteModal } from '../../src/components/molecules/RouteModal';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
+import MapViewer, { GoalPoint, RobotPose } from '../../src/components/organisms/MapViewer';
+
 
 const robotPose: RobotPose = { worldX: -1.5, worldY: -0.8 };
 
@@ -29,7 +29,12 @@ export default function MapDetailScreen() {
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
 
-  const handlePointTap = (worldX: number, worldY: number, pixelX: number, pixelY: number) => {
+  const handlePointTap = (
+    worldX: number,
+    worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
     setTappedPoint({ worldX, worldY, pixelX, pixelY });
   };
 
@@ -42,7 +47,8 @@ export default function MapDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Map */}
+
+      {/* Map — full screen */}
       <View style={styles.mapCanvas}>
         <MapViewer
           mapData={mapData}
@@ -54,15 +60,13 @@ export default function MapDetailScreen() {
         />
       </View>
 
-      {/* Top bar */}
-      <View style={styles.mapNameContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.mapNameBox}>
-          <Text style={styles.mapNameText}>{mapName || `Mapa ${id}`}</Text>
-        </View>
-      </View>
+    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <Image
+        source={require('../../assets/images/regreso.png')}
+        style={{ width: 40, height: 40 }}
+        resizeMode="contain"
+      />
+    </TouchableOpacity>
 
       {/* Overlays */}
       <CoordPanel
@@ -77,6 +81,7 @@ export default function MapDetailScreen() {
 
       {/* Bottom sheet */}
       <MapBottomSheet
+        mapName={mapName || `Mapa ${id}`}
         bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
         isExpanded={bottomSheet.isExpanded}
         panHandlers={bottomSheet.panHandlers}
@@ -99,34 +104,25 @@ export default function MapDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  mapCanvas: { flex: 1 },
-  mapNameContainer: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    zIndex: 10,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  mapCanvas: {
+    flex: 1,
   },
   backButton: {
+    position: 'absolute',
+    top: 52,
+    left: 16,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surface + 'CC',  // semi-transparente
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: Colors.divider + '40',
   },
-  mapNameBox: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    elevation: 3,
-  },
-  mapNameText: { fontSize: 16, fontWeight: '600', color: Colors.text },
 });

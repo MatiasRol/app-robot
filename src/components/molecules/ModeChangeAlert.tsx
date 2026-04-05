@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
-import { OperationMode } from '../../../lib/modules/maps/hooks/useOperationMode';
+import { OperationMode } from 'lib/modules/maps/hooks/useOperationMode';
 
 interface ModeChangeAlertProps {
   visible: boolean;
@@ -24,7 +24,10 @@ export function ModeChangeAlert({
         <Text style={styles.title}>Cambiar modo de operación</Text>
         <Text style={styles.message}>
           ¿Estás seguro de que deseas cambiar al modo{' '}
-          {pendingMode === 'servicio' ? 'Servicio' : 'Vigilancia'}?
+          <Text style={styles.highlight}>
+            {pendingMode === 'servicio' ? 'Servicio' : 'Vigilancia'}
+          </Text>
+          ?
         </Text>
         <View style={styles.buttons}>
           <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
@@ -42,21 +45,23 @@ export function ModeChangeAlert({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   box: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     width: '80%',
-    maxWidth: 350,
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: Colors.divider + '40',
   },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 12,
     textAlign: 'center',
@@ -66,22 +71,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  highlight: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
   buttons: { flexDirection: 'row', gap: 12 },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
+    paddingVertical: 13,
+    borderRadius: 10,
+    backgroundColor: Colors.button,
     alignItems: 'center',
   },
-  cancelText: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  cancelText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
   confirmBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 13,
+    borderRadius: 10,
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  confirmText: { fontSize: 16, fontWeight: '600', color: Colors.textLight },
+  confirmText: { fontSize: 15, fontWeight: '600', color: Colors.text },
 });

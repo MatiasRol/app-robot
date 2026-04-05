@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
 
@@ -34,7 +34,6 @@ export function RouteModal({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Sync when modal opens with fresh initial values
   useEffect(() => {
     if (visible) {
       setName(initialName);
@@ -63,12 +62,7 @@ export function RouteModal({
   const confirmLabel = mode === 'add' ? 'Crear' : 'Guardar';
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
         <View style={styles.content}>
           <Text style={styles.title}>{title}</Text>
@@ -76,21 +70,21 @@ export function RouteModal({
           <TextInput
             style={styles.input}
             placeholder="Nombre de la ruta"
-            placeholderTextColor={Colors.textSecondary}
+            placeholderTextColor={Colors.textMuted}
             value={name}
             onChangeText={setName}
             autoFocus
           />
 
-          <View style={styles.dateTimeContainer}>
-            <Text style={styles.dateTimeLabel}>Programar inicio:</Text>
+          <View style={styles.dateBlock}>
+            <Text style={styles.dateLabel}>Programar inicio:</Text>
 
             <TouchableOpacity
-              style={styles.dateTimeButton}
+              style={styles.dateBtn}
               onPress={() => setShowDatePicker(true)}
             >
               <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-              <Text style={styles.dateTimeButtonText}>
+              <Text style={styles.dateBtnText}>
                 {date.toLocaleDateString('es-ES', {
                   weekday: 'short',
                   day: 'numeric',
@@ -101,11 +95,11 @@ export function RouteModal({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.dateTimeButton}
+              style={styles.dateBtn}
               onPress={() => setShowTimePicker(true)}
             >
               <Ionicons name="time-outline" size={20} color={Colors.primary} />
-              <Text style={styles.dateTimeButtonText}>
+              <Text style={styles.dateBtnText}>
                 {date.toLocaleTimeString('es-ES', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -151,58 +145,64 @@ export function RouteModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   content: {
     backgroundColor: Colors.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
-    width: '85%',
+    width: '88%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: Colors.divider + '40',
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 20,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: Colors.background,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     color: Colors.text,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider + '40',
   },
-  dateTimeContainer: { marginBottom: 20 },
-  dateTimeLabel: {
-    fontSize: 14,
+  dateBlock: { marginBottom: 20 },
+  dateLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 12,
+    color: Colors.textSecondary,
+    marginBottom: 10,
   },
-  dateTimeButton: {
+  dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: Colors.background,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
     gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.divider + '40',
   },
-  dateTimeButtonText: { fontSize: 16, color: Colors.text, flex: 1 },
+  dateBtnText: { fontSize: 15, color: Colors.text, flex: 1 },
   buttons: { flexDirection: 'row', gap: 12 },
   cancelBtn: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: Colors.button,
     alignItems: 'center',
   },
-  cancelText: { fontSize: 16, fontWeight: '600', color: Colors.text },
+  cancelText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
   confirmBtn: {
     flex: 1,
     paddingVertical: 14,
@@ -210,5 +210,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  confirmText: { fontSize: 16, fontWeight: '600', color: Colors.textLight },
+  confirmText: { fontSize: 15, fontWeight: '600', color: Colors.text },
 });

@@ -1,38 +1,37 @@
 export const Colors = {
-  // Colores principales de tu paleta
-  primary: '#6DA6B9',        // Color turquesa principal
-  secondary: '#326B7E',      // Azul oscuro
-  accent: '#ADE2E0',         // Turquesa claro
-  
-  // Fondos
-  background: '#3A3E47',     // Fondo oscuro principal
-  darkBackground: '#252932', // Fondo más oscuro
-  surface: '#FFFFFF',        // Superficie blanca (tarjetas)
-  card: '#E8E8E8',          // Fondo de tarjetas secundarias
-  
-  // Textos
-  text: '#000000',           // Texto principal negro
-  textLight: '#FFFFFF',      // Texto blanco
-  textSecondary: '#6F7075',  // Texto secundario gris
-  
-  // Estados
-  success: '#4CAF50',        // Verde para éxito
-  error: '#F44336',          // Rojo para errores
-  warning: '#FF9800',        // Naranja para advertencias
-  
-  // Otros
-  border: '#E0E0E0',
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  
-  // Paleta completa para referencia
-  palette: {
-    gray1: '#6F7075',
-    gray2: '#252932',
-    gray3: '#3A3E47',
-    turquoise: '#ADE2E0',
-    blue: '#6DA6B9',
-    darkBlue: '#326B7E',
-    white: '#FFFFFF',
-    lightGray: '#E8E8E8',
-  }
+  // ── Fondos ──────────────────────────────────────────────
+  background: '#0D111C',       // Fondo principal
+  surface: '#131928',          // Cards / Bottom sheets
+  surfaceElevated: '#1A2235',  // Elementos sobre surface
+
+  // ── Primarios ───────────────────────────────────────────
+  primary: '#3074E9',          // Botón nav seleccionado / acento principal
+  primaryDark: '#124BAF',      // Variante oscura del primario
+  button: '#19335D',           // Botones de acción secundarios
+  logo: '#0D1E47',             // Color logo
+
+  // ── Mapa ────────────────────────────────────────────────
+  mapBorder: '#6DA6B9',        // Bordes del mapa (teal)
+  mapBorderDark: '#326B7E',    // Bordes mapa variante oscura
+
+  // ── Texto ───────────────────────────────────────────────
+  text: '#FFFFFF',
+  textSecondary: '#9DC1FF',    // Detalle claro / texto secundario
+  textMuted: '#6F7075',        // Texto deshabilitado
+  textLight: '#FFFFFF',
+
+  // ── UI ──────────────────────────────────────────────────
+  divider: '#777777',          // Líneas divisoras
+  inactive: '#3A3E47',         // Íconos / elementos inactivos
+  dark: '#252932',
+
+  // ── Estado ──────────────────────────────────────────────
+  danger: '#F44336',
+  success: '#4CAF50',
+
+  // ── UI adicional ─────────────────────────────────────────
+error: '#F44336',        // mismo valor que danger
+card: '#131928',         // mismo valor que surface
+accent: '#1A2235',       // mismo valor que surfaceElevated
+border: '#3A3E47',       // mismo valor que inactive
 };

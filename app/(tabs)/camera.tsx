@@ -3,7 +3,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
@@ -140,7 +140,11 @@ export default function CameraScreen() {
         <View style={styles.topBar}>
           <View style={styles.leftSection}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
+              <Image
+                source={require('../../assets/images/regresoCamara.png')}
+                style={{ width: 50, height: 50 }}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           </View>
 
@@ -180,7 +184,7 @@ export default function CameraScreen() {
         {mode === 'control' && (
           <View style={styles.joystickContainer}>
             <JoystickControl
-             size={220}
+              size={220}
               onMove={handleJoystickMove}
               onStop={handleJoystickStop}
             />
@@ -413,6 +417,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   
+  
   // Joystick
   joystickContainer: {
     position: 'absolute',
@@ -539,4 +544,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  
 });

@@ -3,7 +3,7 @@ import { Animated, Dimensions, PanResponder } from 'react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export const BOTTOM_SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.7;
-export const BOTTOM_SHEET_MIN_HEIGHT = 60;
+export const BOTTOM_SHEET_MIN_HEIGHT = 110;
 
 export function useBottomSheet() {
   const bottomSheetAnimation = useRef(

@@ -15,13 +15,13 @@ export function GoalBanner({ goalPoint, onClear }: GoalBannerProps) {
   return (
     <View style={styles.banner}>
       <View style={styles.left}>
-        <Ionicons name="navigate" size={16} color="#00E5FF" />
+        <Ionicons name="navigate" size={16} color={Colors.mapBorder} />
         <Text style={styles.text}>
           Destino: ({goalPoint.worldX.toFixed(2)}, {goalPoint.worldY.toFixed(2)}) m
         </Text>
       </View>
-      <TouchableOpacity onPress={onClear}>
-        <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+      <TouchableOpacity onPress={onClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
       </TouchableOpacity>
     </View>
   );
@@ -36,13 +36,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    backgroundColor: Colors.surface + 'F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     zIndex: 20,
     borderWidth: 1,
-    borderColor: '#00E5FF',
+    borderColor: Colors.mapBorder + '80',
   },
   left: {
     flexDirection: 'row',
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   text: {
-    color: '#00E5FF',
+    color: Colors.mapBorder,
     fontSize: 13,
     fontWeight: '600',
   },

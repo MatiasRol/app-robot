@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
-import { CoordRow } from '../atoms/CoordRow';
 
 export interface TappedPoint {
   worldX: number;
@@ -24,7 +23,7 @@ export function CoordPanel({ point, onClose, onConfirmGoal }: CoordPanelProps) {
     <View style={styles.panel}>
       <View style={styles.header}>
         <Text style={styles.title}>📍 Punto seleccionado</Text>
-        <TouchableOpacity onPress={onClose}>
+        <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="close" size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -33,10 +32,19 @@ export function CoordPanel({ point, onClose, onConfirmGoal }: CoordPanelProps) {
       <CoordRow label="Y" value={`${point.worldY.toFixed(3)} m`} />
       <CoordRow label="Píxel" value={`(${point.pixelX}, ${point.pixelY})`} />
 
-      <TouchableOpacity style={styles.confirmButton} onPress={onConfirmGoal}>
-        <Ionicons name="navigate" size={14} color="#000" />
+      <TouchableOpacity style={styles.confirmBtn} onPress={onConfirmGoal}>
+        <Ionicons name="navigate" size={14} color={Colors.text} />
         <Text style={styles.confirmText}>Establecer como destino</Text>
       </TouchableOpacity>
+    </View>
+  );
+}
+
+function CoordRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value}>{value}</Text>
     </View>
   );
 }
@@ -46,13 +54,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 80,
     left: 16,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    borderRadius: 14,
-    padding: 14,
-    minWidth: 200,
+    backgroundColor: Colors.surface + 'F0',
+    borderRadius: 16,
+    padding: 16,
+    minWidth: 210,
     zIndex: 20,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: Colors.primary + '80',
   },
   header: {
     flexDirection: 'row',
@@ -61,22 +69,41 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    color: Colors.primary,
+    color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
-  confirmButton: {
-    marginTop: 10,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+    gap: 12,
+  },
+  label: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    width: 40,
+  },
+  value: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+  },
+  confirmBtn: {
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     gap: 6,
   },
   confirmText: {
-    color: '#000',
+    color: Colors.text,
     fontSize: 12,
     fontWeight: '700',
   },

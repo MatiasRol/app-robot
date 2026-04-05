@@ -1,97 +1,86 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
 export default function ConnectingScreen() {
   const router = useRouter();
-  const { robotName = 'Robot 1' } = useLocalSearchParams();
-  const [dots, setDots] = useState('');
 
   const {
-    connectToRobot,
-    disconnectFromRobot,
-    connectionStatus,
-    isConnecting,
+    remoteStream,
     errorMessage,
     showConnectionError,
+    handleRetryConnection,
+    handleCancelConnection,
   } = useCameraConnectionContext();
 
-  // Animación de puntos suspensivos
+  // Cuando el stream esté listo → navega a la cámara
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDots(prev => (prev === '...' ? '' : prev + '.'));
-    }, 500);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Iniciar conexión al montar
-  useEffect(() => {
-    connectToRobot();
-  }, []);
-
-  // Navegar a cámara cuando el video esté conectado
-  useEffect(() => {
-    if (connectionStatus.video === 'connected') {
-      router.replace('/camera');
+    if (remoteStream) {
+      router.replace('/(tabs)/camera');
     }
-  }, [connectionStatus.video]);
+  }, [remoteStream]);
 
-  const handleRetry = () => {
-    connectToRobot();
-  };
-
-  const handleGoBack = () => {
-    disconnectFromRobot();
+  const handleCancel = () => {
+    handleCancelConnection();
     router.back();
   };
 
-  const hasFailed = showConnectionError ||
-    (connectionStatus.video === 'failed' && connectionStatus.commands === 'failed' && !isConnecting);
-
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
 
-        {/* Icono del robot */}
-        <View style={styles.robotIconContainer}>
-          <Image
-            source={require('../assets/images/robotNavSelecc.png')}
-            style={styles.robotIcon}
-            resizeMode="contain"
-          />
-        </View>
-
-        {!hasFailed ? (
-          <>
-            {/* Estado: conectando */}
-            <Text style={styles.connectingText}>Conectando a{dots}</Text>
-            <Text style={styles.robotName}>{robotName}</Text>
-          </>
-        ) : (
-          <>
-            {/* Estado: error */}
-            <Ionicons name="warning-outline" size={40} color="#FF9800" style={styles.warningIcon} />
-            <Text style={styles.errorTitle}>Error de conexión</Text>
-            <Text style={styles.errorMessage}>
-              {errorMessage || 'No se pudo conectar al robot.'}{'\n'}
-              Verifica que las Raspberry Pi estén encendidas.
-            </Text>
-
-            <View style={styles.errorButtons}>
-              <TouchableOpacity style={styles.buttonCancel} onPress={handleGoBack}>
-                <Text style={styles.buttonCancelText}>Volver</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.buttonRetry} onPress={handleRetry}>
-                <Text style={styles.buttonRetryText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
+      {/* Logo */}
+      <View style={styles.logoWrap}>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
+
+      {/* Spinner o error */}
+      {showConnectionError ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>
+            {errorMessage || 'No se pudo conectar al robot'}
+          </Text>
+          <Text style={styles.errorHint}>
+            Verifica que las Raspberry Pi estén encendidas.
+          </Text>
+          <View style={styles.errorButtons}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleRetryConnection}>
+              <Text style={styles.retryText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <>
+          <ActivityIndicator
+            size="large"
+            color={Colors.primary}
+            style={styles.spinner}
+          />
+          <View style={styles.textWrap}>
+            <Text style={styles.label}>Conectando a ...</Text>
+            <Text style={styles.robotName}>Robot 1</Text>
+            <TouchableOpacity onPress={handleCancel} style={styles.cancelLink}>
+              <Text style={styles.cancelLinkText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
     </View>
   );
 }
@@ -99,87 +88,103 @@ export default function ConnectingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'rgba(58, 62, 71, 0.95)',
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    gap: 28,
   },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 28,
-    padding: 48,
+
+  // Logo
+  logoWrap: {
+    width: 90,
+    height: 90,
+    borderRadius: 22,
+    backgroundColor: Colors.logo,
+    justifyContent: 'center',
     alignItems: 'center',
-    width: '90%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
+    overflow: 'hidden',
   },
-  robotIconContainer: {
-    marginBottom: 32,
+  logo: {
+    width: 72,
+    height: 72,
   },
-  robotIcon: {
-    width: 140,
-    height: 140,
+
+  // Spinner
+  spinner: {
+    marginVertical: 4,
   },
-  connectingText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-    fontWeight: '500',
+
+  // Texto conectando
+  textWrap: {
+    alignItems: 'center',
+    gap: 6,
   },
-  robotName: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  warningIcon: {
-    marginBottom: 12,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  errorMessage: {
+  label: {
     fontSize: 14,
     color: Colors.textSecondary,
+    fontWeight: '400',
+  },
+  robotName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  cancelLink: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  cancelLinkText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textDecorationLine: 'underline',
+  },
+
+  // Error
+  errorWrap: {
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.danger,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 28,
+  },
+  errorHint: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   errorButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 8,
   },
-  buttonCancel: {
-    flex: 1,
-    paddingVertical: 14,
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 28,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.textSecondary,
+    backgroundColor: Colors.button,
     alignItems: 'center',
   },
-  buttonCancelText: {
-    color: Colors.textSecondary,
-    fontWeight: '600',
+  cancelText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
-  buttonRetry: {
-    flex: 1,
-    paddingVertical: 14,
+  retryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 28,
     borderRadius: 12,
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  buttonRetryText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+  retryText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
   },
 });
