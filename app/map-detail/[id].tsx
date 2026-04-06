@@ -7,9 +7,8 @@ import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
 import { useMapRoutes } from '../../lib/modules/maps/hooks/useMapRoutes';
 import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
+import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
-import { RouteModal } from '../../src/components/molecules/RouteModal';
-import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
@@ -63,7 +62,20 @@ export default function MapDetailScreen() {
         />
       </TouchableOpacity>
 
-      {/* TAREA 2 — Botones flotantes (placeholder hasta implementar) */}
+      {mapMode === 'idle' && (
+      <View style={styles.floatingButtons}>
+        <MapActionButton
+          label="RUTAS"
+          icon={require('../../assets/images/ruta.png')}
+          onPress={() => setMapMode('route_list')}
+        />
+        <MapActionButton
+          label="NAVEGAR"
+          icon={require('../../assets/images/mapMark.png')}
+          onPress={() => setMapMode('navigate')}
+        />
+      </View>
+      )}
       {/* TAREA 4 — Modo navegar UI (placeholder) */}
       {/* TAREA 6 — Bottom sheet rutas (placeholder) */}
 
@@ -86,4 +98,14 @@ const styles = StyleSheet.create({
     left: 16,
     zIndex: 10,
   },
+  floatingButtons: {
+  position: 'absolute',
+  bottom: 48,
+  left: 0,
+  right: 0,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  gap: 16,
+  zIndex: 10,
+},
 });
