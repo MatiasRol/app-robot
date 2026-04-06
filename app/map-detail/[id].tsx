@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode, WaypointPoint } from '../../lib/core/types';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
@@ -10,6 +10,7 @@ import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode'
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
+import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode'; // ✅ import agregado
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
@@ -18,6 +19,8 @@ export default function MapDetailScreen() {
   const { id } = useLocalSearchParams();
 
   const { mapData, mapName, loading: mapLoading, error: mapError } = useMapDetail(id as string);
+
+  const navigate = useNavigateMode(); // ✅ hook agregado
 
   // ── Modo del mapa ────────────────────────────────────────
   const [mapMode, setMapMode] = useState<MapMode>('idle');
@@ -40,6 +43,22 @@ export default function MapDetailScreen() {
     setRouteWaypoints([]);
   };
 
+  // ✅ reemplazo de handlePointTap
+  const handleMapTap = (
+    worldX: number,
+    worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
+    if (mapMode === 'navigate') {
+      if (!navigate.navPoint) {
+        navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
+      } else if (!navigate.navPoint.confirmed) {
+        navigate.handleSecondTap(pixelX, pixelY);
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
 
@@ -50,6 +69,8 @@ export default function MapDetailScreen() {
           loading={mapLoading}
           error={mapError}
           robotPose={robotPose}
+          onPointTap={handleMapTap} // ✅ agregado
+          waypoints={navigate.navPoint ? [navigate.navPoint] : []} // ✅ agregado
         />
       </View>
 
@@ -63,20 +84,55 @@ export default function MapDetailScreen() {
       </TouchableOpacity>
 
       {mapMode === 'idle' && (
-      <View style={styles.floatingButtons}>
-        <MapActionButton
-          label="RUTAS"
-          icon={require('../../assets/images/ruta.png')}
-          onPress={() => setMapMode('route_list')}
-        />
-        <MapActionButton
-          label="NAVEGAR"
-          icon={require('../../assets/images/mapMark.png')}
-          onPress={() => setMapMode('navigate')}
-        />
-      </View>
+        <View style={styles.floatingButtons}>
+          <MapActionButton
+            label="RUTAS"
+            icon={require('../../assets/images/ruta.png')}
+            onPress={() => setMapMode('route_list')}
+          />
+          <MapActionButton
+            label="NAVEGAR"
+            icon={require('../../assets/images/mapMark.png')}
+            onPress={() => setMapMode('navigate')}
+          />
+        </View>
       )}
-      {/* TAREA 4 — Modo navegar UI (placeholder) */}
+
+      {/* ✅ TAREA 4 reemplazada */}
+      {mapMode === 'navigate' && (
+        <View style={styles.navigateBar}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              navigate.reset();
+              setMapMode('idle');
+            }}
+          >
+            <Text style={styles.cancelText}>CANCELAR</Text>
+          </TouchableOpacity>
+
+          {navigate.navPoint?.confirmed && (
+            <TouchableOpacity
+              style={styles.navigateButton}
+              onPress={() => {
+                navigate.reset();
+                setMapMode('idle');
+              }}
+            >
+              <Text style={styles.navigateText}>NAVEGAR</Text>
+            </TouchableOpacity>
+          )}
+
+          <Text style={styles.navigateHint}>
+            {!navigate.navPoint
+              ? 'Selecciona un punto de navegación'
+              : !navigate.navPoint.confirmed
+              ? 'Toca de nuevo para fijar la orientación'
+              : 'Listo para navegar'}
+          </Text>
+        </View>
+      )}
+
       {/* TAREA 6 — Bottom sheet rutas (placeholder) */}
 
       <ModeChangeAlert {...opMode.alertProps} />
@@ -99,13 +155,57 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   floatingButtons: {
-  position: 'absolute',
-  bottom: 48,
-  left: 0,
-  right: 0,
-  flexDirection: 'row',
-  justifyContent: 'center',
-  gap: 16,
-  zIndex: 10,
-},
+    position: 'absolute',
+    bottom: 48,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    zIndex: 10,
+  },
+
+  // ✅ estilos agregados
+  navigateBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingBottom: 40,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    gap: 12,
+    flexDirection: 'column',
+  },
+  cancelButton: {
+    backgroundColor: Colors.surface,
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  cancelText: {
+    color: Colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  navigateButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+  },
+  navigateText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  navigateHint: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });

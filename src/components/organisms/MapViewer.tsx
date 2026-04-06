@@ -12,10 +12,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, G, Line, Polygon } from 'react-native-svg';
 import { Colors } from '../../../lib/core/constants/Colors';
-import { MapPolygon, MapVectorData } from '../../../lib/core/types';
+import { MapPolygon, MapVectorData, WaypointPoint } from '../../../lib/core/types';
 import { pixelToWorld, worldToSvgCoords } from '../../../lib/core/utils/mapCoordinates';
 import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
-
+import WaypointMarker from '../atoms/WaypointMarker'; // ✅ agregado
 
 const SCALE_FACTOR = 5.0;
 const ARROW_COLOR = '#00E5FF';
@@ -38,6 +38,7 @@ interface MapViewerProps {
   onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
   robotPose?: RobotPose | null;
   goalPoint?: GoalPoint | null;
+  waypoints?: WaypointPoint[];
 }
 
 function pointsToSvgString(points: [number, number][], height: number): string {
@@ -74,6 +75,7 @@ export default function MapViewer({
   onPointTap,
   robotPose = null,
   goalPoint = null,
+  waypoints = [],
 }: MapViewerProps) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -230,10 +232,8 @@ export default function MapViewer({
       SCALE_FACTOR
     );
 
-    const ROBOT_RADIUS = 14;
     const GOAL_RADIUS = 12;
 
-    // Acortar la línea para que no se superponga con la punta de flecha
     const dx = to.svgX - from.svgX;
     const dy = to.svgY - from.svgY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -244,88 +244,13 @@ export default function MapViewer({
 
     return (
       <G>
-        {/* Sombra de la línea para contraste */}
-        <Line
-          x1={from.svgX}
-          y1={from.svgY}
-          x2={lineEndX}
-          y2={lineEndY}
-          stroke="rgba(0,0,0,0.4)"
-          strokeWidth={6}
-          strokeDasharray="12,8"
-        />
-
-        {/* Línea punteada principal */}
-        <Line
-          x1={from.svgX}
-          y1={from.svgY}
-          x2={lineEndX}
-          y2={lineEndY}
-          stroke={ARROW_COLOR}
-          strokeWidth={3}
-          strokeDasharray="12,8"
-          strokeOpacity={0.95}
-        />
-
-        {/* Punta de flecha */}
-        <Polygon
-          points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)}
-          fill={ARROW_COLOR}
-          opacity={1}
-        />
-
-        {/* Robot: círculo blanco + círculo amarillo */}
-        <Circle
-          cx={from.svgX}
-          cy={from.svgY}
-          r={14}
-          fill="#FFFFFF"
-          opacity={0.95}
-        />
-        <Circle
-          cx={from.svgX}
-          cy={from.svgY}
-          r={9}
-          fill="#FFD600"
-        />
-
-        {/* Destino: X roja */}
-        <Line
-          x1={to.svgX - GOAL_RADIUS}
-          y1={to.svgY - GOAL_RADIUS}
-          x2={to.svgX + GOAL_RADIUS}
-          y2={to.svgY + GOAL_RADIUS}
-          stroke="rgba(0,0,0,0.4)"
-          strokeWidth={6}
-          strokeLinecap="round"
-        />
-        <Line
-          x1={to.svgX + GOAL_RADIUS}
-          y1={to.svgY - GOAL_RADIUS}
-          x2={to.svgX - GOAL_RADIUS}
-          y2={to.svgY + GOAL_RADIUS}
-          stroke="rgba(0,0,0,0.4)"
-          strokeWidth={6}
-          strokeLinecap="round"
-        />
-        <Line
-          x1={to.svgX - GOAL_RADIUS}
-          y1={to.svgY - GOAL_RADIUS}
-          x2={to.svgX + GOAL_RADIUS}
-          y2={to.svgY + GOAL_RADIUS}
-          stroke="#FF4444"
-          strokeWidth={4}
-          strokeLinecap="round"
-        />
-        <Line
-          x1={to.svgX + GOAL_RADIUS}
-          y1={to.svgY - GOAL_RADIUS}
-          x2={to.svgX - GOAL_RADIUS}
-          y2={to.svgY + GOAL_RADIUS}
-          stroke="#FF4444"
-          strokeWidth={4}
-          strokeLinecap="round"
-        />
+        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke="rgba(0,0,0,0.4)" strokeWidth={6} strokeDasharray="12,8" />
+        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke={ARROW_COLOR} strokeWidth={3} strokeDasharray="12,8" strokeOpacity={0.95} />
+        <Polygon points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)} fill={ARROW_COLOR} />
+        <Circle cx={from.svgX} cy={from.svgY} r={14} fill="#FFFFFF" opacity={0.95} />
+        <Circle cx={from.svgX} cy={from.svgY} r={9} fill="#FFD600" />
+        <Line x1={to.svgX - GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX + GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
+        <Line x1={to.svgX + GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX - GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
       </G>
     );
   };
@@ -334,20 +259,14 @@ export default function MapViewer({
     <View style={styles.container}>
       <View style={styles.infoBar}>
         <Text style={styles.infoText}>Res: {metadata.resolution} m/px</Text>
-        <Text style={styles.infoText}>
-          {metadata.width_px} × {metadata.height_px} px
-        </Text>
+        <Text style={styles.infoText}>{metadata.width_px} × {metadata.height_px} px</Text>
         <Text style={styles.infoHint}>Doble tap = reset</Text>
       </View>
 
       <GestureDetector gesture={gesture}>
         <View style={styles.viewport}>
           <Animated.View style={animatedStyle}>
-            <Svg
-              width={svgWidth}
-              height={svgHeight}
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            >
+            <Svg width={svgWidth} height={svgHeight}>
               <G>
                 {renderLayer(layers.free_space.polygons, layers.free_space.color)}
                 {renderLayer(layers.unknown.polygons, layers.unknown.color)}
@@ -355,7 +274,24 @@ export default function MapViewer({
                 {renderArrow()}
               </G>
             </Svg>
+
             {renderOverlay && renderOverlay()}
+
+            {/* Overlay de waypoints */}
+            {waypoints.map((wp, i) => {
+              const svgX = wp.pixelX * SCALE_FACTOR;
+              const svgY = wp.pixelY * SCALE_FACTOR;
+              return (
+                <WaypointMarker
+                  key={i}
+                  svgX={svgX}
+                  svgY={svgY}
+                  confirmed={wp.confirmed}
+                  orientationAngle={wp.orientationAngle}
+                  number={i + 1}
+                />
+              );
+            })}
           </Animated.View>
         </View>
       </GestureDetector>
@@ -364,47 +300,12 @@ export default function MapViewer({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  infoBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
-  },
-  infoText: {
-    color: Colors.primary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  infoHint: {
-    color: Colors.textSecondary,
-    fontSize: 10,
-  },
-  viewport: {
-    flex: 1,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 14,
-    textAlign: 'center',
-    padding: 24,
-  },
-  placeholderText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  infoBar: { flexDirection: 'row', justifyContent: 'space-between', padding: 8 },
+  infoText: { color: Colors.primary },
+  infoHint: { color: Colors.textSecondary },
+  viewport: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: Colors.error },
+  placeholderText: { color: Colors.textSecondary },
 });
