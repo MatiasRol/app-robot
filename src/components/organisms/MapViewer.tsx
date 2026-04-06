@@ -10,11 +10,12 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import Svg, { G, Line, Polygon } from 'react-native-svg';
+import Svg, { Circle, G, Line, Polygon } from 'react-native-svg';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { MapPolygon, MapVectorData } from '../../../lib/core/types';
 import { pixelToWorld, worldToSvgCoords } from '../../../lib/core/utils/mapCoordinates';
 import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
+
 
 const SCALE_FACTOR = 5.0;
 const ARROW_COLOR = '#00E5FF';
@@ -273,16 +274,19 @@ export default function MapViewer({
           opacity={1}
         />
 
-        {/* Robot: triángulo apuntando hacia el destino */}
-        <Polygon
-          points={`
-            ${from.svgX},${from.svgY - ROBOT_RADIUS}
-            ${from.svgX + ROBOT_RADIUS * 0.866},${from.svgY + ROBOT_RADIUS * 0.5}
-            ${from.svgX - ROBOT_RADIUS * 0.866},${from.svgY + ROBOT_RADIUS * 0.5}
-          `}
-          fill={ARROW_COLOR}
-          stroke="rgba(0,0,0,0.5)"
-          strokeWidth={2}
+        {/* Robot: círculo blanco + círculo amarillo */}
+        <Circle
+          cx={from.svgX}
+          cy={from.svgY}
+          r={14}
+          fill="#FFFFFF"
+          opacity={0.95}
+        />
+        <Circle
+          cx={from.svgX}
+          cy={from.svgY}
+          r={9}
+          fill="#FFD600"
         />
 
         {/* Destino: X roja */}

@@ -28,12 +28,12 @@ export function worldToPixel(
 export function worldToSvgCoords(
   worldX: number,
   worldY: number,
-  metadata: MapMetadata,
-  scaleFactor: number = 5.0
+  metadata: { width_px: number; height_px: number; resolution: number; origin: [number, number, number] },
+  scaleFactor: number
 ): { svgX: number; svgY: number } {
   const { pixelX, pixelY } = worldToPixel(worldX, worldY, metadata);
   return {
     svgX: pixelX * scaleFactor,
-    svgY: (metadata.height_px - pixelY) * scaleFactor,
+    svgY: pixelY * scaleFactor,
   };
 }
