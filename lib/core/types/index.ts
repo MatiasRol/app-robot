@@ -83,3 +83,14 @@ export interface MapItem {
   height_px?: number;
   is_active?: boolean;
 }
+export interface WaypointPoint {
+  pixelX: number;
+  pixelY: number;
+  worldX: number;
+  worldY: number;
+  orientationAngle: number; // radianes
+  quaternion: { x: number; y: number; z: number; w: number };
+  confirmed: boolean; // false = girando, true = fijo
+}
+
+export type MapMode = 'idle' | 'navigate' | 'route_list' | 'route_edit';
