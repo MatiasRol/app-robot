@@ -12,6 +12,7 @@ import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert'
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
+import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
@@ -19,33 +20,20 @@ export default function MapDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  // ✅ HOOK CORRECTAMENTE UBICADO
   const { sendNavigateToPose } = useCameraConnectionContext();
 
   const { mapData, mapName, loading: mapLoading, error: mapError } = useMapDetail(id as string);
 
   const navigate = useNavigateMode();
 
-  // ── Modo del mapa ────────────────────────────────────────
   const [mapMode, setMapMode] = useState<MapMode>('idle');
 
-  // ── Navegar: un solo punto ───────────────────────────────
-  const [navPoint, setNavPoint] = useState<WaypointPoint | null>(null);
-
-  // ── Rutas: múltiples waypoints ───────────────────────────
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
   const [routeWaypoints, setRouteWaypoints] = useState<WaypointPoint[]>([]);
 
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
-
-  const handleCancel = () => {
-    setMapMode('idle');
-    setNavPoint(null);
-    setEditingRouteId(null);
-    setRouteWaypoints([]);
-  };
 
   const handleMapTap = (
     worldX: number,
@@ -65,7 +53,7 @@ export default function MapDetailScreen() {
   return (
     <View style={styles.container}>
 
-      {/* Mapa full screen */}
+      {/* Mapa */}
       <View style={styles.mapCanvas}>
         <MapViewer
           mapData={mapData}
@@ -86,12 +74,16 @@ export default function MapDetailScreen() {
         />
       </TouchableOpacity>
 
+      {/* Botones flotantes */}
       {mapMode === 'idle' && (
         <View style={styles.floatingButtons}>
           <MapActionButton
             label="RUTAS"
             icon={require('../../assets/images/ruta.png')}
-            onPress={() => setMapMode('route_list')}
+            onPress={() => {
+              setMapMode('route_list');
+              bottomSheet.expandBottomSheet(); // ✅ NUEVO
+            }}
           />
           <MapActionButton
             label="NAVEGAR"
@@ -101,7 +93,7 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {/* ✅ UI MODO NAVEGAR */}
+      {/* Modo navegar */}
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
           <TouchableOpacity
@@ -119,15 +111,12 @@ export default function MapDetailScreen() {
               style={styles.navigateButton}
               onPress={() => {
                 if (navigate.navPoint) {
-                  console.log('📍 Enviando navegación:', navigate.navPoint);
-
                   sendNavigateToPose(
                     navigate.navPoint.worldX,
                     navigate.navPoint.worldY,
                     navigate.navPoint.quaternion
                   );
                 }
-
                 navigate.reset();
                 setMapMode('idle');
               }}
@@ -144,6 +133,31 @@ export default function MapDetailScreen() {
               : 'Listo para navegar'}
           </Text>
         </View>
+      )}
+
+      {/* ✅ BOTTOM SHEET CONTROLADO POR MODO */}
+      {(mapMode === 'route_list' || mapMode === 'route_edit') && (
+        <MapBottomSheet
+          mapName={mapName || `Mapa ${id}`}
+          bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
+          isExpanded={bottomSheet.isExpanded}
+          panHandlers={bottomSheet.panHandlers}
+          routes={mapRoutes.routes}
+          onAddRoute={mapRoutes.openAddModal}
+          onEditRouteWaypoints={(routeId) => {
+            setEditingRouteId(routeId);
+            setMapMode('route_edit');
+          }}
+          onPlayRoute={(routeId) => {
+            // TAREA 8 — sendFollowWaypoints
+          }}
+          onDeleteRoute={mapRoutes.onDeleteRoute}
+          isEditingWaypoints={mapMode === 'route_edit'}
+          onAcceptWaypoints={() => {
+            // TAREA 7 — guardar waypoints
+            setMapMode('route_list');
+          }}
+        />
       )}
 
       <ModeChangeAlert {...opMode.alertProps} />
