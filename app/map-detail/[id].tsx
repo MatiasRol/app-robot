@@ -1,20 +1,20 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
-import { MapMode, WaypointPoint } from '../../lib/core/types';
+import { MapMode } from '../../lib/core/types';
+import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
 import { useMapRoutes } from '../../lib/modules/maps/hooks/useMapRoutes';
-import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
 import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
+import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
 import { useWaypointEditor } from '../../lib/modules/maps/hooks/useWaypointEditor';
-import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
-import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
+import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
@@ -28,12 +28,10 @@ export default function MapDetailScreen() {
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
 
-  const { sendNavigateToPose } = useCameraConnectionContext();
+  const { sendNavigateToPose, sendFollowWaypoints } = useCameraConnectionContext();
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
-  const [navPoint, setNavPoint] = useState<WaypointPoint | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-  const [routeWaypoints, setRouteWaypoints] = useState<WaypointPoint[]>([]);
 
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
@@ -165,7 +163,16 @@ export default function MapDetailScreen() {
             setMapMode('route_edit');
           }}
           onPlayRoute={(routeId) => {
-            // TAREA 8
+            const route = mapRoutes.routes.find((r) => r.id === routeId);
+            if (!route?.waypoints?.length) return;
+
+            const waypointsForRos = (route.waypoints as any[]).map((wp) => ({
+              worldX: wp.position.x,
+              worldY: wp.position.y,
+              quaternion: wp.orientation,
+            }));
+
+            sendFollowWaypoints(waypointsForRos);
           }}
           onDeleteRoute={mapRoutes.onDeleteRoute}
           isEditingWaypoints={mapMode === 'route_edit'}

@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
-import { MapItem, Robot, Route } from '../../../core/types';
+import { MapItem, Robot } from '../../../core/types';
 
 interface AppContextType {
   robots: Robot[];
@@ -13,11 +13,6 @@ interface AppContextType {
   selectedMapId: string | null;
   setSelectedMapId: (mapId: string | null) => void;
   selectedMap: MapItem | null;
-
-  addRoute: (mapId: string, routeName: string, schedule?: string) => void;
-  updateRoute: (routeId: string, updates: Partial<Route>) => void;
-  deleteRoute: (routeId: string) => void;
-  getMapRoutes: (mapId: string) => Route[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -59,7 +54,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           thumbnail: item.png_url,
           size: 'Robot 1',
           createdAt: new Date(item.created_at),
-          routes: [],
           png_url: item.png_url,
           json_url: item.json_url,
           resolution: item.resolution,
@@ -123,47 +117,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (selectedMapId === mapId) setSelectedMapIdState(null);
   };
 
-  const addRoute = (mapId: string, routeName: string, schedule?: string) => {
-    const newRoute: Route = {
-      id: Date.now().toString(),
-      name: routeName,
-      mapId: mapId,
-      schedule: schedule,
-    };
-    setMaps((prev) =>
-      prev.map((map) =>
-        map.id === mapId
-          ? { ...map, routes: [...map.routes, newRoute] }
-          : map
-      )
-    );
-  };
-
-  const updateRoute = (routeId: string, updates: Partial<Route>) => {
-    setMaps((prev) =>
-      prev.map((map) => ({
-        ...map,
-        routes: map.routes.map((route) =>
-          route.id === routeId ? { ...route, ...updates } : route
-        ),
-      }))
-    );
-  };
-
-  const deleteRoute = (routeId: string) => {
-    setMaps((prev) =>
-      prev.map((map) => ({
-        ...map,
-        routes: map.routes.filter((route) => route.id !== routeId),
-      }))
-    );
-  };
-
-  const getMapRoutes = (mapId: string): Route[] => {
-    const map = maps.find((m) => m.id === mapId);
-    return map?.routes || [];
-  };
-
   return (
     <AppContext.Provider
       value={{
@@ -175,10 +128,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedMapId,
         setSelectedMapId,
         selectedMap,
-        addRoute,
-        updateRoute,
-        deleteRoute,
-        getMapRoutes,
       }}
     >
       {children}
