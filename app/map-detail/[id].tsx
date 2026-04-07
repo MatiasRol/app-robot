@@ -10,7 +10,8 @@ import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode'
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
-import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode'; // ✅ import agregado
+import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
+import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
@@ -18,9 +19,12 @@ export default function MapDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
+  // ✅ HOOK CORRECTAMENTE UBICADO
+  const { sendNavigateToPose } = useCameraConnectionContext();
+
   const { mapData, mapName, loading: mapLoading, error: mapError } = useMapDetail(id as string);
 
-  const navigate = useNavigateMode(); // ✅ hook agregado
+  const navigate = useNavigateMode();
 
   // ── Modo del mapa ────────────────────────────────────────
   const [mapMode, setMapMode] = useState<MapMode>('idle');
@@ -43,7 +47,6 @@ export default function MapDetailScreen() {
     setRouteWaypoints([]);
   };
 
-  // ✅ reemplazo de handlePointTap
   const handleMapTap = (
     worldX: number,
     worldY: number,
@@ -69,8 +72,8 @@ export default function MapDetailScreen() {
           loading={mapLoading}
           error={mapError}
           robotPose={robotPose}
-          onPointTap={handleMapTap} // ✅ agregado
-          waypoints={navigate.navPoint ? [navigate.navPoint] : []} // ✅ agregado
+          onPointTap={handleMapTap}
+          waypoints={navigate.navPoint ? [navigate.navPoint] : []}
         />
       </View>
 
@@ -98,7 +101,7 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {/* ✅ TAREA 4 reemplazada */}
+      {/* ✅ UI MODO NAVEGAR */}
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
           <TouchableOpacity
@@ -115,6 +118,16 @@ export default function MapDetailScreen() {
             <TouchableOpacity
               style={styles.navigateButton}
               onPress={() => {
+                if (navigate.navPoint) {
+                  console.log('📍 Enviando navegación:', navigate.navPoint);
+
+                  sendNavigateToPose(
+                    navigate.navPoint.worldX,
+                    navigate.navPoint.worldY,
+                    navigate.navPoint.quaternion
+                  );
+                }
+
                 navigate.reset();
                 setMapMode('idle');
               }}
@@ -132,8 +145,6 @@ export default function MapDetailScreen() {
           </Text>
         </View>
       )}
-
-      {/* TAREA 6 — Bottom sheet rutas (placeholder) */}
 
       <ModeChangeAlert {...opMode.alertProps} />
     </View>
@@ -165,7 +176,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // ✅ estilos agregados
   navigateBar: {
     position: 'absolute',
     bottom: 0,

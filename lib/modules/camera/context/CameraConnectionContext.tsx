@@ -25,6 +25,22 @@ interface CameraConnectionContextType {
   handleCancelConnection: () => void;
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
+
+  // ✅ NUEVO
+  sendNavigateToPose: (
+    x: number,
+    y: number,
+    quaternion: { x: number; y: number; z: number; w: number }
+  ) => void;
+
+  sendFollowWaypoints: (
+    waypoints: Array<{
+      worldX: number;
+      worldY: number;
+      quaternion: { x: number; y: number; z: number; w: number };
+    }>
+  ) => void;
+
   isFullyConnected: boolean;
 }
 
@@ -46,7 +62,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const videoFailedAttempts = useRef(0);
   const commandsFailedAttempts = useRef(0);
 
-  // Lazy refs — se asignan solo cuando se conecta
   const videoService = useRef<WebRTCVideoServiceType | null>(null);
   const commandService = useRef<WebSocketServiceType | null>(null);
 
@@ -91,7 +106,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     try {
       setVideoConnectionState('connecting');
 
-      // Import lazy — solo se carga cuando se necesita, no al iniciar la app
       const { WebRTCVideoService } = await import('../services/WebRTCVideoService');
 
       videoService.current = new WebRTCVideoService({
@@ -139,7 +153,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     try {
       setCommandConnectionState('connecting');
 
-      // Import lazy — solo se carga cuando se necesita
       const { WebSocketService } = await import('../services/WebSocketService');
 
       commandService.current = new WebSocketService({
@@ -226,6 +239,34 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
+  // ✅ NUEVO
+  const sendNavigateToPose = (
+    x: number,
+    y: number,
+    quaternion: { x: number; y: number; z: number; w: number }
+  ) => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.sendNavigateToPose(x, y, quaternion);
+    } else {
+      console.warn('⚠️ Comandos no disponibles - navigate_to_pose ignorado');
+    }
+  };
+
+  // ✅ NUEVO
+  const sendFollowWaypoints = (
+    waypoints: Array<{
+      worldX: number;
+      worldY: number;
+      quaternion: { x: number; y: number; z: number; w: number };
+    }>
+  ) => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.sendFollowWaypoints(waypoints);
+    } else {
+      console.warn('⚠️ Comandos no disponibles - follow_waypoints ignorado');
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (errorTimeout.current) clearTimeout(errorTimeout.current);
@@ -252,6 +293,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         handleCancelConnection,
         sendVelocityCommand,
         stopRobot,
+
+        // ✅ NUEVO
+        sendNavigateToPose,
+        sendFollowWaypoints,
+
         isFullyConnected,
       }}
     >
