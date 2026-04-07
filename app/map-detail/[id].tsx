@@ -7,11 +7,13 @@ import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
 import { useMapRoutes } from '../../lib/modules/maps/hooks/useMapRoutes';
 import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
+import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
+import { useWaypointEditor } from '../../lib/modules/maps/hooks/useWaypointEditor';
+import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
+
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
-import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
-import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
@@ -20,14 +22,16 @@ export default function MapDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  const { sendNavigateToPose } = useCameraConnectionContext();
-
-  const { mapData, mapName, loading: mapLoading, error: mapError } = useMapDetail(id as string);
+  const { mapData, mapName, loading: mapLoading, error: mapError } =
+    useMapDetail(id as string);
 
   const navigate = useNavigateMode();
+  const waypointEditor = useWaypointEditor();
+
+  const { sendNavigateToPose } = useCameraConnectionContext();
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
-
+  const [navPoint, setNavPoint] = useState<WaypointPoint | null>(null);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
   const [routeWaypoints, setRouteWaypoints] = useState<WaypointPoint[]>([]);
 
@@ -47,13 +51,19 @@ export default function MapDetailScreen() {
       } else if (!navigate.navPoint.confirmed) {
         navigate.handleSecondTap(pixelX, pixelY);
       }
+    } else if (mapMode === 'route_edit') {
+      if (!waypointEditor.hasActiveRotating) {
+        waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
+      } else {
+        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
+      }
     }
   };
 
   return (
     <View style={styles.container}>
 
-      {/* Mapa */}
+      {/* MAPA */}
       <View style={styles.mapCanvas}>
         <MapViewer
           mapData={mapData}
@@ -61,20 +71,25 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
-          waypoints={navigate.navPoint ? [navigate.navPoint] : []}
+          waypoints={
+            mapMode === 'navigate' && navigate.navPoint
+              ? [navigate.navPoint]
+              : mapMode === 'route_edit'
+              ? waypointEditor.waypoints
+              : []
+          }
         />
       </View>
 
-      {/* Botón volver */}
+      {/* BOTÓN ATRÁS */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Image
           source={require('../../assets/images/regreso.png')}
           style={{ width: 40, height: 40 }}
-          resizeMode="contain"
         />
       </TouchableOpacity>
 
-      {/* Botones flotantes */}
+      {/* BOTONES FLOTANTES */}
       {mapMode === 'idle' && (
         <View style={styles.floatingButtons}>
           <MapActionButton
@@ -82,7 +97,7 @@ export default function MapDetailScreen() {
             icon={require('../../assets/images/ruta.png')}
             onPress={() => {
               setMapMode('route_list');
-              bottomSheet.expandBottomSheet(); // ✅ NUEVO
+              bottomSheet.expandBottomSheet();
             }}
           />
           <MapActionButton
@@ -93,7 +108,7 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {/* Modo navegar */}
+      {/* MODO NAVEGAR */}
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
           <TouchableOpacity
@@ -135,7 +150,7 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {/* ✅ BOTTOM SHEET CONTROLADO POR MODO */}
+      {/* BOTTOM SHEET RUTAS */}
       {(mapMode === 'route_list' || mapMode === 'route_edit') && (
         <MapBottomSheet
           mapName={mapName || `Mapa ${id}`}
@@ -145,16 +160,24 @@ export default function MapDetailScreen() {
           routes={mapRoutes.routes}
           onAddRoute={mapRoutes.openAddModal}
           onEditRouteWaypoints={(routeId) => {
+            waypointEditor.clearWaypoints();
             setEditingRouteId(routeId);
             setMapMode('route_edit');
           }}
           onPlayRoute={(routeId) => {
-            // TAREA 8 — sendFollowWaypoints
+            // TAREA 8
           }}
           onDeleteRoute={mapRoutes.onDeleteRoute}
           isEditingWaypoints={mapMode === 'route_edit'}
           onAcceptWaypoints={() => {
-            // TAREA 7 — guardar waypoints
+            if (editingRouteId && waypointEditor.waypoints.length > 0) {
+              mapRoutes.saveWaypoints(
+                editingRouteId,
+                waypointEditor.waypoints
+              );
+            }
+            waypointEditor.clearWaypoints();
+            setEditingRouteId(null);
             setMapMode('route_list');
           }}
         />
@@ -201,7 +224,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.75)',
     alignItems: 'center',
     gap: 12,
-    flexDirection: 'column',
   },
   cancelButton: {
     backgroundColor: Colors.surface,
@@ -214,7 +236,6 @@ const styles = StyleSheet.create({
   cancelText: {
     color: Colors.text,
     fontWeight: '700',
-    fontSize: 14,
   },
   navigateButton: {
     backgroundColor: Colors.primary,
@@ -223,9 +244,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   navigateText: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontWeight: '700',
-    fontSize: 14,
   },
   navigateHint: {
     color: Colors.textSecondary,

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { formatDate } from '../../../core/utils/formatDate';
 import { useApp } from '../../app/context/AppContext';
+import { WaypointPoint } from '../../../core/types';
 
 export function useMapRoutes(mapId: string) {
   const { getMapRoutes, addRoute, updateRoute, deleteRoute } = useApp();
@@ -36,7 +37,10 @@ export function useMapRoutes(mapId: string) {
 
   const handleSaveRoute = (name: string, date: Date) => {
     if (editingRouteId && name.trim()) {
-      updateRoute(editingRouteId, { name: name.trim(), schedule: formatDate(date) });
+      updateRoute(editingRouteId, {
+        name: name.trim(),
+        schedule: formatDate(date),
+      });
       setEditingRouteId(null);
     }
   };
@@ -47,9 +51,18 @@ export function useMapRoutes(mapId: string) {
       `¿Estás seguro de que deseas eliminar "${routeName}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => deleteRoute(routeId) },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => deleteRoute(routeId),
+        },
       ]
     );
+  };
+
+  // 🆕 ── Guardar waypoints (temporal local) ───────────────────
+  const saveWaypoints = (routeId: string, waypoints: WaypointPoint[]) => {
+    updateRoute(routeId, { waypoints });
   };
 
   return {
@@ -80,5 +93,8 @@ export function useMapRoutes(mapId: string) {
     },
 
     openAddModal: () => setShowAddRouteModal(true),
+
+    // 🆕 exportado
+    saveWaypoints,
   };
 }

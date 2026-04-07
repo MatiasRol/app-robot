@@ -94,3 +94,11 @@ export interface WaypointPoint {
 }
 
 export type MapMode = 'idle' | 'navigate' | 'route_list' | 'route_edit';
+
+export interface Route {
+  id: string;
+  name: string;
+  mapId: string;
+  schedule?: string;
+  waypoints?: WaypointPoint[]; // ← agregar
+}
