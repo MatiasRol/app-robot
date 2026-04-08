@@ -4,7 +4,6 @@ import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
-import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import JoystickControl from '../../src/components/organisms/JoystickControl';
@@ -16,7 +15,6 @@ export default function CameraScreen() {
   const navigation = useNavigation();
 
   const {
-    remoteStream,
     errorMessage,
     showConnectionError,
     handleRetryConnection,
@@ -34,15 +32,19 @@ export default function CameraScreen() {
   useFocusEffect(
     React.useCallback(() => {
       navigation.setOptions({ tabBarStyle: { display: 'none' } });
+
       const parent = navigation.getParent();
       if (parent) {
         parent.setOptions({ tabBarStyle: { display: 'none' } });
       }
 
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      activateKeepAwakeAsync().then(() => {
-        isKeepAwakeActive.current = true;
-      }).catch(() => {});
+
+      activateKeepAwakeAsync()
+        .then(() => {
+          isKeepAwakeActive.current = true;
+        })
+        .catch(() => {});
 
       return () => {
         navigation.setOptions({
@@ -52,7 +54,7 @@ export default function CameraScreen() {
             height: 70,
             paddingBottom: 10,
             paddingTop: 10,
-          }
+          },
         });
 
         if (parent) {
@@ -63,7 +65,7 @@ export default function CameraScreen() {
               height: 70,
               paddingBottom: 10,
               paddingTop: 10,
-            }
+            },
           });
         }
 
@@ -86,6 +88,7 @@ export default function CameraScreen() {
         isKeepAwakeActive.current = false;
       } catch (error) {}
     }
+
     disconnectFromRobot();
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
     router.back();
@@ -123,18 +126,14 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {remoteStream ? (
-        <RTCView
-          streamURL={remoteStream.toURL()}
-          style={styles.cameraView}
-          objectFit="cover"
-        />
-      ) : (
-        <View style={styles.noVideoContainer}>
-          <Ionicons name="videocam-off-outline" size={64} color="#666" />
-          <Text style={styles.noVideoText}>Sin video</Text>
-        </View>
-      )}
+      {/* PRUEBA SIN RTCView */}
+      <View style={styles.noVideoContainer}>
+        <Ionicons name="construct-outline" size={64} color="#666" />
+        <Text style={styles.noVideoText}>Prueba sin RTCView</Text>
+        <Text style={styles.testSubtitle}>
+          Si esta pantalla abre sin crashear, el problema está en react-native-webrtc.
+        </Text>
+      </View>
 
       <View style={styles.overlay}>
         <View style={styles.topBar}>
@@ -204,15 +203,13 @@ export default function CameraScreen() {
             activeOpacity={1}
             onPress={handleCancelConnection}
           >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
               <View style={styles.errorBox}>
                 <Ionicons name="warning-outline" size={48} color="#FF9800" />
                 <Text style={styles.errorTitle}>Error de conexión</Text>
                 <Text style={styles.errorMessage}>
-                  {errorMessage || 'No se pudo conectar al robot'}{'\n\n'}
+                  {errorMessage || 'No se pudo conectar al robot'}
+                  {'\n\n'}
                   Verifica que las Raspberry Pi estén encendidas.
                 </Text>
                 <View style={styles.errorButtons}>
@@ -247,12 +244,13 @@ export default function CameraScreen() {
             activeOpacity={1}
             onPress={cancelModeChange}
           >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
               <View style={styles.alertBox}>
-                <Ionicons name="information-circle-outline" size={48} color={Colors.primary} />
+                <Ionicons
+                  name="information-circle-outline"
+                  size={48}
+                  color={Colors.primary}
+                />
                 <Text style={styles.alertTitle}>Cambiar modo</Text>
                 <Text style={styles.alertMessage}>
                   ¿Deseas cambiar al modo {pendingMode === 'control' ? 'Control' : 'Visualización'}?
@@ -285,31 +283,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  cameraView: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
   noVideoContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
     gap: 16,
+    paddingHorizontal: 24,
   },
   noVideoText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  
-  // Overlay
+  testSubtitle: {
+    color: '#AAA',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 420,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     pointerEvents: 'box-none',
   },
-  
-  // Barra superior
   topBar: {
     position: 'absolute',
     top: 0,
@@ -323,22 +321,14 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     zIndex: 10,
   },
-  
-  // Secciones
   leftSection: {
     flex: 1,
     alignItems: 'flex-start',
-  },
-  centerSection: {
-    flex: 2,
-    alignItems: 'center',
   },
   rightSection: {
     flex: 1,
     alignItems: 'flex-end',
   },
-  
-  // Botón de regresar
   backButton: {
     width: 50,
     height: 50,
@@ -349,42 +339,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  
-  // Indicadores de conexión
-  connectionIndicators: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  connectionIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  connectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F44336',
-  },
-  connectionDotConnected: {
-    backgroundColor: '#4CAF50',
-  },
-  connectionDotConnecting: {
-    backgroundColor: '#FF9800',
-  },
-  connectionText: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  
-  // Tabs deslizables (estilo original)
   tabs: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -416,17 +370,12 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFFFFF',
   },
-  
-  
-  // Joystick
   joystickContainer: {
     position: 'absolute',
     right: 30,
     bottom: 30,
     zIndex: 5,
   },
-  
-  // Modal de error
   errorOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -485,8 +434,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  
-  // Modal de cambio de modo
   alertOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -544,5 +491,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  
 });
