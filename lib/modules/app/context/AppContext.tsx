@@ -1,5 +1,4 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../../core/services/supabaseClient';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
 import { MapItem, Robot } from '../../../core/types';
 
 interface AppContextType {
@@ -30,78 +29,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ]);
 
   const [maps, setMaps] = useState<MapItem[]>([]);
-  const [mapsLoading, setMapsLoading] = useState(true);
+  const [mapsLoading] = useState(false);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
 
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
 
-  useEffect(() => {
-    const fetchMaps = async () => {
-      try {
-        setMapsLoading(true);
-
-        const { data, error } = await supabase
-          .from('maps')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const adapted: MapItem[] = (data || []).map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          robotId: '1',
-          thumbnail: item.png_url,
-          size: 'Robot 1',
-          createdAt: new Date(item.created_at),
-          png_url: item.png_url,
-          json_url: item.json_url,
-          resolution: item.resolution,
-          origin: item.origin,
-          width_px: item.width_px,
-          height_px: item.height_px,
-          is_active: item.is_active,
-        }));
-
-        setMaps(adapted);
-
-        const activeMap = adapted.find((m) => m.is_active === true);
-        if (activeMap) {
-          setSelectedMapIdState(activeMap.id);
-        }
-
-      } catch (err) {
-        console.error('Error cargando mapas desde Supabase:', err);
-      } finally {
-        setMapsLoading(false);
-      }
-    };
-
-    fetchMaps();
-  }, []);
-
-  const setSelectedMapId = async (mapId: string | null) => {
-    try {
-      if (mapId) {
-        const { error } = await supabase
-          .from('maps')
-          .update({ is_active: true })
-          .eq('id', mapId);
-
-        if (error) throw error;
-
-        setMaps((prev) =>
-          prev.map((m) => ({ ...m, is_active: m.id === mapId }))
-        );
-      } else {
-        await supabase.from('maps').update({ is_active: false }).neq('id', '');
-        setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
-      }
-
-      setSelectedMapIdState(mapId);
-    } catch (err) {
-      console.error('Error actualizando mapa activo:', err);
-    }
+  const setSelectedMapId = (mapId: string | null) => {
+    setSelectedMapIdState(mapId);
   };
 
   const updateRobotName = (robotId: string, newName: string) => {
