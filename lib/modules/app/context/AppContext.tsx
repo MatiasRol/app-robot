@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { MapItem, Robot } from '../../../core/types';
 
 interface AppContextType {
@@ -29,13 +29,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ]);
 
   const [maps, setMaps] = useState<MapItem[]>([]);
-  const [mapsLoading] = useState(false);
+  const [mapsLoading, setMapsLoading] = useState(true);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
 
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
 
+  useEffect(() => {
+    // PRUEBA TEMPORAL:
+    // Dejamos el provider vivo, pero sin consulta a Supabase
+    setMaps([]);
+    setSelectedMapIdState(null);
+    setMapsLoading(false);
+  }, []);
+
   const setSelectedMapId = (mapId: string | null) => {
     setSelectedMapIdState(mapId);
+
+    setMaps((prev) =>
+      prev.map((m) => ({
+        ...m,
+        is_active: m.id === mapId,
+      }))
+    );
   };
 
   const updateRobotName = (robotId: string, newName: string) => {
