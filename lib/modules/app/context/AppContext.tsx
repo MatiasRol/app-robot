@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot } from '../../../core/types';
 
 interface AppContextType {
@@ -35,11 +36,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
 
   useEffect(() => {
-    // PRUEBA TEMPORAL:
-    // Dejamos el provider vivo, pero sin consulta a Supabase
-    setMaps([]);
-    setSelectedMapIdState(null);
-    setMapsLoading(false);
+    try {
+      console.log('Supabase cargado:', !!supabase);
+      setMaps([]);
+      setSelectedMapIdState(null);
+      setMapsLoading(false);
+    } catch (err) {
+      console.error('Error inicializando AppProvider:', err);
+      setMapsLoading(false);
+    }
   }, []);
 
   const setSelectedMapId = (mapId: string | null) => {
