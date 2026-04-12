@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import JoystickControl from '../../src/components/organisms/JoystickControl';
@@ -15,6 +16,7 @@ export default function CameraScreen() {
   const navigation = useNavigation();
 
   const {
+    remoteStream,
     errorMessage,
     showConnectionError,
     handleRetryConnection,
@@ -29,6 +31,18 @@ export default function CameraScreen() {
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
   const isKeepAwakeActive = useRef(false);
 
+  const streamURL = useMemo(() => {
+    try {
+      if (remoteStream && typeof remoteStream.toURL === 'function') {
+        return remoteStream.toURL();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo streamURL:', error);
+      return null;
+    }
+  }, [remoteStream]);
+
   useFocusEffect(
     React.useCallback(() => {
       navigation.setOptions({ tabBarStyle: { display: 'none' } });
@@ -38,7 +52,7 @@ export default function CameraScreen() {
         parent.setOptions({ tabBarStyle: { display: 'none' } });
       }
 
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
 
       activateKeepAwakeAsync()
         .then(() => {
@@ -69,13 +83,15 @@ export default function CameraScreen() {
           });
         }
 
-        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
 
         if (isKeepAwakeActive.current) {
           try {
             deactivateKeepAwake();
             isKeepAwakeActive.current = false;
-          } catch (error) {}
+          } catch (error) {
+            console.error('Error desactivando keep awake:', error);
+          }
         }
       };
     }, [navigation])
@@ -86,11 +102,13 @@ export default function CameraScreen() {
       try {
         deactivateKeepAwake();
         isKeepAwakeActive.current = false;
-      } catch (error) {}
+      } catch (error) {
+        console.error('Error desactivando keep awake:', error);
+      }
     }
 
     disconnectFromRobot();
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
     router.back();
   };
 
@@ -115,25 +133,33 @@ export default function CameraScreen() {
   const handleJoystickMove = (velocity: { linear: number; angular: number }) => {
     try {
       sendVelocityCommand(velocity.linear, velocity.angular);
-    } catch (error) {}
+    } catch (error) {
+      console.error('Error enviando comando de velocidad:', error);
+    }
   };
 
   const handleJoystickStop = () => {
     try {
       stopRobot();
-    } catch (error) {}
+    } catch (error) {
+      console.error('Error deteniendo robot:', error);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* PRUEBA SIN RTCView */}
-      <View style={styles.noVideoContainer}>
-        <Ionicons name="construct-outline" size={64} color="#666" />
-        <Text style={styles.noVideoText}>Prueba sin RTCView</Text>
-        <Text style={styles.testSubtitle}>
-          Si esta pantalla abre sin crashear, el problema está en react-native-webrtc.
-        </Text>
-      </View>
+      {streamURL ? (
+        <RTCView
+          streamURL={streamURL}
+          style={styles.cameraView}
+          objectFit="cover"
+        />
+      ) : (
+        <View style={styles.noVideoContainer}>
+          <Ionicons name="videocam-off-outline" size={64} color="#666" />
+          <Text style={styles.noVideoText}>Sin video</Text>
+        </View>
+      )}
 
       <View style={styles.overlay}>
         <View style={styles.topBar}>
@@ -203,7 +229,10 @@ export default function CameraScreen() {
             activeOpacity={1}
             onPress={handleCancelConnection}
           >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
               <View style={styles.errorBox}>
                 <Ionicons name="warning-outline" size={48} color="#FF9800" />
                 <Text style={styles.errorTitle}>Error de conexión</Text>
@@ -244,7 +273,10 @@ export default function CameraScreen() {
             activeOpacity={1}
             onPress={cancelModeChange}
           >
-            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
               <View style={styles.alertBox}>
                 <Ionicons
                   name="information-circle-outline"
@@ -283,26 +315,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  cameraView: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
   noVideoContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
     gap: 16,
-    paddingHorizontal: 24,
   },
   noVideoText: {
     color: '#FFF',
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  testSubtitle: {
-    color: '#AAA',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 420,
+    fontSize: 16,
+    fontWeight: '600',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
