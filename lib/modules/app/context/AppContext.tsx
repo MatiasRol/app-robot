@@ -36,26 +36,97 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
 
   useEffect(() => {
-    try {
-      console.log('Supabase cargado:', !!supabase);
-      setMaps([]);
-      setSelectedMapIdState(null);
-      setMapsLoading(false);
-    } catch (err) {
-      console.error('Error inicializando AppProvider:', err);
-      setMapsLoading(false);
-    }
+    const fetchMaps = async () => {
+      try {
+        setMapsLoading(true);
+
+        if (!supabase) {
+          console.warn('⚠️ Supabase no está disponible. No se cargarán mapas.');
+          setMaps([]);
+          setSelectedMapIdState(null);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('maps')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        const adapted: MapItem[] = (data || []).map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          robotId: '1',
+          thumbnail: item.png_url,
+          size: 'Robot 1',
+          createdAt: item.created_at ? new Date(item.created_at) : new Date(),
+          png_url: item.png_url,
+          json_url: item.json_url,
+          resolution: item.resolution,
+          origin: item.origin,
+          width_px: item.width_px,
+          height_px: item.height_px,
+          is_active: item.is_active,
+        }));
+
+        setMaps(adapted);
+
+        const activeMap = adapted.find((m) => m.is_active === true);
+        if (activeMap) {
+          setSelectedMapIdState(activeMap.id);
+        } else {
+          setSelectedMapIdState(null);
+        }
+      } catch (err) {
+        console.error('Error cargando mapas desde Supabase:', err);
+        setMaps([]);
+        setSelectedMapIdState(null);
+      } finally {
+        setMapsLoading(false);
+      }
+    };
+
+    fetchMaps();
   }, []);
 
-  const setSelectedMapId = (mapId: string | null) => {
-    setSelectedMapIdState(mapId);
+  const setSelectedMapId = async (mapId: string | null) => {
+    try {
+      if (!supabase) {
+        console.warn('⚠️ Supabase no está disponible. No se puede actualizar el mapa activo.');
+        setSelectedMapIdState(mapId);
+        setMaps((prev) =>
+          prev.map((m) => ({ ...m, is_active: m.id === mapId }))
+        );
+        return;
+      }
 
-    setMaps((prev) =>
-      prev.map((m) => ({
-        ...m,
-        is_active: m.id === mapId,
-      }))
-    );
+      if (mapId) {
+        const { error } = await supabase
+          .from('maps')
+          .update({ is_active: true })
+          .eq('id', mapId);
+
+        if (error) throw error;
+
+        setMaps((prev) =>
+          prev.map((m) => ({ ...m, is_active: m.id === mapId }))
+        );
+      } else {
+        const { error } = await supabase
+          .from('maps')
+          .update({ is_active: false })
+          .neq('id', '');
+
+        if (error) throw error;
+
+        setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
+      }
+
+      setSelectedMapIdState(mapId);
+    } catch (err) {
+      console.error('Error actualizando mapa activo:', err);
+    }
   };
 
   const updateRobotName = (robotId: string, newName: string) => {
