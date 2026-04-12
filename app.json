@@ -75,9 +75,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "33992fe1-ee9a-4a38-abb8-f69a77c4019e"
+        "projectId": "ba34cc17-4f43-48f9-9225-aa4fb597c599"
       }
-    },
-    "owner": "matias_roldan"
+    }
   }
 }
