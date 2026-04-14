@@ -1,6 +1,13 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  ImageSourcePropType,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { MapItem } from '../../../lib/core/types';
 
@@ -9,8 +16,14 @@ interface MapCardProps {
   isActive: boolean;
 }
 
-export default function MapCard({ map, isActive }: MapCardProps) {
+export default function MapCard({ map }: MapCardProps) {
   const router = useRouter();
+
+  const imageUri = map.thumbnail || map.png_url || '';
+
+  const imageSource: ImageSourcePropType | undefined = imageUri
+    ? { uri: imageUri }
+    : undefined;
 
   return (
     <TouchableOpacity
@@ -19,35 +32,29 @@ export default function MapCard({ map, isActive }: MapCardProps) {
       activeOpacity={0.9}
     >
       <View style={styles.header}>
-        <View style={styles.iconContainer}>
+        <View style={styles.iconWrapper}>
           <Image
             source={require('../../../assets/images/casa.png')}
             style={styles.houseIcon}
             resizeMode="contain"
           />
         </View>
-        <View style={styles.info}>
-          <View style={styles.nameRow}>
-            <Text style={styles.mapName}>{map.name}</Text>
-            <View
-              style={[
-                styles.activeIndicator,
-                { backgroundColor: isActive ? '#4CAF50' : '#9E9E9E' },
-              ]}
-            />
-          </View>
-          <View style={styles.robotInfo}>
-            <Image
-              source={require('../../../assets/images/robotNav.png')}
-              style={styles.robotIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.robotText}>{map.size}</Text>
-          </View>
-        </View>
+
+        <Text style={styles.mapName}>{map.name}</Text>
       </View>
-      <View style={styles.thumbnail}>
-        <View style={styles.thumbnailPlaceholder} />
+
+      <View style={styles.previewContainer}>
+        {imageSource ? (
+          <Image
+            source={imageSource}
+            style={styles.previewImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.previewPlaceholder}>
+            <Text style={styles.placeholderText}>Sin vista previa</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -55,39 +62,58 @@ export default function MapCard({ map, isActive }: MapCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    marginBottom: 18,
   },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  iconContainer: {
-    width: 50,
-    height: 50,
-    backgroundColor: Colors.accent,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  houseIcon: { width: 28, height: 28, tintColor: Colors.primary },
-  info: { flex: 1 },
-  nameRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    marginBottom: 10,
+    paddingHorizontal: 6,
   },
-  mapName: { fontSize: 20, fontWeight: 'bold', color: Colors.text },
-  activeIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  iconWrapper: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EAF1FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  robotInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  robotIcon: { width: 16, height: 16, tintColor: Colors.textSecondary },
-  robotText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
-  thumbnail: { width: '100%', height: 180, borderRadius: 16, overflow: 'hidden' },
-  thumbnailPlaceholder: { width: '100%', height: '100%', backgroundColor: '#D0D0D0' },
+  houseIcon: {
+    width: 22,
+    height: 22,
+    tintColor: Colors.primary,
+  },
+  mapName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#2E2E2E',
+  },
+  previewContainer: {
+    width: '100%',
+    height: 150,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#D9D9D9',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  previewPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D9D9D9',
+  },
+  placeholderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+  },
 });

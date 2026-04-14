@@ -12,7 +12,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#6F7075',
         tabBarStyle: {
           backgroundColor: Colors.background,
-          borderTopWidth: 0,
+          borderTopColor: 'transparent',
           height: 70,
           paddingBottom: 10,
           paddingTop: 10,
@@ -62,13 +62,6 @@ export default function TabLayout() {
         name="camera"
         options={{
           title: 'Cámara',
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile"
-        options={{
           href: null,
         }}
       />

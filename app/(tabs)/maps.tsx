@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useApp } from '../../lib/modules/app/context/AppContext';
 import MapCard from '../../src/components/molecules/MapCard';
@@ -15,119 +15,98 @@ export default function MapsScreen() {
   const { maps, mapsLoading, selectedMapId } = useApp();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>TUS{'\n'}MAPAS!</Text>
+          <Text style={styles.subtitle}>
+            Inicia el mapeo desde el robot para agregar nuevos mapas.
+          </Text>
+        </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.profileButton}>
-          <Image
-            source={require('../../assets/images/avatar-placeholder.png')}
-            style={styles.profileImage}
-            resizeMode="cover"
-          />
-        </View>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>¡TUS</Text>
-          <Text style={styles.title}>MAPAS!</Text>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {mapsLoading ? (
+            <View style={styles.centerContent}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.helperText}>Cargando mapas...</Text>
+            </View>
+          ) : maps.length === 0 ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.emptyTitle}>No hay mapas todavía</Text>
+              <Text style={styles.helperText}>
+                Inicia el mapeo desde el robot para agregar nuevos mapas.
+              </Text>
+            </View>
+          ) : (
+            maps.map((map) => (
+              <MapCard
+                key={map.id}
+                map={map}
+                isActive={map.id === selectedMapId}
+              />
+            ))
+          )}
+        </ScrollView>
       </View>
-
-      {/* Contenido */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {mapsLoading ? (
-          <View style={styles.emptyContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.emptyText}>Cargando mapas...</Text>
-          </View>
-        ) : maps.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🗺️</Text>
-            <Text style={styles.emptyTitle}>Sin mapas disponibles</Text>
-            <Text style={styles.emptyText}>
-              Sube un mapa desde el script Python para verlo aquí
-            </Text>
-          </View>
-        ) : (
-          maps.map((map) => (
-            <MapCard
-              key={map.id}
-              map={map}
-              isActive={map.id === selectedMapId}
-            />
-          ))
-        )}
-      </ScrollView>
-
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#252932',
+    backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: '#252932',
-    paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  profileButton: {
-    borderRadius: 30,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: Colors.primary,
-    width: 60,
-    height: 60,
-  },
-  profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  titleContainer: {
-    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.textLight,
-    letterSpacing: 1,
+    fontSize: 30,
+    fontWeight: '900',
+    lineHeight: 30,
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 16,
+    color: Colors.textSecondary,
+    maxWidth: 230,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingTop: 16,
+    paddingHorizontal: 14,
+    paddingTop: 8,
     paddingBottom: 20,
-    paddingHorizontal: 16,
-    flexGrow: 1,
   },
-  emptyContainer: {
-    flex: 1,
+  centerContent: {
+    paddingTop: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
-    gap: 12,
   },
-  emptyIcon: { fontSize: 48 },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.textLight,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  emptyText: {
+  helperText: {
     fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
 });
