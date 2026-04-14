@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
@@ -17,6 +17,8 @@ export default function CameraScreen() {
 
   const {
     remoteStream,
+    isConnecting,
+    connectToRobot,
     errorMessage,
     showConnectionError,
     handleRetryConnection,
@@ -30,6 +32,7 @@ export default function CameraScreen() {
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
   const isKeepAwakeActive = useRef(false);
+  const hasTriedConnect = useRef(false);
 
   const streamURL = useMemo(() => {
     try {
@@ -42,6 +45,15 @@ export default function CameraScreen() {
       return null;
     }
   }, [remoteStream]);
+
+  useEffect(() => {
+    if (!remoteStream && !hasTriedConnect.current) {
+      hasTriedConnect.current = true;
+      connectToRobot().catch((error) => {
+        console.error('Error conectando al robot:', error);
+      });
+    }
+  }, [remoteStream, connectToRobot]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -145,6 +157,20 @@ export default function CameraScreen() {
       console.error('Error deteniendo robot:', error);
     }
   };
+
+  if (isConnecting && !streamURL) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.loadingLogo}
+          resizeMode="contain"
+        />
+        <Text style={styles.loadingSubtext}>Conectando a ...</Text>
+        <Text style={styles.loadingRobotText}>Robot 1</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -315,6 +341,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingLogo: {
+    width: 90,
+    height: 90,
+    marginBottom: 18,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#3A3A3A',
+    marginBottom: 4,
+  },
+  loadingRobotText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+
   cameraView: {
     position: 'absolute',
     width: '100%',
