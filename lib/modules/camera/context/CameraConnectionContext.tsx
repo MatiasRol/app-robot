@@ -26,7 +26,6 @@ interface CameraConnectionContextType {
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
 
-  // ✅ NUEVO
   sendNavigateToPose: (
     x: number,
     y: number,
@@ -42,6 +41,7 @@ interface CameraConnectionContextType {
   ) => void;
 
   isFullyConnected: boolean;
+  hasAttemptedConnection: boolean;
 }
 
 const CameraConnectionContext = createContext<CameraConnectionContextType | null>(null);
@@ -54,6 +54,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [showConnectionError, setShowConnectionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [hasAttemptedConnection, setHasAttemptedConnection] = useState(false);
 
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
@@ -74,30 +75,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     errorTimeout.current = setTimeout(() => {
       canShowError.current = true;
     }, 3000);
-  };
-
-  const connectToRobot = async () => {
-    setIsConnecting(true);
-    setShowConnectionError(false);
-    canShowError.current = true;
-    isDisconnecting.current = false;
-    videoFailedAttempts.current = 0;
-    commandsFailedAttempts.current = 0;
-
-    const results = await Promise.allSettled([connectVideo(), connectCommands()]);
-
-    const videoConnected = results[0].status === 'fulfilled';
-    const commandsConnected = results[1].status === 'fulfilled';
-
-    setIsConnecting(false);
-
-    if (!videoConnected && !commandsConnected) {
-      showError('No se pudo conectar ni al video ni a los comandos. Verifica que las Raspberry Pi estén encendidas.');
-    } else if (!videoConnected) {
-      console.warn('⚠️ Comandos conectados, pero video no disponible');
-    } else if (!commandsConnected) {
-      console.warn('⚠️ Video conectado, pero comandos no disponibles');
-    }
   };
 
   const connectVideo = async () => {
@@ -187,6 +164,31 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
+  const connectToRobot = async () => {
+    setHasAttemptedConnection(true);
+    setIsConnecting(true);
+    setShowConnectionError(false);
+    canShowError.current = true;
+    isDisconnecting.current = false;
+    videoFailedAttempts.current = 0;
+    commandsFailedAttempts.current = 0;
+
+    const results = await Promise.allSettled([connectVideo(), connectCommands()]);
+
+    const videoConnected = results[0].status === 'fulfilled';
+    const commandsConnected = results[1].status === 'fulfilled';
+
+    setIsConnecting(false);
+
+    if (!videoConnected && !commandsConnected) {
+      showError('No se pudo conectar ni al video ni a los comandos. Verifica que las Raspberry Pi estén encendidas.');
+    } else if (!videoConnected) {
+      console.warn('⚠️ Comandos conectados, pero video no disponible');
+    } else if (!commandsConnected) {
+      console.warn('⚠️ Video conectado, pero comandos no disponibles');
+    }
+  };
+
   const disconnectFromRobot = () => {
     isDisconnecting.current = true;
     canShowError.current = false;
@@ -210,6 +212,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     setVideoConnectionState('disconnected');
     setCommandConnectionState('disconnected');
     setShowConnectionError(false);
+    setIsConnecting(false);
   };
 
   const handleRetryConnection = () => {
@@ -239,7 +242,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
-  // ✅ NUEVO
   const sendNavigateToPose = (
     x: number,
     y: number,
@@ -252,7 +254,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
-  // ✅ NUEVO
   const sendFollowWaypoints = (
     waypoints: Array<{
       worldX: number;
@@ -293,12 +294,10 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         handleCancelConnection,
         sendVelocityCommand,
         stopRobot,
-
-        // ✅ NUEVO
         sendNavigateToPose,
         sendFollowWaypoints,
-
         isFullyConnected,
+        hasAttemptedConnection,
       }}
     >
       {children}

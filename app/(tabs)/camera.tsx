@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
@@ -11,7 +11,7 @@ import JoystickControl from '../../src/components/organisms/JoystickControl';
 
 type CameraMode = 'view' | 'control';
 
-const CONNECTING_SPLASH_MS = 900;
+const CONNECTING_SPLASH_MS = 2000;
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -21,10 +21,7 @@ export default function CameraScreen() {
     remoteStream,
     connectToRobot,
     errorMessage,
-    showConnectionError,
-    handleRetryConnection,
-    handleCancelConnection,
-    disconnectFromRobot,
+    hasAttemptedConnection,
     sendVelocityCommand,
     stopRobot,
   } = useCameraConnectionContext();
@@ -33,9 +30,22 @@ export default function CameraScreen() {
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
   const [showConnectingSplash, setShowConnectingSplash] = useState(true);
+  const [showRetryModal, setShowRetryModal] = useState(false);
 
   const isKeepAwakeActive = useRef(false);
   const splashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const connectToRobotRef = useRef(connectToRobot);
+  const hasAttemptedConnectionRef = useRef(hasAttemptedConnection);
+  const streamURLRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    connectToRobotRef.current = connectToRobot;
+  }, [connectToRobot]);
+
+  useEffect(() => {
+    hasAttemptedConnectionRef.current = hasAttemptedConnection;
+  }, [hasAttemptedConnection]);
 
   const streamURL = useMemo(() => {
     try {
@@ -49,25 +59,42 @@ export default function CameraScreen() {
     }
   }, [remoteStream]);
 
+  useEffect(() => {
+    streamURLRef.current = streamURL;
+    if (streamURL) {
+      setShowRetryModal(false);
+    }
+  }, [streamURL]);
+
+  const startSplash = () => {
+    setShowConnectingSplash(true);
+
+    if (splashTimeoutRef.current) {
+      clearTimeout(splashTimeoutRef.current);
+    }
+
+    splashTimeoutRef.current = setTimeout(() => {
+      setShowConnectingSplash(false);
+
+      if (!streamURLRef.current && hasAttemptedConnectionRef.current) {
+        setShowRetryModal(true);
+      }
+    }, CONNECTING_SPLASH_MS);
+  };
+
   useFocusEffect(
     React.useCallback(() => {
-      let isActive = true;
+      let isMounted = true;
 
-      setShowConnectingSplash(true);
+      setShowRetryModal(false);
+      startSplash();
 
-      if (splashTimeoutRef.current) {
-        clearTimeout(splashTimeoutRef.current);
+      // Solo intenta conectar automáticamente la primera vez
+      if (!hasAttemptedConnectionRef.current) {
+        connectToRobotRef.current().catch((error) => {
+          console.error('Error conectando al robot:', error);
+        });
       }
-
-      splashTimeoutRef.current = setTimeout(() => {
-        if (isActive) {
-          setShowConnectingSplash(false);
-        }
-      }, CONNECTING_SPLASH_MS);
-
-      connectToRobot().catch((error) => {
-        console.error('Error conectando al robot:', error);
-      });
 
       navigation.setOptions({ tabBarStyle: { display: 'none' } });
 
@@ -80,12 +107,14 @@ export default function CameraScreen() {
 
       activateKeepAwakeAsync()
         .then(() => {
-          isKeepAwakeActive.current = true;
+          if (isMounted) {
+            isKeepAwakeActive.current = true;
+          }
         })
         .catch(() => {});
 
       return () => {
-        isActive = false;
+        isMounted = false;
 
         if (splashTimeoutRef.current) {
           clearTimeout(splashTimeoutRef.current);
@@ -125,22 +154,25 @@ export default function CameraScreen() {
           }
         }
       };
-    }, [navigation, connectToRobot])
+    }, [navigation])
   );
 
   const handleBack = async () => {
-    if (isKeepAwakeActive.current) {
-      try {
-        deactivateKeepAwake();
-        isKeepAwakeActive.current = false;
-      } catch (error) {
-        console.error('Error desactivando keep awake:', error);
-      }
-    }
-
-    disconnectFromRobot();
     await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
     router.back();
+  };
+
+  const handleRetryConnection = () => {
+    setShowRetryModal(false);
+    startSplash();
+
+    connectToRobotRef.current().catch((error) => {
+      console.error('Error reintentando conexión al robot:', error);
+    });
+  };
+
+  const handleCancelRetry = () => {
+    setShowRetryModal(false);
   };
 
   const handleModeChange = (newMode: CameraMode) => {
@@ -181,7 +213,7 @@ export default function CameraScreen() {
     return (
       <View style={styles.loadingContainer}>
         <Image
-          source={require('../../assets/images/logoTrabajo.png')}
+          source={require('../../assets/images/logo.png')}
           style={styles.loadingLogo}
           resizeMode="contain"
         />
@@ -202,7 +234,10 @@ export default function CameraScreen() {
       ) : (
         <View style={styles.noVideoContainer}>
           <Ionicons name="videocam-off-outline" size={64} color="#666" />
-          <Text style={styles.noVideoText}>Sin video</Text>
+          <Text style={styles.noVideoTitle}>No se conectó a la cámara</Text>
+          <Text style={styles.noVideoText}>
+            Verifica que el robot esté encendido y disponible.
+          </Text>
         </View>
       )}
 
@@ -262,17 +297,17 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {showConnectionError && (
+      {showRetryModal && !streamURL && (
         <Modal
-          visible={showConnectionError}
+          visible={showRetryModal}
           transparent
           animationType="fade"
-          onRequestClose={handleCancelConnection}
+          onRequestClose={handleCancelRetry}
         >
           <TouchableOpacity
             style={styles.errorOverlay}
             activeOpacity={1}
-            onPress={handleCancelConnection}
+            onPress={handleCancelRetry}
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -280,16 +315,14 @@ export default function CameraScreen() {
             >
               <View style={styles.errorBox}>
                 <Ionicons name="warning-outline" size={48} color="#FF9800" />
-                <Text style={styles.errorTitle}>Error de conexión</Text>
+                <Text style={styles.errorTitle}>No se pudo conectar</Text>
                 <Text style={styles.errorMessage}>
-                  {errorMessage || 'No se pudo conectar al robot'}
-                  {'\n\n'}
-                  Verifica que las Raspberry Pi estén encendidas.
+                  {errorMessage || 'No se pudo conectar a la cámara del robot.'}
                 </Text>
                 <View style={styles.errorButtons}>
                   <TouchableOpacity
                     style={styles.errorButtonCancel}
-                    onPress={handleCancelConnection}
+                    onPress={handleCancelRetry}
                   >
                     <Text style={styles.errorButtonCancelText}>Cancelar</Text>
                   </TouchableOpacity>
@@ -394,14 +427,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
-    gap: 16,
+    backgroundColor: '#000000',
+    paddingHorizontal: 24,
+  },
+  noVideoTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   noVideoText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#C7C7C7',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
   },
+
   overlay: {
     ...StyleSheet.absoluteFillObject,
     pointerEvents: 'box-none',
@@ -474,23 +518,24 @@ const styles = StyleSheet.create({
     bottom: 30,
     zIndex: 5,
   },
+
   errorOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   errorBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 28,
+    padding: 24,
     width: '80%',
-    maxWidth: 400,
+    maxWidth: 380,
     alignItems: 'center',
   },
   errorTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#212121',
     marginTop: 12,
     marginBottom: 8,
@@ -532,6 +577,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+
   alertOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
