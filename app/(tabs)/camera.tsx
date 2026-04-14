@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
@@ -11,13 +11,14 @@ import JoystickControl from '../../src/components/organisms/JoystickControl';
 
 type CameraMode = 'view' | 'control';
 
+const CONNECTING_SPLASH_MS = 900;
+
 export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
 
   const {
     remoteStream,
-    isConnecting,
     connectToRobot,
     errorMessage,
     showConnectionError,
@@ -31,8 +32,10 @@ export default function CameraScreen() {
   const [mode, setMode] = useState<CameraMode>('view');
   const [showModeAlert, setShowModeAlert] = useState(false);
   const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
+  const [showConnectingSplash, setShowConnectingSplash] = useState(true);
+
   const isKeepAwakeActive = useRef(false);
-  const hasTriedConnect = useRef(false);
+  const splashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const streamURL = useMemo(() => {
     try {
@@ -46,17 +49,26 @@ export default function CameraScreen() {
     }
   }, [remoteStream]);
 
-  useEffect(() => {
-    if (!remoteStream && !hasTriedConnect.current) {
-      hasTriedConnect.current = true;
+  useFocusEffect(
+    React.useCallback(() => {
+      let isActive = true;
+
+      setShowConnectingSplash(true);
+
+      if (splashTimeoutRef.current) {
+        clearTimeout(splashTimeoutRef.current);
+      }
+
+      splashTimeoutRef.current = setTimeout(() => {
+        if (isActive) {
+          setShowConnectingSplash(false);
+        }
+      }, CONNECTING_SPLASH_MS);
+
       connectToRobot().catch((error) => {
         console.error('Error conectando al robot:', error);
       });
-    }
-  }, [remoteStream, connectToRobot]);
 
-  useFocusEffect(
-    React.useCallback(() => {
       navigation.setOptions({ tabBarStyle: { display: 'none' } });
 
       const parent = navigation.getParent();
@@ -73,6 +85,13 @@ export default function CameraScreen() {
         .catch(() => {});
 
       return () => {
+        isActive = false;
+
+        if (splashTimeoutRef.current) {
+          clearTimeout(splashTimeoutRef.current);
+          splashTimeoutRef.current = null;
+        }
+
         navigation.setOptions({
           tabBarStyle: {
             backgroundColor: Colors.background,
@@ -106,7 +125,7 @@ export default function CameraScreen() {
           }
         }
       };
-    }, [navigation])
+    }, [navigation, connectToRobot])
   );
 
   const handleBack = async () => {
@@ -158,11 +177,11 @@ export default function CameraScreen() {
     }
   };
 
-  if (isConnecting && !streamURL) {
+  if (showConnectingSplash) {
     return (
       <View style={styles.loadingContainer}>
         <Image
-          source={require('../../assets/images/logo.png')}
+          source={require('../../assets/images/logoTrabajo.png')}
           style={styles.loadingLogo}
           resizeMode="contain"
         />
