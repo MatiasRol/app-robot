@@ -143,6 +143,7 @@ export default function Joystick({
         ]}
       >
         <View style={styles.innerRing} />
+
         <View style={styles.guidesContainer}>
           <View
             style={[
@@ -237,6 +238,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 20,
     elevation: 10,
+    overflow: 'hidden',
   },
   innerRing: {
     position: 'absolute',
@@ -253,9 +255,9 @@ const styles = StyleSheet.create({
   },
   directionIndicator: {
     position: 'absolute',
-    width: 22,
+    width: 18,
     height: 3,
-    backgroundColor: 'rgba(157, 193, 255, 0.14)',
+    backgroundColor: 'rgba(157, 193, 255, 0.18)',
     borderRadius: 2,
   },
   activeIndicator: {
@@ -266,48 +268,51 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.85,
     shadowRadius: 10,
   },
+
+  // Más adentro del círculo
   indicatorUp: {
-    top: 10,
+    top: 22,
     left: '50%',
-    marginLeft: -11,
+    marginLeft: -9,
   },
   indicatorDown: {
-    bottom: 10,
+    bottom: 22,
     left: '50%',
-    marginLeft: -11,
+    marginLeft: -9,
   },
   indicatorLeft: {
-    left: 10,
+    left: 22,
     top: '50%',
     marginTop: -1.5,
     transform: [{ rotate: '90deg' }],
   },
   indicatorRight: {
-    right: 10,
+    right: 22,
     top: '50%',
     marginTop: -1.5,
     transform: [{ rotate: '90deg' }],
   },
   indicatorUpRight: {
-    top: 18,
-    right: 18,
+    top: 30,
+    right: 30,
     transform: [{ rotate: '45deg' }],
   },
   indicatorUpLeft: {
-    top: 18,
-    left: 18,
+    top: 30,
+    left: 30,
     transform: [{ rotate: '-45deg' }],
   },
   indicatorDownRight: {
-    bottom: 18,
-    right: 18,
+    bottom: 30,
+    right: 30,
     transform: [{ rotate: '-45deg' }],
   },
   indicatorDownLeft: {
-    bottom: 18,
-    left: 18,
+    bottom: 30,
+    left: 30,
     transform: [{ rotate: '45deg' }],
   },
+
   centerCircle: {
     width: 36,
     height: 36,
