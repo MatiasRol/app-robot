@@ -1,13 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 
 interface WaypointMarkerProps {
   svgX: number;
@@ -24,43 +16,32 @@ export default function WaypointMarker({
   orientationAngle = 0,
   number,
 }: WaypointMarkerProps) {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    if (!confirmed) {
-      rotation.value = withRepeat(
-        withTiming(360, { duration: 1500, easing: Easing.linear }),
-        -1,
-        false
-      );
-    } else {
-      cancelAnimation(rotation);
-      rotation.value = (orientationAngle * 180) / Math.PI;
-    }
-  }, [confirmed, orientationAngle, rotation]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
-
   return (
     <View
       style={[
         styles.container,
         {
           position: 'absolute',
-          left: svgX - 18,
-          top: svgY - 18,
+          left: svgX - 20,
+          top: svgY - 20,
         },
       ]}
     >
-      <Animated.View style={animatedStyle}>
+      <View
+        style={[
+          styles.iconWrap,
+          {
+            opacity: confirmed ? 1 : 0.94,
+            transform: [{ rotate: `${(orientationAngle * 180) / Math.PI}deg` }],
+          },
+        ]}
+      >
         <Image
-          source={require('../../../assets/images/waypoints.png')}
+          source={require('../../../assets/images/waypoint.png')}
           style={styles.icon}
           resizeMode="contain"
         />
-      </Animated.View>
+      </View>
 
       {number !== undefined && (
         <View style={styles.numberBadge}>
@@ -73,29 +54,40 @@ export default function WaypointMarker({
 
 const styles = StyleSheet.create({
   container: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
   },
   numberBadge: {
     position: 'absolute',
-    top: -7,
-    right: -7,
+    top: -6,
+    right: -6,
     width: 18,
     height: 18,
     borderRadius: 9,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   numberText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#0D111C',
+    color: '#000000',
   },
 });

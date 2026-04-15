@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react';
+import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -6,11 +8,21 @@ import { AppProvider } from '../lib/modules/app/context/AppContext';
 import { CameraConnectionProvider } from '../lib/modules/camera/context/CameraConnectionContext';
 
 export default function RootLayout() {
+  useEffect(() => {
+    RNStatusBar.setHidden(true, 'fade');
+
+    if (Platform.OS === 'android') {
+      RNStatusBar.setTranslucent(true);
+      RNStatusBar.setBackgroundColor('transparent');
+    }
+  }, []);
+
   return (
     <AppProvider>
       <CameraConnectionProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar style="light" backgroundColor={Colors.background} />
+          <StatusBar hidden style="light" translucent backgroundColor="transparent" />
+
           <Stack
             screenOptions={{
               headerStyle: {

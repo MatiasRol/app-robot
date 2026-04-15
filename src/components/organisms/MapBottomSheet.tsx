@@ -56,7 +56,7 @@ export function MapBottomSheet({
             <TouchableOpacity
               style={styles.addBtn}
               onPress={onAddRoute}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               <Text style={styles.addBtnText}>+</Text>
             </TouchableOpacity>
@@ -91,70 +91,74 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F4F4F4',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: '#F6F7F9',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     elevation: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
   },
   handleContainer: {
     alignItems: 'center',
     paddingTop: 10,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   handle: {
-    width: 54,
-    height: 4,
-    backgroundColor: '#A7A7A7',
-    borderRadius: 2,
+    width: 58,
+    height: 5,
+    backgroundColor: '#B9BEC8',
+    borderRadius: 3,
   },
   collapsedContent: {
     alignItems: 'center',
-    paddingBottom: 14,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   mapName: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#F5F5F5',
+    fontWeight: '600',
+    color: '#6C7380',
   },
   expandedContent: {
     flex: 1,
   },
   expandedContentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingHorizontal: 22,
+    paddingBottom: 28,
     paddingTop: 8,
   },
   routesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   routesTitle: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: '800',
     color: '#202020',
   },
   addBtn: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#E9EDF3',
   },
   addBtnText: {
-    fontSize: 34,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 28,
     color: '#202020',
     fontWeight: '300',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 40,
+    paddingTop: 46,
+    paddingHorizontal: 24,
   },
   emptyText: {
     fontSize: 18,
@@ -166,5 +170,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#777777',
     textAlign: 'center',
+    lineHeight: 18,
   },
 });
