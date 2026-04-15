@@ -8,7 +8,6 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
 } from 'react-native-reanimated';
 import Svg, {
   G,
@@ -106,13 +105,6 @@ export default function MapViewer({
   const svgWidth = metadata ? metadata.width_px * SCALE_FACTOR : 0;
   const svgHeight = metadata ? metadata.height_px * SCALE_FACTOR : 0;
 
-  const handleResetPosition = () => {
-    translateX.value = withSpring(0);
-    translateY.value = withSpring(0);
-    savedTranslateX.value = 0;
-    savedTranslateY.value = 0;
-  };
-
   const handleTap = (
     tapX: number,
     tapY: number,
@@ -150,13 +142,6 @@ export default function MapViewer({
       savedTranslateY.value = translateY.value;
     });
 
-  const doubleTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd(() => {
-      'worklet';
-      runOnJS(handleResetPosition)();
-    });
-
   const singleTap = Gesture.Tap()
     .numberOfTaps(1)
     .onEnd((e) => {
@@ -171,7 +156,7 @@ export default function MapViewer({
 
   const gesture = Gesture.Simultaneous(
     panGesture,
-    Gesture.Exclusive(doubleTap, singleTap)
+    singleTap
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
