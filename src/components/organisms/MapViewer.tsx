@@ -94,108 +94,35 @@ export default function MapViewer({
   goalPoint = null,
   waypoints = [],
 }: MapViewerProps) {
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-
   const translateX = useSharedValue(0);
   const savedTranslateX = useSharedValue(0);
 
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
-  const rotation = useSharedValue(0);
-  const savedRotation = useSharedValue(0);
+  const metadata = mapData?.metadata ?? null;
+  const layers = mapData?.layers ?? null;
 
-  if (loading) return <MapLoadingIndicator />;
+  const svgWidth = metadata ? metadata.width_px * SCALE_FACTOR : 0;
+  const svgHeight = metadata ? metadata.height_px * SCALE_FACTOR : 0;
 
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  if (!mapData) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.placeholderText}>Sin mapa disponible</Text>
-      </View>
-    );
-  }
-
-  const { metadata, layers } = mapData;
-  const svgWidth = metadata.width_px * SCALE_FACTOR;
-  const svgHeight = metadata.height_px * SCALE_FACTOR;
-  const centerX = svgWidth / 2;
-  const centerY = svgHeight / 2;
-
-  const panGesture = Gesture.Pan()
-    .onUpdate((e) => {
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
-    })
-    .onEnd(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
-    });
-
-  const pinchGesture = Gesture.Pinch()
-    .onUpdate((e) => {
-      const next = savedScale.value * e.scale;
-      scale.value = Math.min(Math.max(next, 0.1), 10.0);
-    })
-    .onEnd(() => {
-      savedScale.value = scale.value;
-    });
-
-  const rotationGesture = Gesture.Rotation()
-    .onUpdate((e) => {
-      rotation.value = savedRotation.value + e.rotation;
-    })
-    .onEnd(() => {
-      savedRotation.value = rotation.value;
-    });
-
-  const handleReset = () => {
-    scale.value = withSpring(1);
-    savedScale.value = 1;
-
+  const handleResetPosition = () => {
     translateX.value = withSpring(0);
     translateY.value = withSpring(0);
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-
-    rotation.value = withSpring(0);
-    savedRotation.value = 0;
   };
 
   const handleTap = (
     tapX: number,
     tapY: number,
     currentTranslateX: number,
-    currentTranslateY: number,
-    currentScale: number,
-    currentRotation: number
+    currentTranslateY: number
   ) => {
-    if (!onPointTap || !mapData) return;
+    if (!onPointTap || !mapData || !metadata) return;
 
-    // Invertimos correctamente la transformación explícita:
-    // translate -> center pivot -> rotate -> scale -> unpivot
-    const dx = tapX - currentTranslateX - centerX;
-    const dy = tapY - currentTranslateY - centerY;
-
-    const cos = Math.cos(-currentRotation);
-    const sin = Math.sin(-currentRotation);
-
-    const rotatedX = dx * cos - dy * sin;
-    const rotatedY = dx * sin + dy * cos;
-
-    const unscaledX = rotatedX / currentScale;
-    const unscaledY = rotatedY / currentScale;
-
-    const svgX = unscaledX + centerX;
-    const svgY = unscaledY + centerY;
+    const svgX = tapX - currentTranslateX;
+    const svgY = tapY - currentTranslateY;
 
     if (svgX < 0 || svgY < 0 || svgX > svgWidth || svgY > svgHeight) {
       return;
@@ -207,17 +134,27 @@ export default function MapViewer({
     const { worldX, worldY } = pixelToWorld(
       pixelX,
       pixelY,
-      mapData.metadata as any
+      metadata as any
     );
 
     onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
   };
 
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = savedTranslateX.value + e.translationX;
+      translateY.value = savedTranslateY.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
       'worklet';
-      runOnJS(handleReset)();
+      runOnJS(handleResetPosition)();
     });
 
   const singleTap = Gesture.Tap()
@@ -228,27 +165,19 @@ export default function MapViewer({
         e.x,
         e.y,
         translateX.value,
-        translateY.value,
-        scale.value,
-        rotation.value
+        translateY.value
       );
     });
 
   const gesture = Gesture.Simultaneous(
     panGesture,
-    pinchGesture,
-    rotationGesture,
     Gesture.Exclusive(doubleTap, singleTap)
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value + centerX },
-      { translateY: translateY.value + centerY },
-      { rotate: `${rotation.value}rad` },
-      { scale: scale.value },
-      { translateX: -centerX },
-      { translateY: -centerY },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
     ],
   }));
 
@@ -256,7 +185,7 @@ export default function MapViewer({
     polygons.map((poly, i) => (
       <Polygon
         key={i}
-        points={pointsToSvgString(poly.exterior, metadata.height_px)}
+        points={pointsToSvgString(poly.exterior, metadata!.height_px)}
         fill={color}
         stroke={color}
         strokeWidth={1}
@@ -264,7 +193,7 @@ export default function MapViewer({
     ));
 
   const renderRobotMarker = () => {
-    if (!robotPose) return null;
+    if (!robotPose || !metadata) return null;
 
     const { svgX, svgY } = worldToSvgCoords(
       robotPose.worldX,
@@ -275,7 +204,7 @@ export default function MapViewer({
 
     return (
       <SvgImage
-        href={require('../../../assets/images/robot.png')}
+        href={require('../../../assets/images/Robot.png')}
         x={svgX - ROBOT_MARKER_SIZE / 2}
         y={svgY - ROBOT_MARKER_SIZE / 2}
         width={ROBOT_MARKER_SIZE}
@@ -286,7 +215,7 @@ export default function MapViewer({
   };
 
   const renderNavigationArrow = () => {
-    if (!robotPose || !goalPoint) return null;
+    if (!robotPose || !goalPoint || !metadata) return null;
 
     const from = worldToSvgCoords(
       robotPose.worldX,
@@ -338,6 +267,26 @@ export default function MapViewer({
       </G>
     );
   };
+
+  if (loading) {
+    return <MapLoadingIndicator />;
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!mapData || !metadata || !layers) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.placeholderText}>Sin mapa disponible</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
