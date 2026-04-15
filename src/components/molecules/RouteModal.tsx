@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -26,10 +25,11 @@ interface RouteModalProps {
   selectedDays: string[];
   onToggleDay: (day: string) => void;
   executeAt: string;
-  onPressTime: () => void;
+  onChangeExecuteAt: (value: string) => void;
   recordRoute: boolean;
   onToggleRecordRoute: () => void;
   onClose: () => void;
+  onConfirm: () => void;
 }
 
 export function RouteModal({
@@ -39,103 +39,122 @@ export function RouteModal({
   selectedDays,
   onToggleDay,
   executeAt,
-  onPressTime,
+  onChangeExecuteAt,
   recordRoute,
   onToggleRecordRoute,
   onClose,
+  onConfirm,
 }: RouteModalProps) {
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color="#202020" />
-            </TouchableOpacity>
+    <View style={styles.sheet}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color="#202020" />
+        </TouchableOpacity>
 
-            <TextInput
-              value={routeName}
-              onChangeText={onChangeRouteName}
-              placeholder="Nom. Ruta"
-              placeholderTextColor="#202020"
-              style={styles.titleInput}
-            />
+        <TextInput
+          value={routeName}
+          onChangeText={onChangeRouteName}
+          placeholder="Nom. Ruta"
+          placeholderTextColor="#202020"
+          style={styles.titleInput}
+        />
 
-            <View style={styles.rightSpacer} />
-          </View>
-
-          <Text style={styles.sectionTitle}>Horario</Text>
-
-          <View style={styles.daysContainer}>
-            {DAYS.map((day) => {
-              const selected = selectedDays.includes(day.key);
-
-              return (
-                <TouchableOpacity
-                  key={day.key}
-                  style={[styles.dayChip, selected && styles.dayChipActive]}
-                  onPress={() => onToggleDay(day.key)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.dayChipText, selected && styles.dayChipTextActive]}>
-                    {day.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Ejecutar a las:</Text>
-
-            <TouchableOpacity
-              style={styles.timePill}
-              onPress={onPressTime}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.timeText}>{executeAt}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Grabar la ruta:</Text>
-
-            <TouchableOpacity
-              style={[
-                styles.toggleTrack,
-                recordRoute && styles.toggleTrackActive,
-              ]}
-              onPress={onToggleRecordRoute}
-              activeOpacity={0.85}
-            >
-              <View
-                style={[
-                  styles.toggleThumb,
-                  recordRoute ? styles.toggleThumbRight : styles.toggleThumbLeft,
-                ]}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <View style={styles.rightSpacer} />
       </View>
-    </Modal>
+
+      <Text style={styles.sectionTitle}>Horario</Text>
+
+      <View style={styles.daysContainer}>
+        {DAYS.map((day) => {
+          const selected = selectedDays.includes(day.key);
+
+          return (
+            <TouchableOpacity
+              key={day.key}
+              style={[styles.dayChip, selected && styles.dayChipActive]}
+              onPress={() => onToggleDay(day.key)}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  styles.dayChipText,
+                  selected && styles.dayChipTextActive,
+                ]}
+              >
+                {day.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>Ejecutar a las:</Text>
+
+        <TextInput
+          value={executeAt}
+          onChangeText={onChangeExecuteAt}
+          placeholder="00:00"
+          placeholderTextColor="#707070"
+          keyboardType="numbers-and-punctuation"
+          maxLength={5}
+          style={styles.timeInput}
+        />
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>Grabar la ruta:</Text>
+
+        <TouchableOpacity
+          style={[
+            styles.toggleTrack,
+            recordRoute && styles.toggleTrackActive,
+          ]}
+          onPress={onToggleRecordRoute}
+          activeOpacity={0.85}
+        >
+          <View
+            style={[
+              styles.toggleThumb,
+              recordRoute ? styles.toggleThumbRight : styles.toggleThumbLeft,
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={styles.confirmButton}
+        onPress={onConfirm}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.confirmButtonText}>CONFIRMAR</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'transparent',
-  },
   sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#F4F4F4',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 18,
     paddingBottom: 36,
-    minHeight: 285,
+    minHeight: 320,
+    zIndex: 30,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   header: {
     flexDirection: 'row',
@@ -204,19 +223,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#303030',
   },
-  timePill: {
+  timeInput: {
     minWidth: 94,
     height: 40,
     borderRadius: 12,
     backgroundColor: '#D8D8D8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-  },
-  timeText: {
+    textAlign: 'center',
     fontSize: 20,
     fontWeight: '800',
     color: '#202020',
+    paddingHorizontal: 14,
   },
   toggleTrack: {
     width: 56,
@@ -240,5 +256,19 @@ const styles = StyleSheet.create({
   },
   toggleThumbRight: {
     alignSelf: 'flex-end',
+  },
+  confirmButton: {
+    marginTop: 10,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

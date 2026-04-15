@@ -14,14 +14,12 @@ export function useWaypointEditor() {
   const [waypoints, setWaypoints] = useState<WaypointPoint[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  // Primer toque — agrega un nuevo waypoint giratorio
   const addWaypointFirstTap = (
     pixelX: number,
     pixelY: number,
     worldX: number,
     worldY: number
   ) => {
-    // Solo permitir nuevo waypoint si no hay uno girando
     if (activeIndex !== null) return;
 
     const newWaypoint: WaypointPoint = {
@@ -40,7 +38,6 @@ export function useWaypointEditor() {
     });
   };
 
-  // Segundo toque — fija la orientación del waypoint activo
   const confirmWaypointOrientation = (
     tapPixelX: number,
     tapPixelY: number
@@ -79,6 +76,11 @@ export function useWaypointEditor() {
     setActiveIndex(null);
   };
 
+  const loadWaypoints = (items: WaypointPoint[]) => {
+    setWaypoints(items);
+    setActiveIndex(null);
+  };
+
   const hasActiveRotating = activeIndex !== null;
 
   return {
@@ -89,5 +91,6 @@ export function useWaypointEditor() {
     confirmWaypointOrientation,
     removeWaypoint,
     clearWaypoints,
+    loadWaypoints,
   };
 }

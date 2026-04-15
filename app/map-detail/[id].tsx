@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -10,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
-import { MapMode, Route } from '../../lib/core/types';
+import { MapMode, Route, WaypointPoint } from '../../lib/core/types';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
@@ -23,6 +22,46 @@ import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
 const robotPose: RobotPose = { worldX: 0, worldY: 0 };
+
+type UiRoute = Route & {
+  selectedDays: string[];
+  executeAt: string;
+  recordRoute: boolean;
+  uiWaypoints: WaypointPoint[];
+};
+
+const DAY_LABELS: Record<string, string> = {
+  mon: 'L',
+  tue: 'M',
+  wed: 'M',
+  thu: 'J',
+  fri: 'V',
+  sat: 'S',
+  sun: 'D',
+};
+
+function buildScheduleLabel(days: string[], time: string) {
+  if (days.length === 0 && !time.trim()) {
+    return 'Sin horario configurado';
+  }
+
+  const dayText =
+    days.length > 0 ? days.map((day) => DAY_LABELS[day]).join(', ') : '';
+
+  if (dayText && time.trim()) {
+    return `${dayText} a las ${time.trim()}`;
+  }
+
+  if (dayText) return dayText;
+  return `A las ${time.trim()}`;
+}
+
+function sanitizeTimeInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+}
 
 export default function MapDetailScreen() {
   const router = useRouter();
@@ -40,14 +79,36 @@ export default function MapDetailScreen() {
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
 
+  const [uiRoutes, setUiRoutes] = useState<UiRoute[]>([]);
+  const [hydratedRoutes, setHydratedRoutes] = useState(false);
+
   const [showRouteEditor, setShowRouteEditor] = useState(false);
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<UiRoute | null>(null);
 
   const [routeNameDraft, setRouteNameDraft] = useState('Nom. Ruta');
-  const [selectedDays, setSelectedDays] = useState<string[]>(['tue', 'fri']);
-  const [executeAt, setExecuteAt] = useState('00:00');
-  const [recordRoute, setRecordRoute] = useState(true);
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [executeAt, setExecuteAt] = useState('');
+  const [recordRoute, setRecordRoute] = useState(false);
+
+  useEffect(() => {
+    if (!mapRoutes.routesLoading && !hydratedRoutes) {
+      const adapted: UiRoute[] = mapRoutes.routes.map((route) => ({
+        ...route,
+        selectedDays: [],
+        executeAt: '',
+        recordRoute: false,
+        uiWaypoints: Array.isArray(route.waypoints)
+          ? (route.waypoints as WaypointPoint[])
+          : [],
+      }));
+
+      setUiRoutes(adapted);
+      setHydratedRoutes(true);
+    }
+  }, [mapRoutes.routes, mapRoutes.routesLoading, hydratedRoutes]);
 
   const handleMapTap = (
     worldX: number,
@@ -74,40 +135,101 @@ export default function MapDetailScreen() {
   };
 
   const handleOpenRoutes = () => {
+    setShowRouteEditor(false);
     setMapMode('route_list');
     bottomSheet.collapseBottomSheet();
   };
 
   const handleAddRouteUi = () => {
     waypointEditor.clearWaypoints();
+    setEditingRouteId(null);
     setSelectedRoute(null);
-    setRouteNameDraft('Nom. Ruta');
-    setSelectedDays(['tue', 'fri']);
-    setExecuteAt('00:00');
-    setRecordRoute(true);
+    setRouteNameDraft(`Ruta ${uiRoutes.length + 1}`);
+    setSelectedDays([]);
+    setExecuteAt('');
+    setRecordRoute(false);
     setShowRouteEditor(true);
     setMapMode('route_edit');
   };
 
   const handleEditRouteUi = (routeId: string) => {
-    const route = mapRoutes.routes.find((r) => r.id === routeId) || null;
+    const route = uiRoutes.find((r) => r.id === routeId) || null;
+    if (!route) return;
 
-    waypointEditor.clearWaypoints();
+    setEditingRouteId(route.id);
     setSelectedRoute(route);
-    setRouteNameDraft(route?.name || 'Nom. Ruta');
+    setRouteNameDraft(route.name);
+    setSelectedDays(route.selectedDays || []);
+    setExecuteAt(route.executeAt || '');
+    setRecordRoute(route.recordRoute || false);
+    waypointEditor.loadWaypoints(route.uiWaypoints || []);
     setShowRouteEditor(true);
     setMapMode('route_edit');
   };
 
   const handlePlayRouteUi = (routeId: string) => {
-    const route = mapRoutes.routes.find((r) => r.id === routeId) || null;
+    const route = uiRoutes.find((r) => r.id === routeId) || null;
     setSelectedRoute(route);
     setShowExecuteConfirm(true);
   };
 
   const handleCloseRouteEditor = () => {
     setShowRouteEditor(false);
+    setEditingRouteId(null);
+    setSelectedRoute(null);
+    waypointEditor.clearWaypoints();
     setMapMode('route_list');
+    bottomSheet.expandBottomSheet();
+  };
+
+  const handleConfirmRoute = () => {
+    const safeName = routeNameDraft.trim() || `Ruta ${uiRoutes.length + 1}`;
+    const safeTime = executeAt.trim();
+    const schedule = buildScheduleLabel(selectedDays, safeTime);
+
+    const finalWaypoints =
+      waypointEditor.waypoints.length > 0
+        ? waypointEditor.waypoints
+        : selectedRoute?.uiWaypoints || [];
+
+    if (editingRouteId) {
+      setUiRoutes((prev) =>
+        prev.map((route) =>
+          route.id === editingRouteId
+            ? {
+                ...route,
+                name: safeName,
+                schedule,
+                selectedDays,
+                executeAt: safeTime,
+                recordRoute,
+                uiWaypoints: finalWaypoints,
+              }
+            : route
+        )
+      );
+    } else {
+      const newRoute: UiRoute = {
+        id: `ui-route-${Date.now()}`,
+        name: safeName,
+        mapId: id as string,
+        schedule,
+        selectedDays,
+        executeAt: safeTime,
+        recordRoute,
+        uiWaypoints: finalWaypoints,
+        waypoints: finalWaypoints,
+      };
+
+      setUiRoutes((prev) => [...prev, newRoute]);
+    }
+
+    setShowRouteEditor(false);
+    setEditingRouteId(null);
+    setSelectedRoute(null);
+    waypointEditor.clearWaypoints();
+    setMapMode('route_list');
+    bottomSheet.expandBottomSheet();
   };
 
   const toggleDay = (day: string) => {
@@ -159,17 +281,17 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {mapMode === 'route_list' && (
+      {mapMode === 'route_list' && !showRouteEditor && (
         <MapBottomSheet
           mapName={mapName || 'Nombre del Mapa'}
           bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
           isExpanded={bottomSheet.isExpanded}
           panHandlers={bottomSheet.panHandlers}
-          routes={mapRoutes.routes}
+          routes={uiRoutes}
           onAddRoute={handleAddRouteUi}
           onEditRouteWaypoints={handleEditRouteUi}
           onPlayRoute={handlePlayRouteUi}
-          onDeleteRoute={mapRoutes.onDeleteRoute}
+          onDeleteRoute={() => {}}
         />
       )}
 
@@ -180,10 +302,11 @@ export default function MapDetailScreen() {
         selectedDays={selectedDays}
         onToggleDay={toggleDay}
         executeAt={executeAt}
-        onPressTime={() => {}}
+        onChangeExecuteAt={(value) => setExecuteAt(sanitizeTimeInput(value))}
         recordRoute={recordRoute}
         onToggleRecordRoute={() => setRecordRoute((prev) => !prev)}
         onClose={handleCloseRouteEditor}
+        onConfirm={handleConfirmRoute}
       />
 
       {showExecuteConfirm && (
