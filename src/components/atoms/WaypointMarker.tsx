@@ -37,7 +37,7 @@ export default function WaypointMarker({
         ]}
       >
         <Image
-          source={require('../../../assets/images/waypoint.png')}
+          source={require('../../../assets/images/waypoints.png')}
           style={styles.icon}
           resizeMode="contain"
         />
