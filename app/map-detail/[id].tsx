@@ -129,9 +129,21 @@ export default function MapDetailScreen() {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
       } else {
-        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
+        waypointEditor.confirmWaypointOrientation();
       }
     }
+  };
+
+  const handleWaypointDirectionDrag = (
+    _worldX: number,
+    _worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
+    if (mapMode !== 'route_edit') return;
+    if (!waypointEditor.hasActiveRotating) return;
+
+    waypointEditor.updateActiveWaypointOrientation(pixelX, pixelY);
   };
 
   const handleOpenRoutes = () => {
@@ -249,6 +261,10 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
+          onDirectionDrag={handleWaypointDirectionDrag}
+          isAdjustingWaypointDirection={
+            mapMode === 'route_edit' && waypointEditor.hasActiveRotating
+          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]

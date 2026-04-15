@@ -38,9 +38,9 @@ export function useWaypointEditor() {
     });
   };
 
-  const confirmWaypointOrientation = (
-    tapPixelX: number,
-    tapPixelY: number
+  const updateActiveWaypointOrientation = (
+    dragPixelX: number,
+    dragPixelY: number
   ) => {
     if (activeIndex === null) return;
 
@@ -49,8 +49,8 @@ export function useWaypointEditor() {
       if (!active) return prev;
 
       const angle = Math.atan2(
-        tapPixelY - active.pixelY,
-        tapPixelX - active.pixelX
+        dragPixelY - active.pixelY,
+        dragPixelX - active.pixelX
       );
 
       const updated = [...prev];
@@ -58,8 +58,26 @@ export function useWaypointEditor() {
         ...active,
         orientationAngle: angle,
         quaternion: angleToQuaternion(angle),
+        confirmed: false,
+      };
+
+      return updated;
+    });
+  };
+
+  const confirmWaypointOrientation = () => {
+    if (activeIndex === null) return;
+
+    setWaypoints((prev) => {
+      const active = prev[activeIndex];
+      if (!active) return prev;
+
+      const updated = [...prev];
+      updated[activeIndex] = {
+        ...active,
         confirmed: true,
       };
+
       return updated;
     });
 
@@ -88,6 +106,7 @@ export function useWaypointEditor() {
     activeIndex,
     hasActiveRotating,
     addWaypointFirstTap,
+    updateActiveWaypointOrientation,
     confirmWaypointOrientation,
     removeWaypoint,
     clearWaypoints,

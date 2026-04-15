@@ -23,7 +23,6 @@ import WaypointMarker from '../atoms/WaypointMarker';
 
 const SCALE_FACTOR = 5.0;
 
-// Colores visuales
 const MAP_BACKGROUND_COLOR = '#06102A';
 const MAP_FREE_SPACE_COLOR = '#06102A';
 const MAP_UNKNOWN_COLOR = '#06102A';
@@ -52,6 +51,13 @@ interface MapViewerProps {
     pixelX: number,
     pixelY: number
   ) => void;
+  onDirectionDrag?: (
+    worldX: number,
+    worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => void;
+  isAdjustingWaypointDirection?: boolean;
   robotPose?: RobotPose | null;
   goalPoint?: GoalPoint | null;
   waypoints?: WaypointPoint[];
@@ -89,6 +95,8 @@ export default function MapViewer({
   error = null,
   renderOverlay,
   onPointTap,
+  onDirectionDrag,
+  isAdjustingWaypointDirection = false,
   robotPose = null,
   goalPoint = null,
   waypoints = [],
@@ -105,19 +113,19 @@ export default function MapViewer({
   const svgWidth = metadata ? metadata.width_px * SCALE_FACTOR : 0;
   const svgHeight = metadata ? metadata.height_px * SCALE_FACTOR : 0;
 
-  const handleTap = (
-    tapX: number,
-    tapY: number,
+  const toMapCoords = (
+    touchX: number,
+    touchY: number,
     currentTranslateX: number,
     currentTranslateY: number
   ) => {
-    if (!onPointTap || !mapData || !metadata) return;
+    if (!metadata) return null;
 
-    const svgX = tapX - currentTranslateX;
-    const svgY = tapY - currentTranslateY;
+    const svgX = touchX - currentTranslateX;
+    const svgY = touchY - currentTranslateY;
 
     if (svgX < 0 || svgY < 0 || svgX > svgWidth || svgY > svgHeight) {
-      return;
+      return null;
     }
 
     const pixelX = svgX / SCALE_FACTOR;
@@ -129,15 +137,60 @@ export default function MapViewer({
       metadata as any
     );
 
-    onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
+    return {
+      worldX,
+      worldY,
+      pixelX: Math.round(pixelX),
+      pixelY: Math.round(pixelY),
+    };
+  };
+
+  const handleTap = (
+    tapX: number,
+    tapY: number,
+    currentTranslateX: number,
+    currentTranslateY: number
+  ) => {
+    if (!onPointTap || !mapData || !metadata) return;
+
+    const coords = toMapCoords(tapX, tapY, currentTranslateX, currentTranslateY);
+    if (!coords) return;
+
+    onPointTap(coords.worldX, coords.worldY, coords.pixelX, coords.pixelY);
+  };
+
+  const handleDirectionDrag = (
+    touchX: number,
+    touchY: number,
+    currentTranslateX: number,
+    currentTranslateY: number
+  ) => {
+    if (!onDirectionDrag || !mapData || !metadata) return;
+
+    const coords = toMapCoords(touchX, touchY, currentTranslateX, currentTranslateY);
+    if (!coords) return;
+
+    onDirectionDrag(coords.worldX, coords.worldY, coords.pixelX, coords.pixelY);
   };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
+      if (isAdjustingWaypointDirection) {
+        runOnJS(handleDirectionDrag)(
+          e.x,
+          e.y,
+          translateX.value,
+          translateY.value
+        );
+        return;
+      }
+
       translateX.value = savedTranslateX.value + e.translationX;
       translateY.value = savedTranslateY.value + e.translationY;
     })
     .onEnd(() => {
+      if (isAdjustingWaypointDirection) return;
+
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     });
