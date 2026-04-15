@@ -120,7 +120,7 @@ export default function MapDetailScreen() {
       if (!navigate.navPoint) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
       } else if (!navigate.navPoint.confirmed) {
-        navigate.handleSecondTap(pixelX, pixelY);
+        navigate.confirmOrientation();
       }
       return;
     }
@@ -134,12 +134,19 @@ export default function MapDetailScreen() {
     }
   };
 
-  const handleWaypointDirectionDrag = (
+  const handleDirectionDrag = (
     _worldX: number,
     _worldY: number,
     pixelX: number,
     pixelY: number
   ) => {
+    if (mapMode === 'navigate') {
+      if (!navigate.navPoint || navigate.navPoint.confirmed) return;
+
+      navigate.updateOrientation(pixelX, pixelY);
+      return;
+    }
+
     if (mapMode !== 'route_edit') return;
     if (!waypointEditor.hasActiveRotating) return;
 
@@ -261,9 +268,12 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
-          onDirectionDrag={handleWaypointDirectionDrag}
+          onDirectionDrag={handleDirectionDrag}
           isAdjustingWaypointDirection={
-            mapMode === 'route_edit' && waypointEditor.hasActiveRotating
+            (mapMode === 'navigate' &&
+              !!navigate.navPoint &&
+              !navigate.navPoint.confirmed) ||
+            (mapMode === 'route_edit' && waypointEditor.hasActiveRotating)
           }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint

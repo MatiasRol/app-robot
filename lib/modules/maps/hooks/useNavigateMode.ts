@@ -26,29 +26,34 @@ export function useNavigateMode() {
       worldY,
       orientationAngle: 0,
       quaternion: angleToQuaternion(0),
-      confirmed: false, // girando
+      confirmed: false,
     });
   };
 
-  const handleSecondTap = (
-    tapPixelX: number,
-    tapPixelY: number
-  ) => {
-    if (!navPoint) return;
+  const updateOrientation = (dragPixelX: number, dragPixelY: number) => {
+    setNavPoint((prev) => {
+      if (!prev) return null;
 
-    // Calcular ángulo entre el punto seleccionado y el segundo toque
-    const angle = Math.atan2(
-      tapPixelY - navPoint.pixelY,
-      tapPixelX - navPoint.pixelX
-    );
+      const angle = Math.atan2(
+        dragPixelY - prev.pixelY,
+        dragPixelX - prev.pixelX
+      );
 
+      return {
+        ...prev,
+        orientationAngle: angle,
+        quaternion: angleToQuaternion(angle),
+        confirmed: false,
+      };
+    });
+  };
+
+  const confirmOrientation = () => {
     setNavPoint((prev) =>
       prev
         ? {
             ...prev,
-            orientationAngle: angle,
-            quaternion: angleToQuaternion(angle),
-            confirmed: true, // fijo
+            confirmed: true,
           }
         : null
     );
@@ -56,5 +61,11 @@ export function useNavigateMode() {
 
   const reset = () => setNavPoint(null);
 
-  return { navPoint, handleFirstTap, handleSecondTap, reset };
+  return {
+    navPoint,
+    handleFirstTap,
+    updateOrientation,
+    confirmOrientation,
+    reset,
+  };
 }
