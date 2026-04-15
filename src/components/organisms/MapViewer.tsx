@@ -11,7 +11,6 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import Svg, {
-  Circle,
   G,
   Image as SvgImage,
   Line,
@@ -25,16 +24,12 @@ import WaypointMarker from '../atoms/WaypointMarker';
 
 const SCALE_FACTOR = 5.0;
 
-// Colores visuales del mapa según tu diseño
+// Colores visuales
 const MAP_BACKGROUND_COLOR = '#06102A';
 const MAP_FREE_SPACE_COLOR = '#06102A';
 const MAP_UNKNOWN_COLOR = '#06102A';
 const MAP_OBSTACLE_COLOR = '#89C6DF';
-
-// Flecha de navegación
 const NAV_ARROW_COLOR = '#00E5FF';
-
-// Marker robot
 const ROBOT_MARKER_SIZE = 34;
 
 export interface RobotPose {
@@ -101,12 +96,39 @@ export default function MapViewer({
 }: MapViewerProps) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
+
   const translateX = useSharedValue(0);
   const savedTranslateX = useSharedValue(0);
+
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
+
   const rotation = useSharedValue(0);
   const savedRotation = useSharedValue(0);
+
+  if (loading) return <MapLoadingIndicator />;
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!mapData) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.placeholderText}>Sin mapa disponible</Text>
+      </View>
+    );
+  }
+
+  const { metadata, layers } = mapData;
+  const svgWidth = metadata.width_px * SCALE_FACTOR;
+  const svgHeight = metadata.height_px * SCALE_FACTOR;
+  const centerX = svgWidth / 2;
+  const centerY = svgHeight / 2;
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -138,10 +160,12 @@ export default function MapViewer({
   const handleReset = () => {
     scale.value = withSpring(1);
     savedScale.value = 1;
+
     translateX.value = withSpring(0);
     translateY.value = withSpring(0);
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
+
     rotation.value = withSpring(0);
     savedRotation.value = 0;
   };
@@ -151,12 +175,32 @@ export default function MapViewer({
     tapY: number,
     currentTranslateX: number,
     currentTranslateY: number,
-    currentScale: number
+    currentScale: number,
+    currentRotation: number
   ) => {
     if (!onPointTap || !mapData) return;
 
-    const svgX = (tapX - currentTranslateX) / currentScale;
-    const svgY = (tapY - currentTranslateY) / currentScale;
+    // Invertimos correctamente la transformación explícita:
+    // translate -> center pivot -> rotate -> scale -> unpivot
+    const dx = tapX - currentTranslateX - centerX;
+    const dy = tapY - currentTranslateY - centerY;
+
+    const cos = Math.cos(-currentRotation);
+    const sin = Math.sin(-currentRotation);
+
+    const rotatedX = dx * cos - dy * sin;
+    const rotatedY = dx * sin + dy * cos;
+
+    const unscaledX = rotatedX / currentScale;
+    const unscaledY = rotatedY / currentScale;
+
+    const svgX = unscaledX + centerX;
+    const svgY = unscaledY + centerY;
+
+    if (svgX < 0 || svgY < 0 || svgX > svgWidth || svgY > svgHeight) {
+      return;
+    }
+
     const pixelX = svgX / SCALE_FACTOR;
     const pixelY = svgY / SCALE_FACTOR;
 
@@ -185,7 +229,8 @@ export default function MapViewer({
         e.y,
         translateX.value,
         translateY.value,
-        scale.value
+        scale.value,
+        rotation.value
       );
     });
 
@@ -198,34 +243,14 @@ export default function MapViewer({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
+      { translateX: translateX.value + centerX },
+      { translateY: translateY.value + centerY },
       { rotate: `${rotation.value}rad` },
+      { scale: scale.value },
+      { translateX: -centerX },
+      { translateY: -centerY },
     ],
   }));
-
-  if (loading) return <MapLoadingIndicator />;
-
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  if (!mapData) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.placeholderText}>Sin mapa disponible</Text>
-      </View>
-    );
-  }
-
-  const { metadata, layers } = mapData;
-  const svgWidth = metadata.width_px * SCALE_FACTOR;
-  const svgHeight = metadata.height_px * SCALE_FACTOR;
 
   const renderLayer = (polygons: MapPolygon[], color: string) =>
     polygons.map((poly, i) => (
