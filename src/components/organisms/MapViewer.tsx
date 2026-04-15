@@ -10,15 +10,32 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import Svg, { Circle, G, Line, Polygon } from 'react-native-svg';
-import { Colors } from '../../../lib/core/constants/Colors';
+import Svg, {
+  Circle,
+  G,
+  Image as SvgImage,
+  Line,
+  Polygon,
+  Rect,
+} from 'react-native-svg';
 import { MapPolygon, MapVectorData, WaypointPoint } from '../../../lib/core/types';
 import { pixelToWorld, worldToSvgCoords } from '../../../lib/core/utils/mapCoordinates';
 import MapLoadingIndicator from '../atoms/MapLoadingIndicator';
-import WaypointMarker from '../atoms/WaypointMarker'; // ✅ agregado
+import WaypointMarker from '../atoms/WaypointMarker';
 
 const SCALE_FACTOR = 5.0;
-const ARROW_COLOR = '#00E5FF';
+
+// Colores visuales del mapa según tu diseño
+const MAP_BACKGROUND_COLOR = '#06102A';
+const MAP_FREE_SPACE_COLOR = '#06102A';
+const MAP_UNKNOWN_COLOR = '#06102A';
+const MAP_OBSTACLE_COLOR = '#89C6DF';
+
+// Flecha de navegación
+const NAV_ARROW_COLOR = '#00E5FF';
+
+// Marker robot
+const ROBOT_MARKER_SIZE = 34;
 
 export interface RobotPose {
   worldX: number;
@@ -35,7 +52,12 @@ interface MapViewerProps {
   loading?: boolean;
   error?: string | null;
   renderOverlay?: () => React.ReactNode;
-  onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
+  onPointTap?: (
+    worldX: number,
+    worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => void;
   robotPose?: RobotPose | null;
   goalPoint?: GoalPoint | null;
   waypoints?: WaypointPoint[];
@@ -216,7 +238,29 @@ export default function MapViewer({
       />
     ));
 
-  const renderArrow = () => {
+  const renderRobotMarker = () => {
+    if (!robotPose) return null;
+
+    const { svgX, svgY } = worldToSvgCoords(
+      robotPose.worldX,
+      robotPose.worldY,
+      metadata as any,
+      SCALE_FACTOR
+    );
+
+    return (
+      <SvgImage
+        href={require('../../../assets/images/robot.png')}
+        x={svgX - ROBOT_MARKER_SIZE / 2}
+        y={svgY - ROBOT_MARKER_SIZE / 2}
+        width={ROBOT_MARKER_SIZE}
+        height={ROBOT_MARKER_SIZE}
+        preserveAspectRatio="xMidYMid meet"
+      />
+    );
+  };
+
+  const renderNavigationArrow = () => {
     if (!robotPose || !goalPoint) return null;
 
     const from = worldToSvgCoords(
@@ -225,14 +269,13 @@ export default function MapViewer({
       metadata as any,
       SCALE_FACTOR
     );
+
     const to = worldToSvgCoords(
       goalPoint.worldX,
       goalPoint.worldY,
       metadata as any,
       SCALE_FACTOR
     );
-
-    const GOAL_RADIUS = 12;
 
     const dx = to.svgX - from.svgX;
     const dy = to.svgY - from.svgY;
@@ -244,43 +287,63 @@ export default function MapViewer({
 
     return (
       <G>
-        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke="rgba(0,0,0,0.4)" strokeWidth={6} strokeDasharray="12,8" />
-        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke={ARROW_COLOR} strokeWidth={3} strokeDasharray="12,8" strokeOpacity={0.95} />
-        <Polygon points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)} fill={ARROW_COLOR} />
-        <Circle cx={from.svgX} cy={from.svgY} r={14} fill="#FFFFFF" opacity={0.95} />
-        <Circle cx={from.svgX} cy={from.svgY} r={9} fill="#FFD600" />
-        <Line x1={to.svgX - GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX + GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
-        <Line x1={to.svgX + GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX - GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth={6}
+          strokeDasharray="12,8"
+        />
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke={NAV_ARROW_COLOR}
+          strokeWidth={3}
+          strokeDasharray="12,8"
+          strokeOpacity={0.95}
+        />
+        <Polygon
+          points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)}
+          fill={NAV_ARROW_COLOR}
+        />
       </G>
     );
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.infoBar}>
-        <Text style={styles.infoText}>Res: {metadata.resolution} m/px</Text>
-        <Text style={styles.infoText}>{metadata.width_px} × {metadata.height_px} px</Text>
-        <Text style={styles.infoHint}>Doble tap = reset</Text>
-      </View>
-
       <GestureDetector gesture={gesture}>
         <View style={styles.viewport}>
           <Animated.View style={animatedStyle}>
             <Svg width={svgWidth} height={svgHeight}>
               <G>
-                {renderLayer(layers.free_space.polygons, layers.free_space.color)}
-                {renderLayer(layers.unknown.polygons, layers.unknown.color)}
-                {renderLayer(layers.obstacles.polygons, layers.obstacles.color)}
-                {renderArrow()}
+                <Rect
+                  x={0}
+                  y={0}
+                  width={svgWidth}
+                  height={svgHeight}
+                  fill={MAP_BACKGROUND_COLOR}
+                />
+
+                {renderLayer(layers.free_space.polygons, MAP_FREE_SPACE_COLOR)}
+                {renderLayer(layers.unknown.polygons, MAP_UNKNOWN_COLOR)}
+                {renderLayer(layers.obstacles.polygons, MAP_OBSTACLE_COLOR)}
+
+                {renderNavigationArrow()}
+                {renderRobotMarker()}
               </G>
             </Svg>
 
             {renderOverlay && renderOverlay()}
 
-            {/* Overlay de waypoints */}
             {waypoints.map((wp, i) => {
               const svgX = wp.pixelX * SCALE_FACTOR;
               const svgY = wp.pixelY * SCALE_FACTOR;
+
               return (
                 <WaypointMarker
                   key={i}
@@ -300,12 +363,27 @@ export default function MapViewer({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  infoBar: { flexDirection: 'row', justifyContent: 'space-between', padding: 8 },
-  infoText: { color: Colors.primary },
-  infoHint: { color: Colors.textSecondary },
-  viewport: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: Colors.error },
-  placeholderText: { color: Colors.textSecondary },
+  container: {
+    flex: 1,
+    backgroundColor: MAP_BACKGROUND_COLOR,
+  },
+  viewport: {
+    flex: 1,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: MAP_BACKGROUND_COLOR,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  placeholderText: {
+    color: '#9DC1FF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
