@@ -7,11 +7,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors } from '../../../lib/core/constants/Colors';
-import {
-  BOTTOM_SHEET_MAX_HEIGHT,
-  BOTTOM_SHEET_MIN_HEIGHT,
-} from '../../../lib/modules/maps/hooks/useBottomSheet';
 import { Route } from '../../../lib/core/types';
 import { RouteListItem } from '../molecules/RouteListItem';
 
@@ -38,53 +33,40 @@ export function MapBottomSheet({
   onAddRoute,
   onEditRouteWaypoints,
   onPlayRoute,
-  onDeleteRoute,
-  isEditingWaypoints = false,
-  onAcceptWaypoints,
 }: MapBottomSheetProps) {
   return (
     <Animated.View style={[styles.sheet, { height: bottomSheetAnimation }]}>
-
-      {/* Handle */}
       <View style={styles.handleContainer} {...panHandlers}>
         <View style={styles.handle} />
       </View>
 
       {!isExpanded ? (
-        /* Collapsed: solo el nombre del mapa */
         <View style={styles.collapsedContent}>
           <Text style={styles.mapName}>{mapName}</Text>
         </View>
       ) : (
-        /* Expanded: lista de rutas */
         <ScrollView
           style={styles.expandedContent}
+          contentContainerStyle={styles.expandedContentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
           <View style={styles.routesHeader}>
             <Text style={styles.routesTitle}>Rutas</Text>
-            <View style={styles.headerButtons}>
-              {isEditingWaypoints && onAcceptWaypoints && (
-                <TouchableOpacity
-                  style={styles.acceptBtn}
-                  onPress={onAcceptWaypoints}
-                >
-                  <Text style={styles.acceptBtnText}>ACEPTAR</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.addBtn} onPress={onAddRoute}>
-                <Text style={styles.addBtnText}>+</Text>
-              </TouchableOpacity>
-            </View>
+
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={onAddRoute}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.addBtnText}>+</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Lista */}
           {routes.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Crea rutas</Text>
+              <Text style={styles.emptyText}>No hay rutas</Text>
               <Text style={styles.emptySubtext}>
-                Toca + para agregar una nueva ruta
+                Toca + para crear una nueva ruta
               </Text>
             </View>
           ) : (
@@ -109,7 +91,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4F4F4',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     elevation: 20,
@@ -120,84 +102,69 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   handle: {
-    width: 36,
+    width: 54,
     height: 4,
-    backgroundColor: '#DDDDDD',
+    backgroundColor: '#A7A7A7',
     borderRadius: 2,
   },
   collapsedContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 12,
     alignItems: 'center',
+    paddingBottom: 14,
   },
   mapName: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#666666',
-    letterSpacing: 0.3,
+    fontWeight: '500',
+    color: '#F5F5F5',
   },
   expandedContent: {
     flex: 1,
+  },
+  expandedContentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingBottom: 24,
+    paddingTop: 8,
   },
   routesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    paddingTop: 8,
   },
   routesTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0D111C',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  acceptBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  acceptBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#202020',
   },
   addBtn: {
     width: 34,
     height: 34,
-    borderRadius: 17,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   addBtnText: {
-    fontSize: 22,
-    fontWeight: '400',
-    color: '#0D111C',
-    lineHeight: 26,
+    fontSize: 34,
+    lineHeight: 34,
+    color: '#202020',
+    fontWeight: '300',
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
-    gap: 8,
+    justifyContent: 'center',
+    paddingTop: 40,
   },
   emptyText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0D111C',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#202020',
+    marginBottom: 6,
   },
   emptySubtext: {
     fontSize: 13,
-    color: '#999999',
+    color: '#777777',
+    textAlign: 'center',
   },
 });

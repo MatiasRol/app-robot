@@ -1,18 +1,24 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+} from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
-import { MapMode } from '../../lib/core/types';
+import { MapMode, Route } from '../../lib/core/types';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
 import { useMapRoutes } from '../../lib/modules/maps/hooks/useMapRoutes';
 import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
-import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
 import { useWaypointEditor } from '../../lib/modules/maps/hooks/useWaypointEditor';
-import { RouteModal } from '../../src/components/molecules/RouteModal';
 import MapActionButton from '../../src/components/atoms/MapActionButton';
-import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
+import { RouteModal } from '../../src/components/molecules/RouteModal';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
@@ -27,15 +33,21 @@ export default function MapDetailScreen() {
 
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
-
-  const { sendNavigateToPose, sendFollowWaypoints } = useCameraConnectionContext();
-
-  const [mapMode, setMapMode] = useState<MapMode>('idle');
-  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
-  const opMode = useOperationMode();
+
+  const { sendNavigateToPose } = useCameraConnectionContext();
+
+  const [mapMode, setMapMode] = useState<MapMode>('idle');
+
+  const [showRouteEditor, setShowRouteEditor] = useState(false);
+  const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+
+  const [routeNameDraft, setRouteNameDraft] = useState('Nom. Ruta');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['tue', 'fri']);
+  const [executeAt, setExecuteAt] = useState('00:00');
+  const [recordRoute, setRecordRoute] = useState(true);
 
   const handleMapTap = (
     worldX: number,
@@ -49,7 +61,10 @@ export default function MapDetailScreen() {
       } else if (!navigate.navPoint.confirmed) {
         navigate.handleSecondTap(pixelX, pixelY);
       }
-    } else if (mapMode === 'route_edit') {
+      return;
+    }
+
+    if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
       } else {
@@ -58,10 +73,53 @@ export default function MapDetailScreen() {
     }
   };
 
+  const handleOpenRoutes = () => {
+    setMapMode('route_list');
+    bottomSheet.collapseBottomSheet();
+  };
+
+  const handleAddRouteUi = () => {
+    waypointEditor.clearWaypoints();
+    setSelectedRoute(null);
+    setRouteNameDraft('Nom. Ruta');
+    setSelectedDays(['tue', 'fri']);
+    setExecuteAt('00:00');
+    setRecordRoute(true);
+    setShowRouteEditor(true);
+    setMapMode('route_edit');
+  };
+
+  const handleEditRouteUi = (routeId: string) => {
+    const route = mapRoutes.routes.find((r) => r.id === routeId) || null;
+
+    waypointEditor.clearWaypoints();
+    setSelectedRoute(route);
+    setRouteNameDraft(route?.name || 'Nom. Ruta');
+    setShowRouteEditor(true);
+    setMapMode('route_edit');
+  };
+
+  const handlePlayRouteUi = (routeId: string) => {
+    const route = mapRoutes.routes.find((r) => r.id === routeId) || null;
+    setSelectedRoute(route);
+    setShowExecuteConfirm(true);
+  };
+
+  const handleCloseRouteEditor = () => {
+    setShowRouteEditor(false);
+    setMapMode('route_list');
+  };
+
+  const toggleDay = (day: string) => {
+    setSelectedDays((prev) =>
+      prev.includes(day)
+        ? prev.filter((item) => item !== day)
+        : [...prev, day]
+    );
+  };
+
   return (
     <View style={styles.container}>
-
-      {/* MAPA */}
       <View style={styles.mapCanvas}>
         <MapViewer
           mapData={mapData}
@@ -79,7 +137,6 @@ export default function MapDetailScreen() {
         />
       </View>
 
-      {/* BOTÓN ATRÁS */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Image
           source={require('../../assets/images/regreso.png')}
@@ -87,16 +144,12 @@ export default function MapDetailScreen() {
         />
       </TouchableOpacity>
 
-      {/* BOTONES FLOTANTES */}
       {mapMode === 'idle' && (
         <View style={styles.floatingButtons}>
           <MapActionButton
             label="RUTAS"
             icon={require('../../assets/images/ruta.png')}
-            onPress={() => {
-              setMapMode('route_list');
-              bottomSheet.expandBottomSheet();
-            }}
+            onPress={handleOpenRoutes}
           />
           <MapActionButton
             label="NAVEGAR"
@@ -106,7 +159,64 @@ export default function MapDetailScreen() {
         </View>
       )}
 
-      {/* MODO NAVEGAR */}
+      {mapMode === 'route_list' && (
+        <MapBottomSheet
+          mapName={mapName || 'Nombre del Mapa'}
+          bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
+          isExpanded={bottomSheet.isExpanded}
+          panHandlers={bottomSheet.panHandlers}
+          routes={mapRoutes.routes}
+          onAddRoute={handleAddRouteUi}
+          onEditRouteWaypoints={handleEditRouteUi}
+          onPlayRoute={handlePlayRouteUi}
+          onDeleteRoute={mapRoutes.onDeleteRoute}
+        />
+      )}
+
+      <RouteModal
+        visible={showRouteEditor}
+        routeName={routeNameDraft}
+        onChangeRouteName={setRouteNameDraft}
+        selectedDays={selectedDays}
+        onToggleDay={toggleDay}
+        executeAt={executeAt}
+        onPressTime={() => {}}
+        recordRoute={recordRoute}
+        onToggleRecordRoute={() => setRecordRoute((prev) => !prev)}
+        onClose={handleCloseRouteEditor}
+      />
+
+      {showExecuteConfirm && (
+        <Modal
+          visible={showExecuteConfirm}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowExecuteConfirm(false)}
+        >
+          <View style={styles.confirmOverlay}>
+            <View style={styles.confirmBox}>
+              <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{'\n'}LA RUTA?</Text>
+
+              <TouchableOpacity
+                style={styles.confirmPrimaryBtn}
+                onPress={() => setShowExecuteConfirm(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmPrimaryText}>CONFIRMAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.confirmSecondaryBtn}
+                onPress={() => setShowExecuteConfirm(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.confirmSecondaryText}>CANCELAR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
           <TouchableOpacity
@@ -137,60 +247,8 @@ export default function MapDetailScreen() {
               <Text style={styles.navigateText}>NAVEGAR</Text>
             </TouchableOpacity>
           )}
-
-          <Text style={styles.navigateHint}>
-            {!navigate.navPoint
-              ? 'Selecciona un punto de navegación'
-              : !navigate.navPoint.confirmed
-              ? 'Toca de nuevo para fijar la orientación'
-              : 'Listo para navegar'}
-          </Text>
         </View>
       )}
-
-      {/* BOTTOM SHEET RUTAS */}
-      {(mapMode === 'route_list' || mapMode === 'route_edit') && (
-        <MapBottomSheet
-          mapName={mapName || `Mapa ${id}`}
-          bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
-          isExpanded={bottomSheet.isExpanded}
-          panHandlers={bottomSheet.panHandlers}
-          routes={mapRoutes.routes}
-          onAddRoute={mapRoutes.openAddModal}
-          onEditRouteWaypoints={(routeId) => {
-            waypointEditor.clearWaypoints();
-            setEditingRouteId(routeId);
-            setMapMode('route_edit');
-          }}
-          onPlayRoute={(routeId) => {
-            const route = mapRoutes.routes.find((r) => r.id === routeId);
-            if (!route?.waypoints?.length) return;
-
-            const waypointsForRos = (route.waypoints as any[]).map((wp) => ({
-              worldX: wp.position.x,
-              worldY: wp.position.y,
-              quaternion: wp.orientation,
-            }));
-
-            sendFollowWaypoints(waypointsForRos);
-          }}
-          onDeleteRoute={mapRoutes.onDeleteRoute}
-          isEditingWaypoints={mapMode === 'route_edit'}
-          onAcceptWaypoints={() => {
-            if (editingRouteId && waypointEditor.waypoints.length > 0) {
-              mapRoutes.saveWaypoints(
-                editingRouteId,
-                waypointEditor.waypoints
-              );
-            }
-            waypointEditor.clearWaypoints();
-            setEditingRouteId(null);
-            setMapMode('route_list');
-          }}
-        />
-      )}
-
-      <ModeChangeAlert {...opMode.alertProps} />
     </View>
   );
 }
@@ -207,17 +265,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 52,
     left: 16,
-    zIndex: 10,
+    zIndex: 20,
   },
   floatingButtons: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 38,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
-    zIndex: 10,
+    gap: 14,
+    zIndex: 15,
   },
 
   navigateBar: {
@@ -229,19 +287,18 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingBottom: 40,
     backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
     gap: 12,
   },
   cancelButton: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: 25,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    borderWidth: 1,
-    borderColor: Colors.divider,
   },
   cancelText: {
-    color: Colors.text,
+    color: '#0D111C',
     fontWeight: '700',
   },
   navigateButton: {
@@ -254,9 +311,57 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '700',
   },
-  navigateHint: {
-    color: Colors.textSecondary,
-    fontSize: 13,
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmBox: {
+    width: 185,
+    backgroundColor: '#F3F3F3',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 18,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#202020',
     textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  confirmPrimaryBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  confirmPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  confirmSecondaryBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#A9A9A9',
+    backgroundColor: '#F7F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmSecondaryText: {
+    color: '#9C9C9C',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
