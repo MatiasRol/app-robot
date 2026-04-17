@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -12,15 +12,17 @@ import {
 import { Colors } from '../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
+const CONNECTION_TIMEOUT_MS = 2000;
+
 export default function ConnectingScreen() {
   const router = useRouter();
   const spinValue = useRef(new Animated.Value(0)).current;
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptIdRef = useRef(0);
 
   const {
     connectToRobot,
-    isConnecting,
     isFullyConnected,
-    hasAttemptedConnection,
     errorMessage,
   } = useCameraConnectionContext();
 
@@ -41,37 +43,64 @@ export default function ConnectingScreen() {
     return () => {
       spinAnimation.stop();
       spinValue.stopAnimation();
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
   }, [spinValue]);
 
-  useEffect(() => {
+  const startConnectionAttempt = useCallback(() => {
+    attemptIdRef.current += 1;
+    const currentAttemptId = attemptIdRef.current;
+
     setShowLocalError(false);
 
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      if (!isFullyConnected && attemptIdRef.current === currentAttemptId) {
+        setShowLocalError(true);
+      }
+    }, CONNECTION_TIMEOUT_MS);
+
     connectToRobot().catch(() => {
-      // El contexto ya maneja parte del estado;
-      // aquí el mensaje visual se resuelve con los efectos de abajo.
+      // El timeout controla la UI del error local.
     });
-  }, [connectToRobot]);
+  }, [connectToRobot, isFullyConnected]);
+
+  useEffect(() => {
+    startConnectionAttempt();
+  }, [startConnectionAttempt]);
 
   useEffect(() => {
     if (isFullyConnected) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
       setShowLocalError(false);
       router.replace('/(tabs)');
     }
   }, [isFullyConnected, router]);
 
-  useEffect(() => {
-    if (hasAttemptedConnection && !isConnecting && !isFullyConnected) {
-      setShowLocalError(true);
-    }
-  }, [hasAttemptedConnection, isConnecting, isFullyConnected]);
-
   const handleRetry = () => {
-    setShowLocalError(false);
+    startConnectionAttempt();
+  };
 
-    connectToRobot().catch(() => {
-      // Se vuelve a evaluar con el estado del contexto
-    });
+  const handleCancel = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    setShowLocalError(false);
+    router.replace('/(tabs)');
   };
 
   const spin = spinValue.interpolate({
@@ -105,19 +134,29 @@ export default function ConnectingScreen() {
         </View>
       ) : (
         <View style={styles.errorWrap}>
-          <Text style={styles.errorTitle}>No se conectó el robot</Text>
+          <Text style={styles.errorTitle}>No se pudo conectar al robot</Text>
           <Text style={styles.errorText}>
             {errorMessage ||
               'Verifica que el robot esté encendido y conectado a la red.'}
           </Text>
 
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={handleRetry}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonsRow}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={handleCancel}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={handleRetry}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.retryText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>
@@ -178,14 +217,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 18,
   },
+
+  buttonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
+    minWidth: 130,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#E9E9E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  cancelText: {
+    color: '#2F2F2F',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   retryBtn: {
-    minWidth: 150,
+    minWidth: 130,
     height: 46,
     borderRadius: 14,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   retryText: {
     color: '#FFFFFF',
