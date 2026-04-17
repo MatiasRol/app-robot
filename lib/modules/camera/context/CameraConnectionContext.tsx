@@ -13,47 +13,24 @@ interface ConnectionStatus {
   commands: ConnectionState;
 }
 
-export interface RobotPoseData {
-  position: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  orientation: {
-    x: number;
-    y: number;
-    z: number;
-    w: number;
-  };
-  timestamp?: number | null;
-}
-
 interface CameraConnectionContextType {
   connectionStatus: ConnectionStatus;
   remoteStream: any;
   isConnecting: boolean;
   errorMessage: string;
   showConnectionError: boolean;
-
   currentMapId: string | null;
-  currentMapName: string | null;
-  robotPose: RobotPoseData | null;
-  lastTelemetryTimestamp: number | null;
-
   connectToRobot: () => Promise<void>;
   disconnectFromRobot: () => void;
   handleRetryConnection: () => void;
   handleCancelConnection: () => void;
-
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
-
   sendNavigateToPose: (
     x: number,
     y: number,
     quaternion: { x: number; y: number; z: number; w: number }
   ) => void;
-
   sendFollowWaypoints: (
     waypoints: Array<{
       worldX: number;
@@ -61,32 +38,10 @@ interface CameraConnectionContextType {
       quaternion: { x: number; y: number; z: number; w: number };
     }>
   ) => void;
-
   isFullyConnected: boolean;
 }
 
 const CameraConnectionContext = createContext<CameraConnectionContextType | null>(null);
-
-function normalizePose(data: any): RobotPoseData | null {
-  const pose = data?.pose ?? data;
-
-  if (!pose?.position || !pose?.orientation) return null;
-
-  return {
-    position: {
-      x: Number(pose.position.x ?? 0),
-      y: Number(pose.position.y ?? 0),
-      z: Number(pose.position.z ?? 0),
-    },
-    orientation: {
-      x: Number(pose.orientation.x ?? 0),
-      y: Number(pose.orientation.y ?? 0),
-      z: Number(pose.orientation.z ?? 0),
-      w: Number(pose.orientation.w ?? 1),
-    },
-    timestamp: data?.timestamp ?? null,
-  };
-}
 
 export function CameraConnectionProvider({ children }: { children: React.ReactNode }) {
   const [videoConnectionState, setVideoConnectionState] = useState<ConnectionState>('disconnected');
@@ -96,18 +51,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [showConnectionError, setShowConnectionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
-  const [currentMapName, setCurrentMapName] = useState<string | null>(null);
-  const [robotPose, setRobotPose] = useState<RobotPoseData | null>(null);
-  const [lastTelemetryTimestamp, setLastTelemetryTimestamp] = useState<number | null>(null);
 
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
   const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const videoFailedAttempts = useRef(0);
-  const commandsFailedAttempts = useRef(0);
 
   const videoService = useRef<WebRTCVideoServiceType | null>(null);
   const commandService = useRef<WebSocketServiceType | null>(null);
@@ -117,7 +65,9 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
     canShowError.current = false;
 
-    if (errorTimeout.current) clearTimeout(errorTimeout.current);
+    if (errorTimeout.current) {
+      clearTimeout(errorTimeout.current);
+    }
 
     setErrorMessage(message);
     setShowConnectionError(true);
@@ -130,57 +80,17 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const handleRobotMessage = (data: any) => {
     if (!data?.type) return;
 
-    switch (data.type) {
-      case 'robot_status': {
-        const nextMapId = data.currentMapId ?? data.current_map_id ?? null;
-        const nextMapName = data.currentMapName ?? data.current_map_name ?? null;
-        const nextPose = normalizePose(data);
-
-        if (typeof nextMapId === 'string') {
-          setCurrentMapId(nextMapId);
-        }
-
-        if (typeof nextMapName === 'string') {
-          setCurrentMapName(nextMapName);
-        }
-
-        if (nextPose) {
-          setRobotPose(nextPose);
-        }
-
-        if (data.timestamp !== undefined && data.timestamp !== null) {
-          setLastTelemetryTimestamp(Number(data.timestamp));
-        }
-
-        break;
-      }
-
-      case 'telemetry_broadcast': {
-        const nextPose = normalizePose(data);
-
-        if (nextPose) {
-          setRobotPose(nextPose);
-        }
-
-        if (data.timestamp !== undefined && data.timestamp !== null) {
-          setLastTelemetryTimestamp(Number(data.timestamp));
-        }
-
-        break;
-      }
-
-      default:
-        break;
+    if (data.type === 'active_map' && typeof data.map === 'string') {
+      setCurrentMapId(data.map);
     }
   };
 
   const connectToRobot = async () => {
     setIsConnecting(true);
     setShowConnectionError(false);
+    setErrorMessage('');
     canShowError.current = true;
     isDisconnecting.current = false;
-    videoFailedAttempts.current = 0;
-    commandsFailedAttempts.current = 0;
 
     const results = await Promise.allSettled([connectVideo(), connectCommands()]);
 
@@ -190,7 +100,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     setIsConnecting(false);
 
     if (!videoConnected && !commandsConnected) {
-      showError('No se pudo conectar ni al video ni a los comandos. Verifica que las Raspberry Pi estén encendidas.');
+      showError('No se pudo conectar ni al video ni a los comandos.');
     } else if (!videoConnected) {
       console.warn('⚠️ Comandos conectados, pero video no disponible');
     } else if (!commandsConnected) {
@@ -214,7 +124,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
           setRemoteStream(stream);
           setVideoConnectionState('connected');
-          videoFailedAttempts.current = 0;
 
           if (commandService.current && videoService.current) {
             const videoStartTime = videoService.current.getVideoStartTime();
@@ -224,7 +133,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         onConnectionStateChange: (state) => {
           if (isDisconnecting.current) return;
 
-          if (state === 'connected' || state === 'connecting') {
+          if (
+            state === 'connected' ||
+            state === 'connecting' ||
+            state === 'disconnected'
+          ) {
             setVideoConnectionState(state as ConnectionState);
           }
         },
@@ -232,20 +145,18 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
           if (isDisconnecting.current) return;
 
           setVideoConnectionState('failed');
-          videoFailedAttempts.current++;
 
           if (commandConnectionState === 'failed') {
-            showError('Error de conexión: Video y comandos no disponibles');
+            showError('Error de conexión: video y comandos no disponibles');
           }
         },
       });
 
       await videoService.current.connect();
-    } catch (error: any) {
+    } catch (error) {
       if (isDisconnecting.current) return;
 
       setVideoConnectionState('failed');
-      videoFailedAttempts.current++;
       throw error;
     }
   };
@@ -262,13 +173,10 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         serverUrl: COMMAND_SERVER_URL,
         onConnected: () => {
           if (isDisconnecting.current) return;
-
           setCommandConnectionState('connected');
-          commandsFailedAttempts.current = 0;
         },
         onDisconnected: () => {
           if (isDisconnecting.current) return;
-
           setCommandConnectionState('disconnected');
         },
         onMessage: handleRobotMessage,
@@ -276,21 +184,19 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
           if (isDisconnecting.current) return;
 
           setCommandConnectionState('failed');
-          commandsFailedAttempts.current++;
 
           if (videoConnectionState === 'failed') {
-            showError('Error de conexión: Video y comandos no disponibles');
+            showError('Error de conexión: video y comandos no disponibles');
           }
         },
       });
 
       const videoStartTime = videoService.current?.getVideoStartTime() || 0;
       await commandService.current.connect(videoStartTime);
-    } catch (error: any) {
+    } catch (error) {
       if (isDisconnecting.current) return;
 
       setCommandConnectionState('failed');
-      commandsFailedAttempts.current++;
       throw error;
     }
   };
@@ -315,22 +221,19 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
 
     setRemoteStream(null);
+    setCurrentMapId(null);
     setVideoConnectionState('disconnected');
     setCommandConnectionState('disconnected');
     setShowConnectionError(false);
+    setErrorMessage('');
     setIsConnecting(false);
-
-    setCurrentMapId(null);
-    setCurrentMapName(null);
-    setRobotPose(null);
-    setLastTelemetryTimestamp(null);
   };
 
   const handleRetryConnection = () => {
     setShowConnectionError(false);
     canShowError.current = true;
     isDisconnecting.current = false;
-    connectToRobot();
+    connectToRobot().catch(() => {});
   };
 
   const handleCancelConnection = () => {
@@ -381,12 +284,15 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     return () => {
-      if (errorTimeout.current) clearTimeout(errorTimeout.current);
+      if (errorTimeout.current) {
+        clearTimeout(errorTimeout.current);
+      }
     };
   }, []);
 
   const isFullyConnected =
-    videoConnectionState === 'connected' && commandConnectionState === 'connected';
+    videoConnectionState === 'connected' &&
+    commandConnectionState === 'connected';
 
   return (
     <CameraConnectionContext.Provider
@@ -399,12 +305,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         isConnecting,
         errorMessage,
         showConnectionError,
-
         currentMapId,
-        currentMapName,
-        robotPose,
-        lastTelemetryTimestamp,
-
         connectToRobot,
         disconnectFromRobot,
         handleRetryConnection,
