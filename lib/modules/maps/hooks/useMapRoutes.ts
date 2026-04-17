@@ -10,10 +10,6 @@ type RouteScheduleMeta = {
   label: string;
 };
 
-export interface RouteWithMeta extends Route {
-  scheduleMeta?: RouteScheduleMeta;
-}
-
 function buildScheduleLabel(days: string[], time: string) {
   const DAY_LABELS: Record<string, string> = {
     mon: 'L',
@@ -40,6 +36,10 @@ function buildScheduleLabel(days: string[], time: string) {
   return `A las ${time.trim()}`;
 }
 
+function quaternionToAngle(quaternion: { z: number; w: number }) {
+  return 2 * Math.atan2(quaternion.z, quaternion.w);
+}
+
 function parseScheduleMeta(value: string | null | undefined): RouteScheduleMeta | undefined {
   if (!value) return undefined;
 
@@ -55,7 +55,9 @@ function parseScheduleMeta(value: string | null | undefined): RouteScheduleMeta 
     ) {
       return parsed;
     }
-  } catch {}
+  } catch {
+    // Si no es JSON, lo tratamos como texto viejo
+  }
 
   return {
     days: [],
@@ -63,6 +65,61 @@ function parseScheduleMeta(value: string | null | undefined): RouteScheduleMeta 
     recordRoute: false,
     label: value,
   };
+}
+
+function dbWaypointsToUi(waypoints: any[] = []): WaypointPoint[] {
+  return waypoints
+    .map((wp) => {
+      if (wp?.position && wp?.orientation) {
+        return {
+          pixelX: 0,
+          pixelY: 0,
+          worldX: Number(wp.position.x ?? 0),
+          worldY: Number(wp.position.y ?? 0),
+          orientationAngle: quaternionToAngle({
+            z: Number(wp.orientation.z ?? 0),
+            w: Number(wp.orientation.w ?? 1),
+          }),
+          quaternion: {
+            x: Number(wp.orientation.x ?? 0),
+            y: Number(wp.orientation.y ?? 0),
+            z: Number(wp.orientation.z ?? 0),
+            w: Number(wp.orientation.w ?? 1),
+          },
+          confirmed: true,
+        };
+      }
+
+      if (
+        typeof wp?.worldX === 'number' &&
+        typeof wp?.worldY === 'number' &&
+        wp?.quaternion
+      ) {
+        return {
+          pixelX: Number(wp.pixelX ?? 0),
+          pixelY: Number(wp.pixelY ?? 0),
+          worldX: Number(wp.worldX ?? 0),
+          worldY: Number(wp.worldY ?? 0),
+          orientationAngle:
+            typeof wp.orientationAngle === 'number'
+              ? wp.orientationAngle
+              : quaternionToAngle({
+                  z: Number(wp.quaternion.z ?? 0),
+                  w: Number(wp.quaternion.w ?? 1),
+                }),
+          quaternion: {
+            x: Number(wp.quaternion.x ?? 0),
+            y: Number(wp.quaternion.y ?? 0),
+            z: Number(wp.quaternion.z ?? 0),
+            w: Number(wp.quaternion.w ?? 1),
+          },
+          confirmed: wp.confirmed ?? true,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean) as WaypointPoint[];
 }
 
 function uiWaypointsToDb(waypoints: WaypointPoint[]) {
@@ -82,7 +139,7 @@ function uiWaypointsToDb(waypoints: WaypointPoint[]) {
 }
 
 export function useMapRoutes(mapId: string) {
-  const [routes, setRoutes] = useState<RouteWithMeta[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [routesLoading, setRoutesLoading] = useState(true);
 
   useEffect(() => {
@@ -102,7 +159,7 @@ export function useMapRoutes(mapId: string) {
 
       if (error) throw error;
 
-      const adapted: RouteWithMeta[] = (data || []).map((item: any) => {
+      const adapted: Route[] = (data || []).map((item: any) => {
         const scheduleMeta = parseScheduleMeta(item.schedule);
 
         return {
@@ -110,8 +167,7 @@ export function useMapRoutes(mapId: string) {
           name: item.name,
           mapId: item.map_id,
           schedule: scheduleMeta?.label ?? '',
-          scheduleMeta,
-          waypoints: item.waypoints || [],
+          waypoints: dbWaypointsToUi(item.waypoints || []),
         };
       });
 
@@ -159,12 +215,11 @@ export function useMapRoutes(mapId: string) {
 
     if (error) throw error;
 
-    const createdRoute: RouteWithMeta = {
+    const createdRoute: Route = {
       id: data.id,
       name: data.name,
       mapId: data.map_id,
       schedule: scheduleMeta.label,
-      scheduleMeta,
       waypoints,
     };
 
