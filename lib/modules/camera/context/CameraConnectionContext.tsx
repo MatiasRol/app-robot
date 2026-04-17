@@ -13,16 +13,38 @@ interface ConnectionStatus {
   commands: ConnectionState;
 }
 
+export interface RobotPoseData {
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  orientation: {
+    x: number;
+    y: number;
+    z: number;
+    w: number;
+  };
+  timestamp?: number | null;
+}
+
 interface CameraConnectionContextType {
   connectionStatus: ConnectionStatus;
   remoteStream: any;
   isConnecting: boolean;
   errorMessage: string;
   showConnectionError: boolean;
+
+  currentMapId: string | null;
+  currentMapName: string | null;
+  robotPose: RobotPoseData | null;
+  lastTelemetryTimestamp: number | null;
+
   connectToRobot: () => Promise<void>;
   disconnectFromRobot: () => void;
   handleRetryConnection: () => void;
   handleCancelConnection: () => void;
+
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
 
@@ -41,10 +63,30 @@ interface CameraConnectionContextType {
   ) => void;
 
   isFullyConnected: boolean;
-  hasAttemptedConnection: boolean;
 }
 
 const CameraConnectionContext = createContext<CameraConnectionContextType | null>(null);
+
+function normalizePose(data: any): RobotPoseData | null {
+  const pose = data?.pose ?? data;
+
+  if (!pose?.position || !pose?.orientation) return null;
+
+  return {
+    position: {
+      x: Number(pose.position.x ?? 0),
+      y: Number(pose.position.y ?? 0),
+      z: Number(pose.position.z ?? 0),
+    },
+    orientation: {
+      x: Number(pose.orientation.x ?? 0),
+      y: Number(pose.orientation.y ?? 0),
+      z: Number(pose.orientation.z ?? 0),
+      w: Number(pose.orientation.w ?? 1),
+    },
+    timestamp: data?.timestamp ?? null,
+  };
+}
 
 export function CameraConnectionProvider({ children }: { children: React.ReactNode }) {
   const [videoConnectionState, setVideoConnectionState] = useState<ConnectionState>('disconnected');
@@ -54,7 +96,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [showConnectionError, setShowConnectionError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  const [hasAttemptedConnection, setHasAttemptedConnection] = useState(false);
+
+  const [currentMapId, setCurrentMapId] = useState<string | null>(null);
+  const [currentMapName, setCurrentMapName] = useState<string | null>(null);
+  const [robotPose, setRobotPose] = useState<RobotPoseData | null>(null);
+  const [lastTelemetryTimestamp, setLastTelemetryTimestamp] = useState<number | null>(null);
 
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
@@ -68,104 +114,67 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
   const showError = (message: string) => {
     if (!canShowError.current || isDisconnecting.current) return;
+
     canShowError.current = false;
+
     if (errorTimeout.current) clearTimeout(errorTimeout.current);
+
     setErrorMessage(message);
     setShowConnectionError(true);
+
     errorTimeout.current = setTimeout(() => {
       canShowError.current = true;
     }, 3000);
   };
 
-  const connectVideo = async () => {
-    if (isDisconnecting.current) return;
+  const handleRobotMessage = (data: any) => {
+    if (!data?.type) return;
 
-    try {
-      setVideoConnectionState('connecting');
+    switch (data.type) {
+      case 'robot_status': {
+        const nextMapId = data.currentMapId ?? data.current_map_id ?? null;
+        const nextMapName = data.currentMapName ?? data.current_map_name ?? null;
+        const nextPose = normalizePose(data);
 
-      const { WebRTCVideoService } = await import('../services/WebRTCVideoService');
+        if (typeof nextMapId === 'string') {
+          setCurrentMapId(nextMapId);
+        }
 
-      videoService.current = new WebRTCVideoService({
-        serverUrl: VIDEO_SERVER_URL,
-        streamPath: VIDEO_STREAM_PATH,
-        onStreamReceived: (stream) => {
-          if (isDisconnecting.current) return;
-          setRemoteStream(stream);
-          setVideoConnectionState('connected');
-          videoFailedAttempts.current = 0;
+        if (typeof nextMapName === 'string') {
+          setCurrentMapName(nextMapName);
+        }
 
-          if (commandService.current && videoService.current) {
-            const videoStartTime = videoService.current.getVideoStartTime();
-            commandService.current.updateVideoStartTime(videoStartTime);
-          }
-        },
-        onConnectionStateChange: (state) => {
-          if (isDisconnecting.current) return;
-          if (state === 'connected' || state === 'connecting') {
-            setVideoConnectionState(state as ConnectionState);
-          }
-        },
-        onError: () => {
-          if (isDisconnecting.current) return;
-          setVideoConnectionState('failed');
-          videoFailedAttempts.current++;
-          if (commandConnectionState === 'failed') {
-            showError('Error de conexión: Video y comandos no disponibles');
-          }
-        },
-      });
+        if (nextPose) {
+          setRobotPose(nextPose);
+        }
 
-      await videoService.current.connect();
-    } catch (error: any) {
-      if (isDisconnecting.current) return;
-      setVideoConnectionState('failed');
-      videoFailedAttempts.current++;
-      throw error;
-    }
-  };
+        if (data.timestamp !== undefined && data.timestamp !== null) {
+          setLastTelemetryTimestamp(Number(data.timestamp));
+        }
 
-  const connectCommands = async () => {
-    if (isDisconnecting.current) return;
+        break;
+      }
 
-    try {
-      setCommandConnectionState('connecting');
+      case 'telemetry_broadcast': {
+        const nextPose = normalizePose(data);
 
-      const { WebSocketService } = await import('../services/WebSocketService');
+        if (nextPose) {
+          setRobotPose(nextPose);
+        }
 
-      commandService.current = new WebSocketService({
-        serverUrl: COMMAND_SERVER_URL,
-        onConnected: () => {
-          if (isDisconnecting.current) return;
-          setCommandConnectionState('connected');
-          commandsFailedAttempts.current = 0;
-        },
-        onDisconnected: () => {
-          if (isDisconnecting.current) return;
-          setCommandConnectionState('disconnected');
-        },
-        onMessage: () => {},
-        onError: () => {
-          if (isDisconnecting.current) return;
-          setCommandConnectionState('failed');
-          commandsFailedAttempts.current++;
-          if (videoConnectionState === 'failed') {
-            showError('Error de conexión: Video y comandos no disponibles');
-          }
-        },
-      });
+        if (data.timestamp !== undefined && data.timestamp !== null) {
+          setLastTelemetryTimestamp(Number(data.timestamp));
+        }
 
-      const videoStartTime = videoService.current?.getVideoStartTime() || 0;
-      await commandService.current.connect(videoStartTime);
-    } catch (error: any) {
-      if (isDisconnecting.current) return;
-      setCommandConnectionState('failed');
-      commandsFailedAttempts.current++;
-      throw error;
+        break;
+      }
+
+      default:
+        break;
     }
   };
 
   const connectToRobot = async () => {
-    setHasAttemptedConnection(true);
     setIsConnecting(true);
     setShowConnectionError(false);
     canShowError.current = true;
@@ -186,6 +195,103 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
       console.warn('⚠️ Comandos conectados, pero video no disponible');
     } else if (!commandsConnected) {
       console.warn('⚠️ Video conectado, pero comandos no disponibles');
+    }
+  };
+
+  const connectVideo = async () => {
+    if (isDisconnecting.current) return;
+
+    try {
+      setVideoConnectionState('connecting');
+
+      const { WebRTCVideoService } = await import('../services/WebRTCVideoService');
+
+      videoService.current = new WebRTCVideoService({
+        serverUrl: VIDEO_SERVER_URL,
+        streamPath: VIDEO_STREAM_PATH,
+        onStreamReceived: (stream) => {
+          if (isDisconnecting.current) return;
+
+          setRemoteStream(stream);
+          setVideoConnectionState('connected');
+          videoFailedAttempts.current = 0;
+
+          if (commandService.current && videoService.current) {
+            const videoStartTime = videoService.current.getVideoStartTime();
+            commandService.current.updateVideoStartTime(videoStartTime);
+          }
+        },
+        onConnectionStateChange: (state) => {
+          if (isDisconnecting.current) return;
+
+          if (state === 'connected' || state === 'connecting') {
+            setVideoConnectionState(state as ConnectionState);
+          }
+        },
+        onError: () => {
+          if (isDisconnecting.current) return;
+
+          setVideoConnectionState('failed');
+          videoFailedAttempts.current++;
+
+          if (commandConnectionState === 'failed') {
+            showError('Error de conexión: Video y comandos no disponibles');
+          }
+        },
+      });
+
+      await videoService.current.connect();
+    } catch (error: any) {
+      if (isDisconnecting.current) return;
+
+      setVideoConnectionState('failed');
+      videoFailedAttempts.current++;
+      throw error;
+    }
+  };
+
+  const connectCommands = async () => {
+    if (isDisconnecting.current) return;
+
+    try {
+      setCommandConnectionState('connecting');
+
+      const { WebSocketService } = await import('../services/WebSocketService');
+
+      commandService.current = new WebSocketService({
+        serverUrl: COMMAND_SERVER_URL,
+        onConnected: () => {
+          if (isDisconnecting.current) return;
+
+          setCommandConnectionState('connected');
+          commandsFailedAttempts.current = 0;
+        },
+        onDisconnected: () => {
+          if (isDisconnecting.current) return;
+
+          setCommandConnectionState('disconnected');
+        },
+        onMessage: handleRobotMessage,
+        onError: () => {
+          if (isDisconnecting.current) return;
+
+          setCommandConnectionState('failed');
+          commandsFailedAttempts.current++;
+
+          if (videoConnectionState === 'failed') {
+            showError('Error de conexión: Video y comandos no disponibles');
+          }
+        },
+      });
+
+      const videoStartTime = videoService.current?.getVideoStartTime() || 0;
+      await commandService.current.connect(videoStartTime);
+    } catch (error: any) {
+      if (isDisconnecting.current) return;
+
+      setCommandConnectionState('failed');
+      commandsFailedAttempts.current++;
+      throw error;
     }
   };
 
@@ -213,6 +319,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     setCommandConnectionState('disconnected');
     setShowConnectionError(false);
     setIsConnecting(false);
+
+    setCurrentMapId(null);
+    setCurrentMapName(null);
+    setRobotPose(null);
+    setLastTelemetryTimestamp(null);
   };
 
   const handleRetryConnection = () => {
@@ -288,6 +399,12 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         isConnecting,
         errorMessage,
         showConnectionError,
+
+        currentMapId,
+        currentMapName,
+        robotPose,
+        lastTelemetryTimestamp,
+
         connectToRobot,
         disconnectFromRobot,
         handleRetryConnection,
@@ -297,7 +414,6 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         sendNavigateToPose,
         sendFollowWaypoints,
         isFullyConnected,
-        hasAttemptedConnection,
       }}
     >
       {children}
