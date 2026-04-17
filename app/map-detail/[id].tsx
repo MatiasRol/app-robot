@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
+import { useApp } from '../../lib/modules/app/context/AppContext';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
@@ -15,8 +16,6 @@ import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
-
-const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
 function sanitizeTimeInput(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -31,6 +30,17 @@ export default function MapDetailScreen() {
 
   const { mapData, mapName, loading: mapLoading, error: mapError } =
     useMapDetail(id as string);
+
+  const { robotPose: livePose } = useApp();
+
+  const robotPose: RobotPose | null = useMemo(() => {
+    if (!livePose?.position) return null;
+
+    return {
+      worldX: livePose.position.x,
+      worldY: livePose.position.y,
+    };
+  }, [livePose]);
 
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
@@ -53,10 +63,12 @@ export default function MapDetailScreen() {
   const openCreateRoute = () => {
     waypointEditor.clearWaypoints();
     setEditingRouteId(null);
+
     setRouteNameDraft('');
     setSelectedDays([]);
     setExecuteAt('');
     setRecordRoute(false);
+
     setShowCreateRouteModal(true);
     setMapMode('route_edit');
   };
@@ -66,6 +78,7 @@ export default function MapDetailScreen() {
     waypointEditor.clearWaypoints();
     setEditingRouteId(null);
     setMapMode('route_list');
+    bottomSheet.expandBottomSheet();
   };
 
   const toggleDay = (day: string) => {
@@ -234,11 +247,43 @@ export default function MapDetailScreen() {
               const route = mapRoutes.routes.find((r) => r.id === routeId);
               if (!route?.waypoints?.length) return;
 
-              const waypointsForRos = (route.waypoints as any[]).map((wp) => ({
-                worldX: wp.position.x ?? wp.worldX,
-                worldY: wp.position.y ?? wp.worldY,
-                quaternion: wp.orientation ?? wp.quaternion,
-              }));
+              const waypointsForRos = (route.waypoints as any[])
+                .map((wp) => {
+                  if (wp?.position && wp?.orientation) {
+                    return {
+                      worldX: Number(wp.position.x ?? 0),
+                      worldY: Number(wp.position.y ?? 0),
+                      quaternion: {
+                        x: Number(wp.orientation.x ?? 0),
+                        y: Number(wp.orientation.y ?? 0),
+                        z: Number(wp.orientation.z ?? 0),
+                        w: Number(wp.orientation.w ?? 1),
+                      },
+                    };
+                  }
+
+                  if (
+                    typeof wp?.worldX === 'number' &&
+                    typeof wp?.worldY === 'number' &&
+                    wp?.quaternion
+                  ) {
+                    return {
+                      worldX: wp.worldX,
+                      worldY: wp.worldY,
+                      quaternion: {
+                        x: Number(wp.quaternion.x ?? 0),
+                        y: Number(wp.quaternion.y ?? 0),
+                        z: Number(wp.quaternion.z ?? 0),
+                        w: Number(wp.quaternion.w ?? 1),
+                      },
+                    };
+                  }
+
+                  return null;
+                })
+                .filter(Boolean);
+
+              if (waypointsForRos.length === 0) return;
 
               sendFollowWaypoints(waypointsForRos);
             }}
@@ -250,7 +295,10 @@ export default function MapDetailScreen() {
                   editingRouteId,
                   waypointEditor.waypoints
                 );
+              } else if (editingRouteId) {
+                Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
               }
+
               waypointEditor.clearWaypoints();
               setEditingRouteId(null);
               setMapMode('route_list');

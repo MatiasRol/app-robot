@@ -1,89 +1,79 @@
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { supabase } from '../../../core/services/supabaseClient';
+import { formatDate } from '../../../core/utils/formatDate';
 import { Route, WaypointPoint } from '../../../core/types';
 
-type RouteScheduleMeta = {
-  days: string[];
-  time: string;
-  recordRoute: boolean;
-  label: string;
-};
-
-export interface RouteWithMeta extends Route {
-  scheduleMeta?: RouteScheduleMeta;
+function quaternionToAngle(quaternion: { z: number; w: number }) {
+  return 2 * Math.atan2(quaternion.z, quaternion.w);
 }
 
-function buildScheduleLabel(days: string[], time: string) {
-  const DAY_LABELS: Record<string, string> = {
-    mon: 'L',
-    tue: 'M',
-    wed: 'M',
-    thu: 'J',
-    fri: 'V',
-    sat: 'S',
-    sun: 'D',
-  };
+function normalizeDbWaypointsToUi(waypoints: any[] = []): WaypointPoint[] {
+  return waypoints
+    .map((wp) => {
+      if (wp?.position && wp?.orientation) {
+        return {
+          pixelX: 0,
+          pixelY: 0,
+          worldX: Number(wp.position.x ?? 0),
+          worldY: Number(wp.position.y ?? 0),
+          orientationAngle: quaternionToAngle({
+            z: Number(wp.orientation.z ?? 0),
+            w: Number(wp.orientation.w ?? 1),
+          }),
+          quaternion: {
+            x: Number(wp.orientation.x ?? 0),
+            y: Number(wp.orientation.y ?? 0),
+            z: Number(wp.orientation.z ?? 0),
+            w: Number(wp.orientation.w ?? 1),
+          },
+          confirmed: true,
+        };
+      }
 
-  if (days.length === 0 && !time.trim()) {
-    return 'Sin horario';
-  }
+      if (
+        typeof wp?.worldX === 'number' &&
+        typeof wp?.worldY === 'number' &&
+        wp?.quaternion
+      ) {
+        return {
+          pixelX: Number(wp.pixelX ?? 0),
+          pixelY: Number(wp.pixelY ?? 0),
+          worldX: wp.worldX,
+          worldY: wp.worldY,
+          orientationAngle:
+            typeof wp.orientationAngle === 'number'
+              ? wp.orientationAngle
+              : quaternionToAngle({
+                  z: Number(wp.quaternion.z ?? 0),
+                  w: Number(wp.quaternion.w ?? 1),
+                }),
+          quaternion: {
+            x: Number(wp.quaternion.x ?? 0),
+            y: Number(wp.quaternion.y ?? 0),
+            z: Number(wp.quaternion.z ?? 0),
+            w: Number(wp.quaternion.w ?? 1),
+          },
+          confirmed: wp.confirmed ?? true,
+        };
+      }
 
-  const dayText =
-    days.length > 0 ? days.map((day) => DAY_LABELS[day] ?? day).join(', ') : '';
-
-  if (dayText && time.trim()) {
-    return `${dayText} a las ${time.trim()}`;
-  }
-
-  if (dayText) return dayText;
-  return `A las ${time.trim()}`;
-}
-
-function parseScheduleMeta(value: string | null | undefined): RouteScheduleMeta | undefined {
-  if (!value) return undefined;
-
-  try {
-    const parsed = JSON.parse(value);
-
-    if (
-      parsed &&
-      Array.isArray(parsed.days) &&
-      typeof parsed.time === 'string' &&
-      typeof parsed.recordRoute === 'boolean' &&
-      typeof parsed.label === 'string'
-    ) {
-      return parsed;
-    }
-  } catch {}
-
-  return {
-    days: [],
-    time: '',
-    recordRoute: false,
-    label: value,
-  };
-}
-
-function uiWaypointsToDb(waypoints: WaypointPoint[]) {
-  return waypoints.map((wp) => ({
-    position: {
-      x: wp.worldX,
-      y: wp.worldY,
-      z: 0.0,
-    },
-    orientation: {
-      x: wp.quaternion.x,
-      y: wp.quaternion.y,
-      z: wp.quaternion.z,
-      w: wp.quaternion.w,
-    },
-  }));
+      return null;
+    })
+    .filter(Boolean) as WaypointPoint[];
 }
 
 export function useMapRoutes(mapId: string) {
-  const [routes, setRoutes] = useState<RouteWithMeta[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
   const [routesLoading, setRoutesLoading] = useState(true);
+
+  const [showAddRouteModal, setShowAddRouteModal] = useState(false);
+  const [newRouteName, setNewRouteName] = useState('');
+  const [newRouteDate, setNewRouteDate] = useState(new Date());
+
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [editRouteName, setEditRouteName] = useState('');
+  const [editRouteDate, setEditRouteDate] = useState(new Date());
 
   useEffect(() => {
     if (!mapId) return;
@@ -102,18 +92,13 @@ export function useMapRoutes(mapId: string) {
 
       if (error) throw error;
 
-      const adapted: RouteWithMeta[] = (data || []).map((item: any) => {
-        const scheduleMeta = parseScheduleMeta(item.schedule);
-
-        return {
-          id: item.id,
-          name: item.name,
-          mapId: item.map_id,
-          schedule: scheduleMeta?.label ?? '',
-          scheduleMeta,
-          waypoints: item.waypoints || [],
-        };
-      });
+      const adapted: Route[] = (data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        mapId: item.map_id,
+        schedule: item.schedule,
+        waypoints: normalizeDbWaypointsToUi(item.waypoints || []),
+      }));
 
       setRoutes(adapted);
     } catch (err) {
@@ -123,73 +108,95 @@ export function useMapRoutes(mapId: string) {
     }
   };
 
-  const createRoute = async ({
-    name,
-    selectedDays,
-    executeAt,
-    recordRoute,
-    waypoints,
-  }: {
-    name: string;
-    selectedDays: string[];
-    executeAt: string;
-    recordRoute: boolean;
-    waypoints: WaypointPoint[];
-  }) => {
-    const cleanName = name.trim();
-    if (!cleanName) return null;
+  const handleAddRoute = async (name: string, date: Date) => {
+    if (!name.trim()) return;
 
-    const scheduleMeta: RouteScheduleMeta = {
-      days: selectedDays,
-      time: executeAt,
-      recordRoute,
-      label: buildScheduleLabel(selectedDays, executeAt),
-    };
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .insert({
+          map_id: mapId,
+          name: name.trim(),
+          schedule: formatDate(date),
+          waypoints: [],
+        })
+        .select()
+        .single();
 
-    const { data, error } = await supabase
-      .from('routes')
-      .insert({
-        map_id: mapId,
-        name: cleanName,
-        schedule: JSON.stringify(scheduleMeta),
-        waypoints: uiWaypointsToDb(waypoints),
-      })
-      .select()
-      .single();
+      if (error) throw error;
 
-    if (error) throw error;
+      setRoutes((prev) => [
+        ...prev,
+        {
+          id: data.id,
+          name: data.name,
+          mapId: data.map_id,
+          schedule: data.schedule,
+          waypoints: [],
+        },
+      ]);
 
-    const createdRoute: RouteWithMeta = {
-      id: data.id,
-      name: data.name,
-      mapId: data.map_id,
-      schedule: scheduleMeta.label,
-      scheduleMeta,
-      waypoints,
-    };
+      setNewRouteName('');
+      setNewRouteDate(new Date());
+      setShowAddRouteModal(false);
+    } catch (err) {
+      console.error('Error creando ruta:', err);
+    }
+  };
 
-    setRoutes((prev) => [...prev, createdRoute]);
+  const handleEditRoute = (routeId: string, name: string) => {
+    setEditingRouteId(routeId);
+    setEditRouteName(name);
+    setEditRouteDate(new Date());
+  };
 
-    return createdRoute;
+  const handleSaveRoute = async (name: string, date: Date) => {
+    if (!editingRouteId || !name.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('routes')
+        .update({ name: name.trim(), schedule: formatDate(date) })
+        .eq('id', editingRouteId);
+
+      if (error) throw error;
+
+      setRoutes((prev) =>
+        prev.map((r) =>
+          r.id === editingRouteId
+            ? { ...r, name: name.trim(), schedule: formatDate(date) }
+            : r
+        )
+      );
+
+      setEditingRouteId(null);
+    } catch (err) {
+      console.error('Error editando ruta:', err);
+    }
   };
 
   const saveWaypoints = async (routeId: string, waypoints: WaypointPoint[]) => {
     try {
+      const waypointsJson = waypoints.map((wp) => ({
+        position: { x: wp.worldX, y: wp.worldY, z: 0.0 },
+        orientation: {
+          x: wp.quaternion.x,
+          y: wp.quaternion.y,
+          z: wp.quaternion.z,
+          w: wp.quaternion.w,
+        },
+      }));
+
       const { error } = await supabase
         .from('routes')
-        .update({ waypoints: uiWaypointsToDb(waypoints) })
+        .update({ waypoints: waypointsJson })
         .eq('id', routeId);
 
       if (error) throw error;
 
       setRoutes((prev) =>
-        prev.map((route) =>
-          route.id === routeId
-            ? {
-                ...route,
-                waypoints,
-              }
-            : route
+        prev.map((r) =>
+          r.id === routeId ? { ...r, waypoints } : r
         )
       );
     } catch (err) {
@@ -214,8 +221,7 @@ export function useMapRoutes(mapId: string) {
                 .eq('id', routeId);
 
               if (error) throw error;
-
-              setRoutes((prev) => prev.filter((route) => route.id !== routeId));
+              setRoutes((prev) => prev.filter((r) => r.id !== routeId));
             } catch (err) {
               console.error('Error eliminando ruta:', err);
             }
@@ -228,9 +234,32 @@ export function useMapRoutes(mapId: string) {
   return {
     routes,
     routesLoading,
-    createRoute,
-    saveWaypoints,
+    onEditRoute: handleEditRoute,
     onDeleteRoute: handleDeleteRoute,
-    refreshRoutes: fetchRoutes,
+    saveWaypoints,
+
+    addModalProps: {
+      visible: showAddRouteModal,
+      mode: 'add' as const,
+      initialName: newRouteName,
+      initialDate: newRouteDate,
+      onConfirm: handleAddRoute,
+      onCancel: () => {
+        setShowAddRouteModal(false);
+        setNewRouteName('');
+        setNewRouteDate(new Date());
+      },
+    },
+
+    editModalProps: {
+      visible: editingRouteId !== null,
+      mode: 'edit' as const,
+      initialName: editRouteName,
+      initialDate: editRouteDate,
+      onConfirm: handleSaveRoute,
+      onCancel: () => setEditingRouteId(null),
+    },
+
+    openAddModal: () => setShowAddRouteModal(true),
   };
 }
