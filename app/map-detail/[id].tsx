@@ -350,7 +350,7 @@ export default function MapDetailScreen() {
       >
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmBox}>
-            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{"\n"}LA RUTA?</Text>
+            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{'\n'}LA RUTA?</Text>
 
             <TouchableOpacity
               style={styles.confirmPrimaryBtn}
