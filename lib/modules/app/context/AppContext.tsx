@@ -1,6 +1,10 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot } from '../../../core/types';
+import {
+  RobotPoseData,
+  useCameraConnectionContext,
+} from '../../camera/context/CameraConnectionContext';
 
 interface AppContextType {
   robots: Robot[];
@@ -13,11 +17,21 @@ interface AppContextType {
   selectedMapId: string | null;
   setSelectedMapId: (mapId: string | null) => void;
   selectedMap: MapItem | null;
+
+  currentRobotMapId: string | null;
+  currentRobotMapName: string | null;
+  robotPose: RobotPoseData | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const {
+    currentMapId: currentRobotMapId,
+    currentMapName: currentRobotMapName,
+    robotPose,
+  } = useCameraConnectionContext();
+
   const [robots, setRobots] = useState<Robot[]>([
     {
       id: '1',
@@ -90,6 +104,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchMaps();
   }, []);
 
+  useEffect(() => {
+    setRobots((prev) =>
+      prev.map((robot) =>
+        robot.id === '1'
+          ? {
+              ...robot,
+              currentMapId: currentRobotMapId ?? undefined,
+            }
+          : robot
+      )
+    );
+  }, [currentRobotMapId]);
+
+  useEffect(() => {
+    if (!currentRobotMapId || maps.length === 0) return;
+
+    const mapById = maps.find((map) => map.id === currentRobotMapId);
+    if (mapById) {
+      setSelectedMapIdState(mapById.id);
+      return;
+    }
+
+    if (currentRobotMapName) {
+      const mapByName = maps.find((map) => map.name === currentRobotMapName);
+      if (mapByName) {
+        setSelectedMapIdState(mapByName.id);
+      }
+    }
+  }, [currentRobotMapId, currentRobotMapName, maps]);
+
   const setSelectedMapId = async (mapId: string | null) => {
     try {
       if (!supabase) {
@@ -153,6 +197,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedMapId,
         setSelectedMapId,
         selectedMap,
+        currentRobotMapId,
+        currentRobotMapName,
+        robotPose,
       }}
     >
       {children}

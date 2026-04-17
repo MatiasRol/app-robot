@@ -18,8 +18,8 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AppProvider>
-      <CameraConnectionProvider>
+    <CameraConnectionProvider>
+      <AppProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar hidden style="light" translucent backgroundColor="transparent" />
 
@@ -64,7 +64,7 @@ export default function RootLayout() {
             />
           </Stack>
         </GestureHandlerRootView>
-      </CameraConnectionProvider>
-    </AppProvider>
+      </AppProvider>
+    </CameraConnectionProvider>
   );
 }
