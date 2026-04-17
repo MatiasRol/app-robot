@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../../lib/core/constants/Colors';
 import { Route } from '../../../lib/core/types';
 import { RouteListItem } from '../molecules/RouteListItem';
 
@@ -18,6 +19,7 @@ interface MapBottomSheetProps {
   routes: Route[];
   onAddRoute: () => void;
   onEditRouteWaypoints: (routeId: string) => void;
+  onEditRouteInfo?: (routeId: string, name: string, schedule?: string) => void;
   onPlayRoute: (routeId: string) => void;
   onDeleteRoute: (routeId: string, name: string) => void;
   isEditingWaypoints?: boolean;
@@ -32,7 +34,11 @@ export function MapBottomSheet({
   routes,
   onAddRoute,
   onEditRouteWaypoints,
+  onEditRouteInfo,
   onPlayRoute,
+  onDeleteRoute,
+  isEditingWaypoints = false,
+  onAcceptWaypoints,
 }: MapBottomSheetProps) {
   return (
     <Animated.View style={[styles.sheet, { height: bottomSheetAnimation }]}>
@@ -47,36 +53,68 @@ export function MapBottomSheet({
       ) : (
         <ScrollView
           style={styles.expandedContent}
-          contentContainerStyle={styles.expandedContentContainer}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.routesHeader}>
             <Text style={styles.routesTitle}>Rutas</Text>
 
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={onAddRoute}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.addBtnText}>+</Text>
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              {isEditingWaypoints && onAcceptWaypoints && (
+                <TouchableOpacity
+                  style={styles.acceptBtn}
+                  onPress={onAcceptWaypoints}
+                >
+                  <Text style={styles.acceptBtnText}>ACEPTAR</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={styles.addBtn} onPress={onAddRoute}>
+                <Text style={styles.addBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {routes.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay rutas</Text>
+              <Text style={styles.emptyText}>Crea rutas</Text>
               <Text style={styles.emptySubtext}>
-                Toca + para crear una nueva ruta
+                Toca + para agregar una nueva ruta
               </Text>
             </View>
           ) : (
             routes.map((route) => (
-              <RouteListItem
-                key={route.id}
-                route={route}
-                onNamePress={() => onEditRouteWaypoints(route.id)}
-                onPlayPress={() => onPlayRoute(route.id)}
-              />
+              <View key={route.id} style={styles.routeCard}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    onEditRouteInfo?.(route.id, route.name, route.schedule)
+                  }
+                >
+                  <RouteListItem
+                    route={route}
+                    onNamePress={() =>
+                      onEditRouteInfo?.(route.id, route.name, route.schedule)
+                    }
+                    onPlayPress={() => onPlayRoute(route.id)}
+                  />
+                </TouchableOpacity>
+
+                <View style={styles.routeActionsRow}>
+                  <TouchableOpacity
+                    style={styles.secondaryAction}
+                    onPress={() => onEditRouteWaypoints(route.id)}
+                  >
+                    <Text style={styles.secondaryActionText}>Waypoints</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteAction}
+                    onPress={() => onDeleteRoute(route.id, route.name)}
+                  >
+                    <Text style={styles.deleteActionText}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ))
           )}
         </ScrollView>
@@ -91,85 +129,126 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F6F7F9',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     elevation: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   handleContainer: {
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingVertical: 10,
   },
   handle: {
-    width: 58,
-    height: 5,
-    backgroundColor: '#B9BEC8',
-    borderRadius: 3,
+    width: 36,
+    height: 4,
+    backgroundColor: '#DDDDDD',
+    borderRadius: 2,
   },
   collapsedContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 12,
     alignItems: 'center',
-    paddingBottom: 16,
-    paddingHorizontal: 20,
   },
   mapName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#6C7380',
+    color: '#666666',
+    letterSpacing: 0.3,
   },
   expandedContent: {
     flex: 1,
-  },
-  expandedContentContainer: {
-    paddingHorizontal: 22,
-    paddingBottom: 28,
-    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
   routesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
+    paddingTop: 8,
   },
   routesTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: '#202020',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0D111C',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  acceptBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  acceptBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
   addBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
-    backgroundColor: '#E9EDF3',
+    alignItems: 'center',
   },
   addBtnText: {
-    fontSize: 28,
-    lineHeight: 28,
-    color: '#202020',
-    fontWeight: '300',
+    fontSize: 22,
+    fontWeight: '400',
+    color: '#0D111C',
+    lineHeight: 26,
   },
   emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 46,
-    paddingHorizontal: 24,
+    paddingVertical: 40,
+    gap: 8,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#202020',
-    marginBottom: 6,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0D111C',
   },
   emptySubtext: {
     fontSize: 13,
-    color: '#777777',
-    textAlign: 'center',
-    lineHeight: 18,
+    color: '#999999',
+  },
+
+  routeCard: {
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+  },
+  routeActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    marginTop: -2,
+  },
+  secondaryAction: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  deleteAction: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  deleteActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.danger,
   },
 });
