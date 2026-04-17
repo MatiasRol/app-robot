@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   Image,
   StyleSheet,
   Text,
@@ -13,74 +14,112 @@ import { useCameraConnectionContext } from '../lib/modules/camera/context/Camera
 
 export default function ConnectingScreen() {
   const router = useRouter();
+  const spinValue = useRef(new Animated.Value(0)).current;
 
   const {
-    remoteStream,
+    connectToRobot,
+    isConnecting,
+    isFullyConnected,
+    hasAttemptedConnection,
     errorMessage,
-    showConnectionError,
-    handleRetryConnection,
-    handleCancelConnection,
   } = useCameraConnectionContext();
 
-  // Cuando el stream esté listo → navega a la cámara
-  useEffect(() => {
-    if (remoteStream) {
-      router.replace('/(tabs)/camera');
-    }
-  }, [remoteStream]);
+  const [showLocalError, setShowLocalError] = useState(false);
 
-  const handleCancel = () => {
-    handleCancelConnection();
-    router.back();
+  useEffect(() => {
+    const spinAnimation = Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    spinAnimation.start();
+
+    return () => {
+      spinAnimation.stop();
+      spinValue.stopAnimation();
+    };
+  }, [spinValue]);
+
+  useEffect(() => {
+    setShowLocalError(false);
+
+    connectToRobot().catch(() => {
+      // El contexto ya maneja parte del estado;
+      // aquí el mensaje visual se resuelve con los efectos de abajo.
+    });
+  }, [connectToRobot]);
+
+  useEffect(() => {
+    if (isFullyConnected) {
+      setShowLocalError(false);
+      router.replace('/(tabs)');
+    }
+  }, [isFullyConnected, router]);
+
+  useEffect(() => {
+    if (hasAttemptedConnection && !isConnecting && !isFullyConnected) {
+      setShowLocalError(true);
+    }
+  }, [hasAttemptedConnection, isConnecting, isFullyConnected]);
+
+  const handleRetry = () => {
+    setShowLocalError(false);
+
+    connectToRobot().catch(() => {
+      // Se vuelve a evaluar con el estado del contexto
+    });
   };
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const isLoading = !showLocalError;
 
   return (
     <View style={styles.container}>
-
-      {/* Logo */}
-      <View style={styles.logoWrap}>
+      <Animated.View
+        style={[
+          styles.logoWrap,
+          isLoading && {
+            transform: [{ rotate: spin }],
+          },
+        ]}
+      >
         <Image
           source={require('../assets/images/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-      </View>
+      </Animated.View>
 
-      {/* Spinner o error */}
-      {showConnectionError ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>
-            {errorMessage || 'No se pudo conectar al robot'}
-          </Text>
-          <Text style={styles.errorHint}>
-            Verifica que las Raspberry Pi estén encendidas.
-          </Text>
-          <View style={styles.errorButtons}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleRetryConnection}>
-              <Text style={styles.retryText}>Reintentar</Text>
-            </TouchableOpacity>
-          </View>
+      {isLoading ? (
+        <View style={styles.textWrap}>
+          <Text style={styles.label}>Conectando a ...</Text>
+          <Text style={styles.robotName}>Robot 1</Text>
         </View>
       ) : (
-        <>
-          <ActivityIndicator
-            size="large"
-            color={Colors.primary}
-            style={styles.spinner}
-          />
-          <View style={styles.textWrap}>
-            <Text style={styles.label}>Conectando a ...</Text>
-            <Text style={styles.robotName}>Robot 1</Text>
-            <TouchableOpacity onPress={handleCancel} style={styles.cancelLink}>
-              <Text style={styles.cancelLinkText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorTitle}>No se conectó el robot</Text>
+          <Text style={styles.errorText}>
+            {errorMessage ||
+              'Verifica que el robot esté encendido y conectado a la red.'}
+          </Text>
 
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={handleRetry}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -88,103 +127,69 @@ export default function ConnectingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    gap: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
   },
 
-  // Logo
   logoWrap: {
-    width: 90,
-    height: 90,
-    borderRadius: 22,
-    backgroundColor: Colors.logo,
-    justifyContent: 'center',
+    width: 110,
+    height: 110,
     alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: 'center',
+    marginBottom: 28,
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 90,
+    height: 90,
   },
 
-  // Spinner
-  spinner: {
-    marginVertical: 4,
-  },
-
-  // Texto conectando
   textWrap: {
     alignItems: 'center',
-    gap: 6,
   },
   label: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: '400',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#3A3A3A',
+    marginBottom: 4,
   },
   robotName: {
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.text,
-  },
-  cancelLink: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  cancelLinkText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textDecorationLine: 'underline',
+    color: '#1A1A1A',
   },
 
-  // Error
   errorWrap: {
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 32,
+    maxWidth: 320,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   errorText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.danger,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#5A5A5A',
     textAlign: 'center',
-  },
-  errorHint: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  errorButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  cancelBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    backgroundColor: Colors.button,
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    marginBottom: 18,
   },
   retryBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 12,
+    minWidth: 150,
+    height: 46,
+    borderRadius: 14,
     backgroundColor: Colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   retryText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.text,
   },
 });
