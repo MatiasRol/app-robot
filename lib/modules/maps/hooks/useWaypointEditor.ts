@@ -33,7 +33,8 @@ export function useWaypointEditor() {
     };
 
     setWaypoints((prev) => {
-      setActiveIndex(prev.length);
+      const nextIndex = prev.length;
+      setActiveIndex(nextIndex);
       return [...prev, newWaypoint];
     });
   };
@@ -86,16 +87,16 @@ export function useWaypointEditor() {
 
   const removeWaypoint = (index: number) => {
     setWaypoints((prev) => prev.filter((_, i) => i !== index));
-    if (activeIndex === index) setActiveIndex(null);
+
+    if (activeIndex === index) {
+      setActiveIndex(null);
+    } else if (activeIndex !== null && index < activeIndex) {
+      setActiveIndex(activeIndex - 1);
+    }
   };
 
   const clearWaypoints = () => {
     setWaypoints([]);
-    setActiveIndex(null);
-  };
-
-  const loadWaypoints = (items: WaypointPoint[]) => {
-    setWaypoints(items);
     setActiveIndex(null);
   };
 
@@ -110,6 +111,5 @@ export function useWaypointEditor() {
     confirmWaypointOrientation,
     removeWaypoint,
     clearWaypoints,
-    loadWaypoints,
   };
 }

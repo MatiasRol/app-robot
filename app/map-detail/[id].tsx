@@ -57,15 +57,34 @@ export default function MapDetailScreen() {
       if (!navigate.navPoint) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
       } else if (!navigate.navPoint.confirmed) {
-        navigate.handleSecondTap(pixelX, pixelY);
+        navigate.confirmOrientation();
       }
     } else if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
       } else {
-        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
+        waypointEditor.confirmWaypointOrientation();
       }
     }
+  };
+
+  const handleDirectionDrag = (
+    _worldX: number,
+    _worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
+    if (mapMode === 'navigate') {
+      if (!navigate.navPoint || navigate.navPoint.confirmed) return;
+
+      navigate.updateOrientation(pixelX, pixelY);
+      return;
+    }
+
+    if (mapMode !== 'route_edit') return;
+    if (!waypointEditor.hasActiveRotating) return;
+
+    waypointEditor.updateActiveWaypointOrientation(pixelX, pixelY);
   };
 
   return (
@@ -77,6 +96,13 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
+          onDirectionDrag={handleDirectionDrag}
+          isAdjustingWaypointDirection={
+            (mapMode === 'navigate' &&
+              !!navigate.navPoint &&
+              !navigate.navPoint.confirmed) ||
+            (mapMode === 'route_edit' && waypointEditor.hasActiveRotating)
+          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]
@@ -147,7 +173,7 @@ export default function MapDetailScreen() {
             {!navigate.navPoint
               ? 'Selecciona un punto de navegación'
               : !navigate.navPoint.confirmed
-              ? 'Toca de nuevo para fijar la orientación'
+              ? 'Arrastra para orientar y toca para confirmar'
               : 'Listo para navegar'}
           </Text>
         </View>
