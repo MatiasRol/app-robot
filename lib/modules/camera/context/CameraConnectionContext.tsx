@@ -2,9 +2,9 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
-const VIDEO_SERVER_URL = 'http://10.42.0.106:8889';
+const VIDEO_SERVER_URL = 'http://XicoCamara:8889';
 const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://10.42.0.1:9090';
+const COMMAND_SERVER_URL = 'ws://Xico:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 
