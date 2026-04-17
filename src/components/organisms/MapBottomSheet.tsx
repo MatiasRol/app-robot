@@ -19,7 +19,6 @@ interface MapBottomSheetProps {
   routes: Route[];
   onAddRoute: () => void;
   onEditRouteWaypoints: (routeId: string) => void;
-  onEditRouteInfo?: (routeId: string, name: string, schedule?: string) => void;
   onPlayRoute: (routeId: string) => void;
   onDeleteRoute: (routeId: string, name: string) => void;
   isEditingWaypoints?: boolean;
@@ -34,7 +33,6 @@ export function MapBottomSheet({
   routes,
   onAddRoute,
   onEditRouteWaypoints,
-  onEditRouteInfo,
   onPlayRoute,
   onDeleteRoute,
   isEditingWaypoints = false,
@@ -83,35 +81,20 @@ export function MapBottomSheet({
             </View>
           ) : (
             routes.map((route) => (
-              <View key={route.id} style={styles.routeCard}>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() =>
-                    onEditRouteInfo?.(route.id, route.name, route.schedule)
-                  }
-                >
-                  <RouteListItem
-                    route={route}
-                    onNamePress={() =>
-                      onEditRouteInfo?.(route.id, route.name, route.schedule)
-                    }
-                    onPlayPress={() => onPlayRoute(route.id)}
-                  />
-                </TouchableOpacity>
+              <View key={route.id} style={styles.routeWrap}>
+                <RouteListItem
+                  route={route}
+                  onNamePress={() => onEditRouteWaypoints(route.id)}
+                  onPlayPress={() => onPlayRoute(route.id)}
+                />
 
-                <View style={styles.routeActionsRow}>
+                <View style={styles.routeActions}>
                   <TouchableOpacity
-                    style={styles.secondaryAction}
-                    onPress={() => onEditRouteWaypoints(route.id)}
-                  >
-                    <Text style={styles.secondaryActionText}>Waypoints</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.deleteAction}
                     onPress={() => onDeleteRoute(route.id, route.name)}
+                    style={styles.deleteBtn}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.deleteActionText}>Eliminar</Text>
+                    <Text style={styles.deleteBtnText}>Eliminar</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -220,35 +203,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#999999',
   },
-
-  routeCard: {
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+  routeWrap: {
+    marginBottom: 10,
   },
-  routeActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    marginTop: -2,
+  routeActions: {
+    alignItems: 'flex-end',
+    paddingRight: 8,
+    marginTop: -4,
   },
-  secondaryAction: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  deleteBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  secondaryActionText: {
+  deleteBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.primary,
-  },
-  deleteAction: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  deleteActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.danger,
+    color: '#B13A3A',
   },
 });

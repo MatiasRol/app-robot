@@ -1,6 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
 import { useApp } from '../../lib/modules/app/context/AppContext';
@@ -19,7 +27,6 @@ import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
 function sanitizeTimeInput(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
-
   if (digits.length <= 2) return digits;
   return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
@@ -51,6 +58,8 @@ export default function MapDetailScreen() {
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
 
   const [showCreateRouteModal, setShowCreateRouteModal] = useState(false);
+  const [pendingPlayRouteId, setPendingPlayRouteId] = useState<string | null>(null);
+
   const [routeNameDraft, setRouteNameDraft] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [executeAt, setExecuteAt] = useState('');
@@ -63,12 +72,10 @@ export default function MapDetailScreen() {
   const openCreateRoute = () => {
     waypointEditor.clearWaypoints();
     setEditingRouteId(null);
-
     setRouteNameDraft('');
     setSelectedDays([]);
     setExecuteAt('');
     setRecordRoute(false);
-
     setShowCreateRouteModal(true);
     setMapMode('route_edit');
   };
@@ -142,6 +149,64 @@ export default function MapDetailScreen() {
         waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
       }
     }
+  };
+
+  const handlePlayRoute = (routeId: string) => {
+    setPendingPlayRouteId(routeId);
+  };
+
+  const confirmPlayRoute = () => {
+    if (!pendingPlayRouteId) return;
+
+    const route = mapRoutes.routes.find((r) => r.id === pendingPlayRouteId);
+    if (!route?.waypoints?.length) {
+      setPendingPlayRouteId(null);
+      return;
+    }
+
+    const waypointsForRos = (route.waypoints as any[])
+      .map((wp) => {
+        if (wp?.position && wp?.orientation) {
+          return {
+            worldX: Number(wp.position.x ?? 0),
+            worldY: Number(wp.position.y ?? 0),
+            quaternion: {
+              x: Number(wp.orientation.x ?? 0),
+              y: Number(wp.orientation.y ?? 0),
+              z: Number(wp.orientation.z ?? 0),
+              w: Number(wp.orientation.w ?? 1),
+            },
+          };
+        }
+
+        if (
+          typeof wp?.worldX === 'number' &&
+          typeof wp?.worldY === 'number' &&
+          wp?.quaternion
+        ) {
+          return {
+            worldX: wp.worldX,
+            worldY: wp.worldY,
+            quaternion: {
+              x: Number(wp.quaternion.x ?? 0),
+              y: Number(wp.quaternion.y ?? 0),
+              z: Number(wp.quaternion.z ?? 0),
+              w: Number(wp.quaternion.w ?? 1),
+            },
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+
+    if (waypointsForRos.length === 0) {
+      setPendingPlayRouteId(null);
+      return;
+    }
+
+    sendFollowWaypoints(waypointsForRos);
+    setPendingPlayRouteId(null);
   };
 
   return (
@@ -243,50 +308,7 @@ export default function MapDetailScreen() {
               setEditingRouteId(routeId);
               setMapMode('route_edit');
             }}
-            onPlayRoute={(routeId) => {
-              const route = mapRoutes.routes.find((r) => r.id === routeId);
-              if (!route?.waypoints?.length) return;
-
-              const waypointsForRos = (route.waypoints as any[])
-                .map((wp) => {
-                  if (wp?.position && wp?.orientation) {
-                    return {
-                      worldX: Number(wp.position.x ?? 0),
-                      worldY: Number(wp.position.y ?? 0),
-                      quaternion: {
-                        x: Number(wp.orientation.x ?? 0),
-                        y: Number(wp.orientation.y ?? 0),
-                        z: Number(wp.orientation.z ?? 0),
-                        w: Number(wp.orientation.w ?? 1),
-                      },
-                    };
-                  }
-
-                  if (
-                    typeof wp?.worldX === 'number' &&
-                    typeof wp?.worldY === 'number' &&
-                    wp?.quaternion
-                  ) {
-                    return {
-                      worldX: wp.worldX,
-                      worldY: wp.worldY,
-                      quaternion: {
-                        x: Number(wp.quaternion.x ?? 0),
-                        y: Number(wp.quaternion.y ?? 0),
-                        z: Number(wp.quaternion.z ?? 0),
-                        w: Number(wp.quaternion.w ?? 1),
-                      },
-                    };
-                  }
-
-                  return null;
-                })
-                .filter(Boolean);
-
-              if (waypointsForRos.length === 0) return;
-
-              sendFollowWaypoints(waypointsForRos);
-            }}
+            onPlayRoute={handlePlayRoute}
             onDeleteRoute={mapRoutes.onDeleteRoute}
             isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
             onAcceptWaypoints={() => {
@@ -319,6 +341,35 @@ export default function MapDetailScreen() {
         onClose={closeCreateRoute}
         onConfirm={handleConfirmCreateRoute}
       />
+
+      <Modal
+        visible={pendingPlayRouteId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingPlayRouteId(null)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{"\n"}LA RUTA?</Text>
+
+            <TouchableOpacity
+              style={styles.confirmPrimaryBtn}
+              onPress={confirmPlayRoute}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.confirmPrimaryText}>CONFIRMAR</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.confirmSecondaryBtn}
+              onPress={() => setPendingPlayRouteId(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.confirmSecondaryText}>CANCELAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <ModeChangeAlert {...opMode.alertProps} />
     </View>
@@ -388,5 +439,58 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
+  },
+
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmBox: {
+    width: 185,
+    backgroundColor: '#F3F3F3',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 18,
+    alignItems: 'center',
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#202020',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  confirmPrimaryBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  confirmPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  confirmSecondaryBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#A9A9A9',
+    backgroundColor: '#F7F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmSecondaryText: {
+    color: '#9C9C9C',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
