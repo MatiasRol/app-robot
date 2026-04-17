@@ -1,7 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,167 +9,211 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
+import { useApp } from '../../lib/modules/app/context/AppContext';
 
 interface HomeScreenProps {
   robotName?: string;
-  selectedMapName?: string;
 }
 
 export default function HomeScreen({
   robotName = 'Robot 1',
-  selectedMapName = 'Mapa 1',
 }: HomeScreenProps) {
   const router = useRouter();
 
+  const {
+    selectedMapId,
+    selectedMap,
+    currentRobotMapName,
+  } = useApp();
+
+  const displayedMapName =
+    selectedMap?.name || currentRobotMapName || 'Sin mapa actual';
+
+  const handleOpenCurrentMap = () => {
+    if (selectedMapId) {
+      router.push(`/map-detail/${selectedMapId}`);
+      return;
+    }
+
+    if (selectedMap?.id) {
+      router.push(`/map-detail/${selectedMap.id}`);
+      return;
+    }
+
+    router.push('/maps');
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <View style={styles.topSection}>
-          <Image
-            source={require('../../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        <View style={styles.robotSection}>
+          <View style={styles.robotImageContainer}>
+            <View style={styles.robotImagePlaceholder}>
+              <Ionicons
+                name="hardware-chip-outline"
+                size={80}
+                color={Colors.textSecondary}
+              />
+            </View>
+          </View>
 
           <Text style={styles.robotName}>{robotName}</Text>
-
-          <Image
-            source={require('../../assets/images/robot01.png')}
-            style={styles.robotImage}
-            resizeMode="contain"
-          />
         </View>
 
-        <View style={styles.bottomPanel}>
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.cameraButton}
-              onPress={() => router.push('/camera')}
-              activeOpacity={0.85}
-            >
-              <Image
-                source={require('../../assets/images/camara.png')}
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.cameraButtonText}>Ver cámara</Text>
-            </TouchableOpacity>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/camera')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera" size={28} color={Colors.textSecondary} />
+            <Text style={styles.actionLabel}>Ver cámara</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.mapButton}
-              onPress={() => router.push('/maps')}
-              activeOpacity={0.85}
-            >
-              <Image
-                source={require('../../assets/images/mapaBoton.png')}
-                style={styles.actionIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.mapButtonLabel}>Mapa relacionado</Text>
-              <Text style={styles.mapButtonTitle}>{selectedMapName}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleOpenCurrentMap}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="map" size={28} color={Colors.textSecondary} />
+            <Text style={styles.actionLabelSmall}>Mapa actual</Text>
+            <Text style={styles.actionLabelBold}>{displayedMapName}</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      <BottomNav activeTab="robot" />
     </SafeAreaView>
+  );
+}
+
+function BottomNav({ activeTab }: { activeTab: 'robot' | 'person' }) {
+  const router = useRouter();
+
+  return (
+    <View style={styles.bottomNav}>
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => router.push('/')}
+      >
+        <Ionicons
+          name="hardware-chip-outline"
+          size={26}
+          color={activeTab === 'robot' ? Colors.primary : Colors.inactive}
+        />
+        {activeTab === 'robot' && <View style={styles.navActiveDot} />}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => router.push('/maps')}
+      >
+        <Ionicons
+          name="map-outline"
+          size={26}
+          color={activeTab === 'person' ? Colors.primary : Colors.inactive}
+        />
+        {activeTab === 'person' && <View style={styles.navActiveDot} />}
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 40,
   },
 
-  topSection: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  robotSection: {
     alignItems: 'center',
-    paddingTop: 8,
-    paddingHorizontal: 20,
+    gap: 16,
   },
-  logo: {
-    width: 34,
-    height: 34,
-    marginTop: 4,
-    marginBottom: 6,
+  robotImageContainer: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  robotImagePlaceholder: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.button,
   },
   robotName: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: '#1B1B1B',
-    marginBottom: 8,
-  },
-  robotImage: {
-    width: '115%',
-    height: 330,
-    marginTop: 8,
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.text,
+    letterSpacing: 0.5,
   },
 
-  bottomPanel: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 24,
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    minHeight: 180,
-  },
   actionsRow: {
     flexDirection: 'row',
     gap: 16,
+    width: '100%',
   },
-
-  cameraButton: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    minHeight: 94,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-  },
-  mapButton: {
+  actionButton: {
     flex: 1,
     backgroundColor: Colors.button,
-    borderRadius: 8,
-    minHeight: 94,
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    gap: 8,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: Colors.primaryDark,
   },
-
-  actionIcon: {
-    width: 42,
-    height: 42,
-    marginBottom: 8,
-  },
-
-  cameraButtonText: {
+  actionLabel: {
+    color: Colors.text,
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B1B1B',
+    textAlign: 'center',
+  },
+  actionLabelSmall: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  actionLabelBold: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '700',
     textAlign: 'center',
   },
 
-  mapButtonLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 2,
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider + '40',
+    paddingBottom: 20,
+    paddingTop: 12,
   },
-  mapButtonTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    lineHeight: 24,
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  navActiveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.primary,
   },
 });
