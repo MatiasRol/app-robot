@@ -26,6 +26,15 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="connecting"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+                gestureEnabled: false,
+              }}
+            />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="map-detail/[id]"
@@ -39,14 +48,6 @@ export default function RootLayout() {
               options={{
                 title: 'Configuración del Robot',
                 presentation: 'modal',
-              }}
-            />
-            <Stack.Screen
-              name="connecting"
-              options={{
-                presentation: 'transparentModal',
-                headerShown: false,
-                animation: 'fade',
               }}
             />
           </Stack>
