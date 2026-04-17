@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -23,123 +23,93 @@ export default function ConnectingScreen() {
     errorMessage,
   } = useCameraConnectionContext();
 
-  const spinValue = useRef(new Animated.Value(0)).current;
-  const spinAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const spinLoopRef = useRef<Animated.CompositeAnimation | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
-  const initialAttemptDoneRef = useRef(false);
-  const attemptIdRef = useRef(0);
 
-  const [showLocalError, setShowLocalError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const clearAttemptTimeout = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+  const stopSpin = () => {
+    if (spinLoopRef.current) {
+      spinLoopRef.current.stop();
+      spinLoopRef.current = null;
     }
-  }, []);
+    rotateAnim.stopAnimation();
+  };
 
-  const stopSpin = useCallback(() => {
-    if (spinAnimationRef.current) {
-      spinAnimationRef.current.stop();
-      spinAnimationRef.current = null;
-    }
-    spinValue.stopAnimation();
-  }, [spinValue]);
-
-  const startSpin = useCallback(() => {
+  const startSpin = () => {
     stopSpin();
-    spinValue.setValue(0);
+    rotateAnim.setValue(0);
 
-    const animation = Animated.loop(
-      Animated.timing(spinValue, {
+    spinLoopRef.current = Animated.loop(
+      Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 1800,
+        duration: 1600,
         easing: Easing.linear,
         useNativeDriver: true,
       })
     );
 
-    spinAnimationRef.current = animation;
-    animation.start();
-  }, [spinValue, stopSpin]);
+    spinLoopRef.current.start();
+  };
 
-  const showErrorState = useCallback(() => {
-    if (!mountedRef.current) return;
+  const clearTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
 
-    setIsLoading(false);
-    setShowLocalError(true);
-    stopSpin();
-  }, [stopSpin]);
-
-  const startConnectionAttempt = useCallback(() => {
-    attemptIdRef.current += 1;
-    const currentAttemptId = attemptIdRef.current;
-
-    clearAttemptTimeout();
-    setShowLocalError(false);
-    setIsLoading(true);
+  const startAttempt = () => {
+    clearTimer();
+    setLoading(true);
     startSpin();
+
+    connectToRobot().catch(() => {
+      // La UI del error la controla el timeout.
+    });
 
     timeoutRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
-      if (attemptIdRef.current !== currentAttemptId) return;
+
       if (!isFullyConnected) {
-        showErrorState();
+        setLoading(false);
+        stopSpin();
       }
     }, CONNECTION_TIMEOUT_MS);
-
-    connectToRobot().catch(() => {
-      // El timeout controla la UI del error.
-      // Aquí no mostramos error inmediato para evitar flashes.
-    });
-  }, [
-    clearAttemptTimeout,
-    connectToRobot,
-    isFullyConnected,
-    showErrorState,
-    startSpin,
-  ]);
+  };
 
   useEffect(() => {
     mountedRef.current = true;
-
-    if (!initialAttemptDoneRef.current) {
-      initialAttemptDoneRef.current = true;
-      startConnectionAttempt();
-    }
+    startAttempt();
 
     return () => {
       mountedRef.current = false;
-      clearAttemptTimeout();
+      clearTimer();
       stopSpin();
     };
-  }, [clearAttemptTimeout, startConnectionAttempt, stopSpin]);
+  }, []);
 
   useEffect(() => {
-    if (!isFullyConnected) return;
-
-    clearAttemptTimeout();
-    setShowLocalError(false);
-    setIsLoading(false);
-    stopSpin();
-    router.replace('/(tabs)');
-  }, [isFullyConnected, clearAttemptTimeout, stopSpin, router]);
+    if (isFullyConnected) {
+      clearTimer();
+      stopSpin();
+      router.replace('/(tabs)');
+    }
+  }, [isFullyConnected, router]);
 
   const handleRetry = () => {
-    startConnectionAttempt();
+    startAttempt();
   };
 
   const handleCancel = () => {
-    clearAttemptTimeout();
-    setShowLocalError(false);
-    setIsLoading(false);
+    clearTimer();
     stopSpin();
     router.replace('/(tabs)');
   };
 
-  const spin = spinValue.interpolate({
+  const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
@@ -149,7 +119,7 @@ export default function ConnectingScreen() {
       <Animated.View
         style={[
           styles.logoWrap,
-          isLoading ? { transform: [{ rotate: spin }] } : undefined,
+          loading ? { transform: [{ rotate: spin }] } : undefined,
         ]}
       >
         <Image
@@ -159,7 +129,12 @@ export default function ConnectingScreen() {
         />
       </Animated.View>
 
-      {showLocalError ? (
+      {loading ? (
+        <View style={styles.textWrap}>
+          <Text style={styles.label}>Conectando a ...</Text>
+          <Text style={styles.robotName}>Robot 1</Text>
+        </View>
+      ) : (
         <View style={styles.errorWrap}>
           <Text style={styles.errorTitle}>No se pudo conectar al robot</Text>
           <Text style={styles.errorText}>
@@ -184,11 +159,6 @@ export default function ConnectingScreen() {
               <Text style={styles.retryText}>Reintentar</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      ) : (
-        <View style={styles.textWrap}>
-          <Text style={styles.label}>Conectando a ...</Text>
-          <Text style={styles.robotName}>Robot 1</Text>
         </View>
       )}
     </View>
