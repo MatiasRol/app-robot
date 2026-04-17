@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,33 +11,94 @@ import {
 import { Colors } from '../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
+const CONNECTION_TIMEOUT_MS = 2500;
+
 export default function ConnectingScreen() {
   const router = useRouter();
+  const hasStartedRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
-    remoteStream,
+    connectionStatus,
     errorMessage,
     showConnectionError,
+    connectToRobot,
     handleRetryConnection,
     handleCancelConnection,
   } = useCameraConnectionContext();
 
-  // Cuando el stream esté listo → navega a la cámara
+  const [timedOut, setTimedOut] = useState(false);
+
+  const hasAnyConnection =
+    connectionStatus.video === 'connected' ||
+    connectionStatus.commands === 'connected';
+
   useEffect(() => {
-    if (remoteStream) {
-      router.replace('/(tabs)/camera');
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
+    connectToRobot().catch(() => {});
+
+    timeoutRef.current = setTimeout(() => {
+      setTimedOut(true);
+    }, CONNECTION_TIMEOUT_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [connectToRobot]);
+
+  useEffect(() => {
+    if (!hasAnyConnection) return;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [remoteStream]);
+
+    router.replace('/(tabs)');
+  }, [hasAnyConnection, router]);
+
+  const handleRetry = () => {
+    setTimedOut(false);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    handleRetryConnection();
+
+    timeoutRef.current = setTimeout(() => {
+      setTimedOut(true);
+    }, CONNECTION_TIMEOUT_MS);
+  };
 
   const handleCancel = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
     handleCancelConnection();
-    router.back();
+    router.replace('/(tabs)');
   };
+
+  const shouldShowError = showConnectionError || (timedOut && !hasAnyConnection);
+
+  const statusLabel =
+    connectionStatus.video === 'connecting' && connectionStatus.commands === 'connecting'
+      ? 'Conectando video y comandos...'
+      : connectionStatus.video === 'connecting'
+      ? 'Conectando video...'
+      : connectionStatus.commands === 'connecting'
+      ? 'Conectando comandos...'
+      : 'Conectando a ...';
 
   return (
     <View style={styles.container}>
-
-      {/* Logo */}
       <View style={styles.logoWrap}>
         <Image
           source={require('../assets/images/logo.png')}
@@ -46,20 +107,19 @@ export default function ConnectingScreen() {
         />
       </View>
 
-      {/* Spinner o error */}
-      {showConnectionError ? (
+      {shouldShowError ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>
             {errorMessage || 'No se pudo conectar al robot'}
           </Text>
           <Text style={styles.errorHint}>
-            Verifica que las Raspberry Pi estén encendidas.
+            Verifica que el robot esté encendido y en la misma red.
           </Text>
           <View style={styles.errorButtons}>
             <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleRetryConnection}>
+            <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
               <Text style={styles.retryText}>Reintentar</Text>
             </TouchableOpacity>
           </View>
@@ -72,7 +132,7 @@ export default function ConnectingScreen() {
             style={styles.spinner}
           />
           <View style={styles.textWrap}>
-            <Text style={styles.label}>Conectando a ...</Text>
+            <Text style={styles.label}>{statusLabel}</Text>
             <Text style={styles.robotName}>Robot 1</Text>
             <TouchableOpacity onPress={handleCancel} style={styles.cancelLink}>
               <Text style={styles.cancelLinkText}>Cancelar</Text>
@@ -80,7 +140,6 @@ export default function ConnectingScreen() {
           </View>
         </>
       )}
-
     </View>
   );
 }
@@ -93,8 +152,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 28,
   },
-
-  // Logo
   logoWrap: {
     width: 90,
     height: 90,
@@ -108,13 +165,9 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
   },
-
-  // Spinner
   spinner: {
     marginVertical: 4,
   },
-
-  // Texto conectando
   textWrap: {
     alignItems: 'center',
     gap: 6,
@@ -139,8 +192,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textDecorationLine: 'underline',
   },
-
-  // Error
   errorWrap: {
     alignItems: 'center',
     gap: 10,
