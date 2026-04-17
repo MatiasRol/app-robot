@@ -141,14 +141,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
             setVideoConnectionState(state as ConnectionState);
           }
         },
-        onError: () => {
+        onError: (message) => {
           if (isDisconnecting.current) return;
 
           setVideoConnectionState('failed');
-
-          if (commandConnectionState === 'failed') {
-            showError('Error de conexión: video y comandos no disponibles');
-          }
+          showError(message || 'Error conectando video');
         },
       });
 
@@ -180,14 +177,11 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
           setCommandConnectionState('disconnected');
         },
         onMessage: handleRobotMessage,
-        onError: () => {
+        onError: (message) => {
           if (isDisconnecting.current) return;
 
           setCommandConnectionState('failed');
-
-          if (videoConnectionState === 'failed') {
-            showError('Error de conexión: video y comandos no disponibles');
-          }
+          showError(message || 'Error conectando comandos');
         },
       });
 

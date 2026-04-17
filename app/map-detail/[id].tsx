@@ -137,7 +137,7 @@ export default function MapDetailScreen() {
       if (!navigate.navPoint) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
       } else if (!navigate.navPoint.confirmed) {
-        navigate.handleSecondTap(pixelX, pixelY);
+        navigate.confirmOrientation();
       }
       return;
     }
@@ -149,6 +149,18 @@ export default function MapDetailScreen() {
         waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
       }
     }
+  };
+
+  const handleNavigateDirectionDrag = (
+    _worldX: number,
+    _worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
+    if (mapMode !== 'navigate') return;
+    if (!navigate.navPoint || navigate.navPoint.confirmed) return;
+
+    navigate.updateOrientation(pixelX, pixelY);
   };
 
   const handlePlayRoute = (routeId: string) => {
@@ -218,6 +230,12 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
+          onDirectionDrag={handleNavigateDirectionDrag}
+          isAdjustingWaypointDirection={
+            mapMode === 'navigate' &&
+            !!navigate.navPoint &&
+            !navigate.navPoint.confirmed
+          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]
@@ -288,7 +306,7 @@ export default function MapDetailScreen() {
             {!navigate.navPoint
               ? 'Selecciona un punto de navegación'
               : !navigate.navPoint.confirmed
-              ? 'Toca de nuevo para fijar la orientación'
+              ? 'Arrastra para orientar y toca otra vez para confirmar'
               : 'Listo para navegar'}
           </Text>
         </View>
