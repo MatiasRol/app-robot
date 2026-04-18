@@ -27,7 +27,7 @@ function basenameWithoutExtension(value?: string | null) {
 function resolveMapIdFromRobotKey(robotMapKey: string, maps: MapItem[]): string | null {
   const normalized = robotMapKey.trim().toLowerCase();
 
-  const byId = maps.find((m) => String(m.id).toLowerCase() === normalized);
+  const byId = maps.find((m) => String(m.id).trim().toLowerCase() === normalized);
   if (byId) return byId.id;
 
   const byName = maps.find((m) => String(m.name).trim().toLowerCase() === normalized);
@@ -128,18 +128,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const resolvedMapId = resolveMapIdFromRobotKey(robotCurrentMapKey, maps);
     if (!resolvedMapId) {
-      console.warn('⚠️ No se encontró un mapa en la BD para:', robotCurrentMapKey);
+      console.warn('⚠️ No se encontró un mapa para:', robotCurrentMapKey);
       return;
     }
 
-    setSelectedMapIdState((prev) => (prev === resolvedMapId ? prev : resolvedMapId));
+    if (selectedMapId !== resolvedMapId) {
+      setSelectedMapIdState(resolvedMapId);
+    }
 
-    setMaps((prev) =>
-      prev.map((m) => ({
+    setMaps((prev) => {
+      const alreadyCorrect = prev.every(
+        (m) => Boolean(m.is_active) === (m.id === resolvedMapId)
+      );
+
+      if (alreadyCorrect) return prev;
+
+      return prev.map((m) => ({
         ...m,
         is_active: m.id === resolvedMapId,
-      }))
-    );
+      }));
+    });
 
     setRobots((prev) =>
       prev.map((robot) =>
@@ -171,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     syncToDb();
-  }, [robotCurrentMapKey, maps]);
+  }, [robotCurrentMapKey, maps, selectedMapId]);
 
   const setSelectedMapId = async (mapId: string | null) => {
     try {
