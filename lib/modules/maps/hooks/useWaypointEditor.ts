@@ -33,8 +33,9 @@ export function useWaypointEditor() {
     };
 
     setWaypoints((prev) => {
-      setActiveIndex(prev.length);
-      return [...prev, newWaypoint];
+      const next = [...prev, newWaypoint];
+      setActiveIndex(next.length - 1);
+      return next;
     });
   };
 
@@ -66,7 +67,17 @@ export function useWaypointEditor() {
   };
 
   const finishActiveWaypointOrientation = () => {
+    if (activeIndex === null) return;
     setActiveIndex(null);
+  };
+
+  const removeWaypoint = (index: number) => {
+    setWaypoints((prev) => prev.filter((_, i) => i !== index));
+    if (activeIndex === index) {
+      setActiveIndex(null);
+    } else if (activeIndex !== null && activeIndex > index) {
+      setActiveIndex(activeIndex - 1);
+    }
   };
 
   const clearWaypoints = () => {
@@ -83,6 +94,7 @@ export function useWaypointEditor() {
     addWaypointFirstTap,
     updateActiveWaypointOrientation,
     finishActiveWaypointOrientation,
+    removeWaypoint,
     clearWaypoints,
   };
 }
