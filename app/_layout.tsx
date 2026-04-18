@@ -10,7 +10,8 @@ export default function RootLayout() {
     <CameraConnectionProvider>
       <AppProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar style="light" backgroundColor={Colors.background} />
+          <StatusBar hidden style="light" />
+
           <Stack
             screenOptions={{
               headerStyle: {
