@@ -2,9 +2,9 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
-const VIDEO_SERVER_URL = 'http://XicoCamara:8889';
+const VIDEO_SERVER_URL = 'http://XicoCamara.local:8889';
 const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://Xico:9090';
+const COMMAND_SERVER_URL = 'ws://Xico.local:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 
@@ -141,11 +141,14 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
             setVideoConnectionState(state as ConnectionState);
           }
         },
-        onError: (message) => {
+        onError: () => {
           if (isDisconnecting.current) return;
 
           setVideoConnectionState('failed');
-          showError(message || 'Error conectando video');
+
+          if (commandConnectionState === 'failed') {
+            showError('Error de conexión: video y comandos no disponibles');
+          }
         },
       });
 
@@ -177,11 +180,14 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
           setCommandConnectionState('disconnected');
         },
         onMessage: handleRobotMessage,
-        onError: (message) => {
+        onError: () => {
           if (isDisconnecting.current) return;
 
           setCommandConnectionState('failed');
-          showError(message || 'Error conectando comandos');
+
+          if (videoConnectionState === 'failed') {
+            showError('Error de conexión: video y comandos no disponibles');
+          }
         },
       });
 

@@ -43,20 +43,9 @@ export function useNavigateMode() {
         ...prev,
         orientationAngle: angle,
         quaternion: angleToQuaternion(angle),
-        confirmed: false,
+        confirmed: true,
       };
     });
-  };
-
-  const confirmOrientation = () => {
-    setNavPoint((prev) =>
-      prev
-        ? {
-            ...prev,
-            confirmed: true,
-          }
-        : null
-    );
   };
 
   const reset = () => setNavPoint(null);
@@ -65,7 +54,6 @@ export function useNavigateMode() {
     navPoint,
     handleFirstTap,
     updateOrientation,
-    confirmOrientation,
     reset,
   };
 }

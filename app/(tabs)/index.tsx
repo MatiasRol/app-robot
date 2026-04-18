@@ -11,38 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useApp } from '../../lib/modules/app/context/AppContext';
 
-interface HomeScreenProps {
-  robotName?: string;
-  selectedMapName?: string;
-}
-
-export default function HomeScreen({
-  robotName = 'Robot 1',
-  selectedMapName = 'Mapa 1',
-}: HomeScreenProps) {
+export default function HomeScreen() {
   const router = useRouter();
-  const {
-    selectedMapId,
-    selectedMap,
-    currentRobotMapName,
-  } = useApp();
+  const { robots, selectedMapId, selectedMap } = useApp();
 
-  const displayedMapName =
-    selectedMap?.name || currentRobotMapName || selectedMapName;
-
-  const handleOpenCurrentMap = () => {
-    if (selectedMapId) {
-      router.push(`/map-detail/${selectedMapId}`);
-      return;
-    }
-
-    if (selectedMap?.id) {
-      router.push(`/map-detail/${selectedMap.id}`);
-      return;
-    }
-
-    router.push('/maps');
-  };
+  const robotName = robots[0]?.name ?? 'Robot 1';
+  const selectedMapName = selectedMap?.name ?? 'Sin mapa activo';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -80,7 +54,13 @@ export default function HomeScreen({
 
             <TouchableOpacity
               style={styles.mapButton}
-              onPress={handleOpenCurrentMap}
+              onPress={() => {
+                if (selectedMapId) {
+                  router.push(`/map-detail/${selectedMapId}` as any);
+                } else {
+                  router.push('/maps');
+                }
+              }}
               activeOpacity={0.85}
             >
               <Image
@@ -88,8 +68,8 @@ export default function HomeScreen({
                 style={styles.actionIcon}
                 resizeMode="contain"
               />
-              <Text style={styles.mapButtonLabel}>Mapa relacionado</Text>
-              <Text style={styles.mapButtonTitle}>{displayedMapName}</Text>
+              <Text style={styles.mapButtonLabel}>Mapa activo</Text>
+              <Text style={styles.mapButtonTitle}>{selectedMapName}</Text>
             </TouchableOpacity>
           </View>
         </View>

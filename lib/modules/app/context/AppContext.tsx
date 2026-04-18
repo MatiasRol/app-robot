@@ -1,10 +1,7 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot } from '../../../core/types';
-import {
-  RobotPoseData,
-  useCameraConnectionContext,
-} from '../../camera/context/CameraConnectionContext';
+import { useCameraConnectionContext } from '../../camera/context/CameraConnectionContext';
 
 interface AppContextType {
   robots: Robot[];
@@ -17,20 +14,40 @@ interface AppContextType {
   selectedMapId: string | null;
   setSelectedMapId: (mapId: string | null) => void;
   selectedMap: MapItem | null;
-
-  currentRobotMapId: string | null;
-  currentRobotMapName: string | null;
-  robotPose: RobotPoseData | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+function basenameWithoutExtension(value?: string | null) {
+  if (!value) return null;
+  const clean = value.split('/').pop() || value;
+  return clean.replace(/\.[^/.]+$/, '');
+}
+
+function resolveMapIdFromRobotKey(robotMapKey: string, maps: MapItem[]): string | null {
+  const normalized = robotMapKey.trim().toLowerCase();
+
+  const byId = maps.find((m) => String(m.id).toLowerCase() === normalized);
+  if (byId) return byId.id;
+
+  const byName = maps.find((m) => String(m.name).trim().toLowerCase() === normalized);
+  if (byName) return byName.id;
+
+  const byJsonBase = maps.find(
+    (m) => basenameWithoutExtension(m.json_url)?.trim().toLowerCase() === normalized
+  );
+  if (byJsonBase) return byJsonBase.id;
+
+  const byPngBase = maps.find(
+    (m) => basenameWithoutExtension(m.png_url)?.trim().toLowerCase() === normalized
+  );
+  if (byPngBase) return byPngBase.id;
+
+  return null;
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const {
-    currentMapId: currentRobotMapId,
-    currentMapName: currentRobotMapName,
-    robotPose,
-  } = useCameraConnectionContext();
+  const { currentMapId: robotCurrentMapKey } = useCameraConnectionContext();
 
   const [robots, setRobots] = useState<Robot[]>([
     {
@@ -46,6 +63,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [maps, setMaps] = useState<MapItem[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
+
+  const lastSyncedRobotMapId = useRef<string | null>(null);
 
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
 
@@ -105,34 +124,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setRobots((prev) =>
-      prev.map((robot) =>
-        robot.id === '1'
-          ? {
-              ...robot,
-              currentMapId: currentRobotMapId ?? undefined,
-            }
-          : robot
-      )
-    );
-  }, [currentRobotMapId]);
+    if (!robotCurrentMapKey || maps.length === 0) return;
 
-  useEffect(() => {
-    if (!currentRobotMapId || maps.length === 0) return;
-
-    const mapById = maps.find((map) => map.id === currentRobotMapId);
-    if (mapById) {
-      setSelectedMapIdState(mapById.id);
+    const resolvedMapId = resolveMapIdFromRobotKey(robotCurrentMapKey, maps);
+    if (!resolvedMapId) {
+      console.warn('⚠️ No se encontró un mapa en la BD para:', robotCurrentMapKey);
       return;
     }
 
-    if (currentRobotMapName) {
-      const mapByName = maps.find((map) => map.name === currentRobotMapName);
-      if (mapByName) {
-        setSelectedMapIdState(mapByName.id);
+    setSelectedMapIdState((prev) => (prev === resolvedMapId ? prev : resolvedMapId));
+
+    setMaps((prev) =>
+      prev.map((m) => ({
+        ...m,
+        is_active: m.id === resolvedMapId,
+      }))
+    );
+
+    setRobots((prev) =>
+      prev.map((robot) =>
+        robot.id === '1'
+          ? { ...robot, currentMapId: resolvedMapId }
+          : robot
+      )
+    );
+
+    if (lastSyncedRobotMapId.current === resolvedMapId) return;
+    lastSyncedRobotMapId.current = resolvedMapId;
+
+    const syncToDb = async () => {
+      if (!supabase) return;
+
+      try {
+        await supabase
+          .from('maps')
+          .update({ is_active: false })
+          .neq('id', '');
+
+        await supabase
+          .from('maps')
+          .update({ is_active: true })
+          .eq('id', resolvedMapId);
+      } catch (err) {
+        console.error('Error sincronizando mapa activo del robot a Supabase:', err);
       }
-    }
-  }, [currentRobotMapId, currentRobotMapName, maps]);
+    };
+
+    syncToDb();
+  }, [robotCurrentMapKey, maps]);
 
   const setSelectedMapId = async (mapId: string | null) => {
     try {
@@ -144,6 +183,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
+
+      await supabase
+        .from('maps')
+        .update({ is_active: false })
+        .neq('id', '');
 
       if (mapId) {
         const { error } = await supabase
@@ -157,13 +201,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           prev.map((m) => ({ ...m, is_active: m.id === mapId }))
         );
       } else {
-        const { error } = await supabase
-          .from('maps')
-          .update({ is_active: false })
-          .neq('id', '');
-
-        if (error) throw error;
-
         setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
       }
 
@@ -197,9 +234,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedMapId,
         setSelectedMapId,
         selectedMap,
-        currentRobotMapId,
-        currentRobotMapName,
-        robotPose,
       }}
     >
       {children}

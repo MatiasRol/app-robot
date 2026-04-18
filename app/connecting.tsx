@@ -11,7 +11,7 @@ import {
 import { Colors } from '../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
-const CONNECTION_TIMEOUT_MS = 2500;
+const CONNECTION_TIMEOUT_MS = 3000;
 
 export default function ConnectingScreen() {
   const router = useRouter();
@@ -29,9 +29,9 @@ export default function ConnectingScreen() {
 
   const [timedOut, setTimedOut] = useState(false);
 
-  const hasAnyConnection =
-    connectionStatus.video === 'connected' ||
-    connectionStatus.commands === 'connected';
+  const hasRobotConnection =
+    connectionStatus.commands === 'connected' ||
+    connectionStatus.video === 'connected';
 
   useEffect(() => {
     if (hasStartedRef.current) return;
@@ -52,7 +52,7 @@ export default function ConnectingScreen() {
   }, [connectToRobot]);
 
   useEffect(() => {
-    if (!hasAnyConnection) return;
+    if (!hasRobotConnection) return;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -60,7 +60,7 @@ export default function ConnectingScreen() {
     }
 
     router.replace('/(tabs)');
-  }, [hasAnyConnection, router]);
+  }, [hasRobotConnection, router]);
 
   const handleRetry = () => {
     setTimedOut(false);
@@ -88,15 +88,15 @@ export default function ConnectingScreen() {
 
   const shouldShowError =
     showConnectionError ||
-    (timedOut && !hasAnyConnection);
+    (timedOut && !hasRobotConnection);
 
   const statusLabel =
-    connectionStatus.video === 'connecting' && connectionStatus.commands === 'connecting'
-      ? 'Conectando video y comandos...'
-      : connectionStatus.video === 'connecting'
-      ? 'Conectando video...'
+    connectionStatus.commands === 'connecting' && connectionStatus.video === 'connecting'
+      ? 'Conectando al robot...'
       : connectionStatus.commands === 'connecting'
       ? 'Conectando comandos...'
+      : connectionStatus.video === 'connecting'
+      ? 'Conectando video...'
       : 'Conectando a ...';
 
   return (

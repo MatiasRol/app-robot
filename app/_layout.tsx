@@ -7,9 +7,9 @@ import { CameraConnectionProvider } from '../lib/modules/camera/context/CameraCo
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <CameraConnectionProvider>
-        <AppProvider>
+    <CameraConnectionProvider>
+      <AppProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar style="light" backgroundColor={Colors.background} />
           <Stack
             screenOptions={{
@@ -51,8 +51,8 @@ export default function RootLayout() {
               }}
             />
           </Stack>
-        </AppProvider>
-      </CameraConnectionProvider>
-    </GestureHandlerRootView>
+        </GestureHandlerRootView>
+      </AppProvider>
+    </CameraConnectionProvider>
   );
 }

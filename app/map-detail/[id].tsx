@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Image,
@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
-import { useApp } from '../../lib/modules/app/context/AppContext';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
@@ -25,11 +24,7 @@ import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert'
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
 
-function sanitizeTimeInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
-}
+const robotPose: RobotPose = { worldX: 0, worldY: 0 };
 
 export default function MapDetailScreen() {
   const router = useRouter();
@@ -38,17 +33,6 @@ export default function MapDetailScreen() {
   const { mapData, mapName, loading: mapLoading, error: mapError } =
     useMapDetail(id as string);
 
-  const { robotPose: livePose } = useApp();
-
-  const robotPose: RobotPose | null = useMemo(() => {
-    if (!livePose?.position) return null;
-
-    return {
-      worldX: livePose.position.x,
-      worldY: livePose.position.y,
-    };
-  }, [livePose]);
-
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
 
@@ -56,76 +40,11 @@ export default function MapDetailScreen() {
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-
-  const [showCreateRouteModal, setShowCreateRouteModal] = useState(false);
   const [pendingPlayRouteId, setPendingPlayRouteId] = useState<string | null>(null);
-
-  const [routeNameDraft, setRouteNameDraft] = useState('');
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [executeAt, setExecuteAt] = useState('');
-  const [recordRoute, setRecordRoute] = useState(false);
 
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
-
-  const openCreateRoute = () => {
-    waypointEditor.clearWaypoints();
-    setEditingRouteId(null);
-    setRouteNameDraft('');
-    setSelectedDays([]);
-    setExecuteAt('');
-    setRecordRoute(false);
-    setShowCreateRouteModal(true);
-    setMapMode('route_edit');
-  };
-
-  const closeCreateRoute = () => {
-    setShowCreateRouteModal(false);
-    waypointEditor.clearWaypoints();
-    setEditingRouteId(null);
-    setMapMode('route_list');
-    bottomSheet.expandBottomSheet();
-  };
-
-  const toggleDay = (day: string) => {
-    setSelectedDays((prev) =>
-      prev.includes(day)
-        ? prev.filter((item) => item !== day)
-        : [...prev, day]
-    );
-  };
-
-  const handleConfirmCreateRoute = async () => {
-    if (!routeNameDraft.trim()) {
-      Alert.alert('Ruta', 'Escribe un nombre para la ruta.');
-      return;
-    }
-
-    if (waypointEditor.waypoints.length === 0) {
-      Alert.alert('Ruta', 'Agrega al menos un waypoint en el mapa.');
-      return;
-    }
-
-    try {
-      await mapRoutes.createRoute({
-        name: routeNameDraft,
-        selectedDays,
-        executeAt,
-        recordRoute,
-        waypoints: waypointEditor.waypoints,
-      });
-
-      setShowCreateRouteModal(false);
-      waypointEditor.clearWaypoints();
-      setEditingRouteId(null);
-      setMapMode('route_list');
-      bottomSheet.expandBottomSheet();
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Ruta', 'No se pudo crear la ruta.');
-    }
-  };
 
   const handleMapTap = (
     worldX: number,
@@ -137,7 +56,7 @@ export default function MapDetailScreen() {
       if (!navigate.navPoint) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
       } else if (!navigate.navPoint.confirmed) {
-        navigate.confirmOrientation();
+        navigate.handleSecondTap(pixelX, pixelY);
       }
       return;
     }
@@ -149,18 +68,6 @@ export default function MapDetailScreen() {
         waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
       }
     }
-  };
-
-  const handleNavigateDirectionDrag = (
-    _worldX: number,
-    _worldY: number,
-    pixelX: number,
-    pixelY: number
-  ) => {
-    if (mapMode !== 'navigate') return;
-    if (!navigate.navPoint || navigate.navPoint.confirmed) return;
-
-    navigate.updateOrientation(pixelX, pixelY);
   };
 
   const handlePlayRoute = (routeId: string) => {
@@ -230,12 +137,6 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
-          onDirectionDrag={handleNavigateDirectionDrag}
-          isAdjustingWaypointDirection={
-            mapMode === 'navigate' &&
-            !!navigate.navPoint &&
-            !navigate.navPoint.confirmed
-          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]
@@ -306,59 +207,47 @@ export default function MapDetailScreen() {
             {!navigate.navPoint
               ? 'Selecciona un punto de navegación'
               : !navigate.navPoint.confirmed
-              ? 'Arrastra para orientar y toca otra vez para confirmar'
+              ? 'Toca de nuevo para fijar la orientación'
               : 'Listo para navegar'}
           </Text>
         </View>
       )}
 
-      {!showCreateRouteModal &&
-        (mapMode === 'route_list' || mapMode === 'route_edit') && (
-          <MapBottomSheet
-            mapName={mapName || `Mapa ${id}`}
-            bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
-            isExpanded={bottomSheet.isExpanded}
-            panHandlers={bottomSheet.panHandlers}
-            routes={mapRoutes.routes}
-            onAddRoute={openCreateRoute}
-            onEditRouteWaypoints={(routeId) => {
-              waypointEditor.clearWaypoints();
-              setEditingRouteId(routeId);
-              setMapMode('route_edit');
-            }}
-            onPlayRoute={handlePlayRoute}
-            onDeleteRoute={mapRoutes.onDeleteRoute}
-            isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
-            onAcceptWaypoints={() => {
-              if (editingRouteId && waypointEditor.waypoints.length > 0) {
-                mapRoutes.saveWaypoints(
-                  editingRouteId,
-                  waypointEditor.waypoints
-                );
-              } else if (editingRouteId) {
-                Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
-              }
+      {(mapMode === 'route_list' || mapMode === 'route_edit') && (
+        <MapBottomSheet
+          mapName={mapName || `Mapa ${id}`}
+          bottomSheetAnimation={bottomSheet.bottomSheetAnimation}
+          isExpanded={bottomSheet.isExpanded}
+          panHandlers={bottomSheet.panHandlers}
+          routes={mapRoutes.routes}
+          onAddRoute={mapRoutes.openAddModal}
+          onEditRouteWaypoints={(routeId) => {
+            waypointEditor.clearWaypoints();
+            setEditingRouteId(routeId);
+            setMapMode('route_edit');
+          }}
+          onPlayRoute={handlePlayRoute}
+          onDeleteRoute={mapRoutes.onDeleteRoute}
+          isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
+          onAcceptWaypoints={() => {
+            if (editingRouteId && waypointEditor.waypoints.length > 0) {
+              mapRoutes.saveWaypoints(
+                editingRouteId,
+                waypointEditor.waypoints
+              );
+            } else if (editingRouteId) {
+              Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
+            }
 
-              waypointEditor.clearWaypoints();
-              setEditingRouteId(null);
-              setMapMode('route_list');
-            }}
-          />
-        )}
+            waypointEditor.clearWaypoints();
+            setEditingRouteId(null);
+            setMapMode('route_list');
+          }}
+        />
+      )}
 
-      <RouteModal
-        visible={showCreateRouteModal}
-        routeName={routeNameDraft}
-        onChangeRouteName={setRouteNameDraft}
-        selectedDays={selectedDays}
-        onToggleDay={toggleDay}
-        executeAt={executeAt}
-        onChangeExecuteAt={(value) => setExecuteAt(sanitizeTimeInput(value))}
-        recordRoute={recordRoute}
-        onToggleRecordRoute={() => setRecordRoute((prev) => !prev)}
-        onClose={closeCreateRoute}
-        onConfirm={handleConfirmCreateRoute}
-      />
+      <RouteModal {...mapRoutes.addModalProps} />
+      <RouteModal {...mapRoutes.editModalProps} />
 
       <Modal
         visible={pendingPlayRouteId !== null}
@@ -368,7 +257,7 @@ export default function MapDetailScreen() {
       >
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmBox}>
-            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{"\n"}LA RUTA?</Text>
+            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{'\n'}LA RUTA?</Text>
 
             <TouchableOpacity
               style={styles.confirmPrimaryBtn}
