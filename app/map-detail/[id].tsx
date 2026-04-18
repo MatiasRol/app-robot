@@ -53,10 +53,8 @@ export default function MapDetailScreen() {
     pixelY: number
   ) => {
     if (mapMode === 'navigate') {
-      if (!navigate.navPoint) {
+      if (!navigate.navPoint || navigate.navPoint.confirmed) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
-      } else if (!navigate.navPoint.confirmed) {
-        navigate.handleSecondTap(pixelX, pixelY);
       }
       return;
     }
@@ -64,9 +62,34 @@ export default function MapDetailScreen() {
     if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
-      } else {
-        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
       }
+    }
+  };
+
+  const handleDirectionDrag = (
+    _worldX: number,
+    _worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => {
+    if (mapMode === 'navigate' && navigate.isDraggingOrientation && navigate.navPoint) {
+      navigate.updateOrientation(pixelX, pixelY);
+      return;
+    }
+
+    if (mapMode === 'route_edit' && waypointEditor.hasActiveRotating) {
+      waypointEditor.updateActiveWaypointOrientation(pixelX, pixelY);
+    }
+  };
+
+  const handleDirectionDragEnd = () => {
+    if (mapMode === 'navigate' && navigate.isDraggingOrientation) {
+      navigate.finishOrientation();
+      return;
+    }
+
+    if (mapMode === 'route_edit' && waypointEditor.hasActiveRotating) {
+      waypointEditor.finishActiveWaypointOrientation();
     }
   };
 
@@ -137,6 +160,12 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
+          onDirectionDrag={handleDirectionDrag}
+          onDirectionDragEnd={handleDirectionDragEnd}
+          isAdjustingWaypointDirection={
+            (mapMode === 'navigate' && navigate.isDraggingOrientation) ||
+            (mapMode === 'route_edit' && waypointEditor.hasActiveRotating)
+          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]
@@ -207,7 +236,7 @@ export default function MapDetailScreen() {
             {!navigate.navPoint
               ? 'Selecciona un punto de navegación'
               : !navigate.navPoint.confirmed
-              ? 'Toca de nuevo para fijar la orientación'
+              ? 'Arrastra para fijar la orientación'
               : 'Listo para navegar'}
           </Text>
         </View>
