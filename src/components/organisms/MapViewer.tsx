@@ -35,7 +35,12 @@ interface MapViewerProps {
   loading?: boolean;
   error?: string | null;
   renderOverlay?: () => React.ReactNode;
-  onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
+  onPointTap?: (
+    worldX: number,
+    worldY: number,
+    pixelX: number,
+    pixelY: number
+  ) => void;
   onDirectionDrag?: (
     worldX: number,
     worldY: number,
@@ -370,6 +375,7 @@ export default function MapViewer({
             {waypoints.map((wp, i) => {
               const svgX = wp.pixelX * SCALE_FACTOR;
               const svgY = wp.pixelY * SCALE_FACTOR;
+
               return (
                 <WaypointMarker
                   key={i}

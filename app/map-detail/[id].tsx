@@ -1,14 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import {
-  Alert,
-  Image,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
@@ -36,11 +28,11 @@ export default function MapDetailScreen() {
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
 
-  const { sendNavigateToPose, sendFollowWaypoints } = useCameraConnectionContext();
+  const { sendNavigateToPose, sendFollowWaypoints } =
+    useCameraConnectionContext();
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-  const [pendingPlayRouteId, setPendingPlayRouteId] = useState<string | null>(null);
 
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
@@ -72,7 +64,11 @@ export default function MapDetailScreen() {
     pixelX: number,
     pixelY: number
   ) => {
-    if (mapMode === 'navigate' && navigate.isDraggingOrientation && navigate.navPoint) {
+    if (
+      mapMode === 'navigate' &&
+      navigate.isDraggingOrientation &&
+      navigate.navPoint
+    ) {
       navigate.updateOrientation(pixelX, pixelY);
       return;
     }
@@ -94,17 +90,8 @@ export default function MapDetailScreen() {
   };
 
   const handlePlayRoute = (routeId: string) => {
-    setPendingPlayRouteId(routeId);
-  };
-
-  const confirmPlayRoute = () => {
-    if (!pendingPlayRouteId) return;
-
-    const route = mapRoutes.routes.find((r) => r.id === pendingPlayRouteId);
-    if (!route?.waypoints?.length) {
-      setPendingPlayRouteId(null);
-      return;
-    }
+    const route = mapRoutes.routes.find((r) => r.id === routeId);
+    if (!route?.waypoints?.length) return;
 
     const waypointsForRos = (route.waypoints as any[])
       .map((wp) => {
@@ -142,13 +129,9 @@ export default function MapDetailScreen() {
       })
       .filter(Boolean);
 
-    if (waypointsForRos.length === 0) {
-      setPendingPlayRouteId(null);
-      return;
-    }
+    if (waypointsForRos.length === 0) return;
 
     sendFollowWaypoints(waypointsForRos);
-    setPendingPlayRouteId(null);
   };
 
   return (
@@ -265,7 +248,10 @@ export default function MapDetailScreen() {
                 waypointEditor.waypoints
               );
             } else if (editingRouteId) {
-              Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
+              Alert.alert(
+                'Ruta',
+                'Agrega al menos un waypoint antes de guardar.'
+              );
             }
 
             waypointEditor.clearWaypoints();
@@ -277,35 +263,6 @@ export default function MapDetailScreen() {
 
       <RouteModal {...mapRoutes.addModalProps} />
       <RouteModal {...mapRoutes.editModalProps} />
-
-      <Modal
-        visible={pendingPlayRouteId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingPlayRouteId(null)}
-      >
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmBox}>
-            <Text style={styles.confirmTitle}>¿DESEA EJECUTAR{'\n'}LA RUTA?</Text>
-
-            <TouchableOpacity
-              style={styles.confirmPrimaryBtn}
-              onPress={confirmPlayRoute}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.confirmPrimaryText}>CONFIRMAR</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.confirmSecondaryBtn}
-              onPress={() => setPendingPlayRouteId(null)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.confirmSecondaryText}>CANCELAR</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <ModeChangeAlert {...opMode.alertProps} />
     </View>
@@ -375,58 +332,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
-  },
-
-  confirmOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  confirmBox: {
-    width: 185,
-    backgroundColor: '#F3F3F3',
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingTop: 22,
-    paddingBottom: 18,
-    alignItems: 'center',
-  },
-  confirmTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#202020',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 18,
-  },
-  confirmPrimaryBtn: {
-    width: '100%',
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#124BAF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  confirmPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  confirmSecondaryBtn: {
-    width: '100%',
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#A9A9A9',
-    backgroundColor: '#F7F7F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmSecondaryText: {
-    color: '#9C9C9C',
-    fontSize: 16,
-    fontWeight: '500',
   },
 });
