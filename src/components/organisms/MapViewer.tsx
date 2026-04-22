@@ -76,14 +76,10 @@ export default function MapViewer({
   goalPoint = null,
   waypoints = [],
 }: MapViewerProps) {
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const savedTranslateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
-  const rotation = useSharedValue(0);
-  const savedRotation = useSharedValue(0);
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -95,34 +91,16 @@ export default function MapViewer({
       savedTranslateY.value = translateY.value;
     });
 
-  const pinchGesture = Gesture.Pinch()
-    .onUpdate((e) => {
-      const next = savedScale.value * e.scale;
-      scale.value = Math.min(Math.max(next, 0.1), 10.0);
-    })
-    .onEnd(() => {
-      savedScale.value = scale.value;
-    });
-
-  const rotationGesture = Gesture.Rotation()
-    .onUpdate((e) => {
-      rotation.value = savedRotation.value + e.rotation;
-    })
-    .onEnd(() => {
-      savedRotation.value = rotation.value;
-    });
-
   const handleTap = (
     tapX: number,
     tapY: number,
     currentTranslateX: number,
-    currentTranslateY: number,
-    currentScale: number
+    currentTranslateY: number
   ) => {
     if (!onPointTap || !mapData) return;
 
-    const svgX = (tapX - currentTranslateX) / currentScale;
-    const svgY = (tapY - currentTranslateY) / currentScale;
+    const svgX = tapX - currentTranslateX;
+    const svgY = tapY - currentTranslateY;
     const pixelX = svgX / SCALE_FACTOR;
     const pixelY = svgY / SCALE_FACTOR;
 
@@ -143,15 +121,12 @@ export default function MapViewer({
         e.x,
         e.y,
         translateX.value,
-        translateY.value,
-        scale.value
+        translateY.value
       );
     });
 
   const gesture = Gesture.Simultaneous(
     panGesture,
-    pinchGesture,
-    rotationGesture,
     singleTap
   );
 
@@ -159,8 +134,6 @@ export default function MapViewer({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
-      { scale: scale.value },
-      { rotate: `${rotation.value}rad` },
     ],
   }));
 

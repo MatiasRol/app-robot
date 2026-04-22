@@ -71,6 +71,7 @@ export default function MapDetailScreen() {
   const closeCreateRoute = () => {
     setShowCreateRouteModal(false);
     waypointEditor.clearWaypoints();
+    setEditingRouteId(null);
     setMapMode('route_list');
     bottomSheet.expandBottomSheet();
   };
@@ -105,6 +106,7 @@ export default function MapDetailScreen() {
 
       setShowCreateRouteModal(false);
       waypointEditor.clearWaypoints();
+      setEditingRouteId(null);
       setMapMode('route_list');
       bottomSheet.expandBottomSheet();
     } catch (error) {
@@ -132,7 +134,17 @@ export default function MapDetailScreen() {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
       } else {
-        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
+        const editorAny = waypointEditor as any;
+
+        if (typeof editorAny.confirmWaypointOrientation === 'function') {
+          editorAny.confirmWaypointOrientation(pixelX, pixelY);
+        } else if (typeof editorAny.confirmActiveWaypoint === 'function') {
+          editorAny.confirmActiveWaypoint(pixelX, pixelY);
+        } else if (typeof editorAny.handleSecondTap === 'function') {
+          editorAny.handleSecondTap(pixelX, pixelY);
+        } else {
+          Alert.alert('Ruta', 'No se pudo fijar la orientación del waypoint.');
+        }
       }
     }
   };
