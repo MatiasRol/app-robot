@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Image,
@@ -19,10 +19,18 @@ import { useNavigateMode } from '../../lib/modules/maps/hooks/useNavigateMode';
 import { useOperationMode } from '../../lib/modules/maps/hooks/useOperationMode';
 import { useWaypointEditor } from '../../lib/modules/maps/hooks/useWaypointEditor';
 import { RouteModal } from '../../src/components/molecules/RouteModal';
+import { ActionStatusAlert } from '../../src/components/molecules/ActionStatusAlert';
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
 import MapViewer from '../../src/components/organisms/MapViewer';
+
+type StatusAlertState = {
+  visible: boolean;
+  title: string;
+  message: string;
+  variant: 'success' | 'warning' | 'error' | 'info';
+};
 
 function sanitizeTimeInput(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -41,9 +49,7 @@ export default function MapDetailScreen() {
   const waypointEditor = useWaypointEditor();
 
   const {
-    robotPose,
-    requestRobotPositionStream,
-    stopRobotPositionStream,
+    connectionStatus,
     sendNavigateToPose,
     sendFollowWaypoints,
   } = useCameraConnectionContext();
@@ -58,17 +64,35 @@ export default function MapDetailScreen() {
   const [executeAt, setExecuteAt] = useState('');
   const [recordRoute, setRecordRoute] = useState(false);
 
+  const [statusAlert, setStatusAlert] = useState<StatusAlertState>({
+    visible: false,
+    title: '',
+    message: '',
+    variant: 'info',
+  });
+
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
 
-  useEffect(() => {
-    requestRobotPositionStream();
+  const commandsConnected = connectionStatus.commands === 'connected';
 
-    return () => {
-      stopRobotPositionStream();
-    };
-  }, [requestRobotPositionStream, stopRobotPositionStream, id]);
+  const showStatus = (
+    title: string,
+    message: string,
+    variant: StatusAlertState['variant'] = 'info'
+  ) => {
+    setStatusAlert({
+      visible: true,
+      title,
+      message,
+      variant,
+    });
+  };
+
+  const closeStatus = () => {
+    setStatusAlert((prev) => ({ ...prev, visible: false }));
+  };
 
   const openCreateRoute = () => {
     waypointEditor.clearWaypoints();
@@ -109,7 +133,7 @@ export default function MapDetailScreen() {
     }
 
     try {
-      await mapRoutes.createRoute({
+      const created = await mapRoutes.createRoute({
         name: routeNameDraft,
         selectedDays,
         executeAt,
@@ -117,14 +141,33 @@ export default function MapDetailScreen() {
         waypoints: waypointEditor.waypoints,
       });
 
+      if (!created) {
+        showStatus(
+          'No se pudo guardar',
+          'La ruta no se pudo guardar correctamente.',
+          'error'
+        );
+        return;
+      }
+
       setShowCreateRouteModal(false);
       waypointEditor.clearWaypoints();
       setEditingRouteId(null);
       setMapMode('route_list');
       bottomSheet.expandBottomSheet();
+
+      showStatus(
+        'Ruta guardada',
+        `La ruta "${created.name}" se guardó correctamente.`,
+        'success'
+      );
     } catch (error) {
       console.error(error);
-      Alert.alert('Ruta', 'No se pudo crear la ruta.');
+      showStatus(
+        'No se pudo guardar',
+        'Ocurrió un error al guardar la ruta.',
+        'error'
+      );
     }
   };
 
@@ -180,6 +223,21 @@ export default function MapDetailScreen() {
     const route = mapRoutes.routes.find((r) => r.id === pendingPlayRouteId);
     if (!route?.waypoints?.length) {
       setPendingPlayRouteId(null);
+      showStatus(
+        'Ruta vacía',
+        'La ruta no tiene waypoints para ejecutarse.',
+        'warning'
+      );
+      return;
+    }
+
+    if (!commandsConnected) {
+      setPendingPlayRouteId(null);
+      showStatus(
+        'Sin conexión',
+        'No hay conexión de comandos con el robot.',
+        'warning'
+      );
       return;
     }
 
@@ -221,11 +279,50 @@ export default function MapDetailScreen() {
 
     if (waypointsForRos.length === 0) {
       setPendingPlayRouteId(null);
+      showStatus(
+        'Ruta inválida',
+        'No se pudieron preparar los waypoints de la ruta.',
+        'error'
+      );
       return;
     }
 
     sendFollowWaypoints(waypointsForRos);
     setPendingPlayRouteId(null);
+
+    showStatus(
+      'Ruta enviada',
+      `La ruta "${route.name}" se envió para ejecutarse.`,
+      'success'
+    );
+  };
+
+  const handleNavigateNow = () => {
+    if (!navigate.navPoint) return;
+
+    if (!commandsConnected) {
+      showStatus(
+        'Sin conexión',
+        'No hay conexión de comandos con el robot.',
+        'warning'
+      );
+      return;
+    }
+
+    sendNavigateToPose(
+      navigate.navPoint.worldX,
+      navigate.navPoint.worldY,
+      navigate.navPoint.quaternion
+    );
+
+    navigate.reset();
+    setMapMode('idle');
+
+    showStatus(
+      'Navegación enviada',
+      'El punto de navegación fue enviado al robot.',
+      'success'
+    );
   };
 
   return (
@@ -235,7 +332,6 @@ export default function MapDetailScreen() {
           mapData={mapData}
           loading={mapLoading}
           error={mapError}
-          robotPose={robotPose}
           onPointTap={handleMapTap}
           onDirectionDrag={handleDirectionDrag}
           isAdjustingWaypointDirection={
@@ -294,17 +390,7 @@ export default function MapDetailScreen() {
           {navigate.navPoint?.confirmed && (
             <TouchableOpacity
               style={styles.navigateButton}
-              onPress={() => {
-                if (navigate.navPoint) {
-                  sendNavigateToPose(
-                    navigate.navPoint.worldX,
-                    navigate.navPoint.worldY,
-                    navigate.navPoint.quaternion
-                  );
-                }
-                navigate.reset();
-                setMapMode('idle');
-              }}
+              onPress={handleNavigateNow}
             >
               <Text style={styles.navigateText}>NAVEGAR</Text>
             </TouchableOpacity>
@@ -337,14 +423,35 @@ export default function MapDetailScreen() {
             onPlayRoute={handlePlayRoute}
             onDeleteRoute={mapRoutes.onDeleteRoute}
             isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
-            onAcceptWaypoints={() => {
-              if (editingRouteId && waypointEditor.waypoints.length > 0) {
-                mapRoutes.saveWaypoints(
-                  editingRouteId,
-                  waypointEditor.waypoints
-                );
-              } else if (editingRouteId) {
+            onAcceptWaypoints={async () => {
+              if (!editingRouteId) {
+                waypointEditor.clearWaypoints();
+                setMapMode('route_list');
+                return;
+              }
+
+              if (waypointEditor.waypoints.length === 0) {
                 Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
+                return;
+              }
+
+              const ok = await mapRoutes.saveWaypoints(
+                editingRouteId,
+                waypointEditor.waypoints
+              );
+
+              if (ok) {
+                showStatus(
+                  'Ruta guardada',
+                  'Los waypoints de la ruta se guardaron correctamente.',
+                  'success'
+                );
+              } else {
+                showStatus(
+                  'No se pudo guardar',
+                  'Ocurrió un error al guardar los waypoints.',
+                  'error'
+                );
               }
 
               waypointEditor.clearWaypoints();
@@ -396,6 +503,14 @@ export default function MapDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <ActionStatusAlert
+        visible={statusAlert.visible}
+        title={statusAlert.title}
+        message={statusAlert.message}
+        variant={statusAlert.variant}
+        onConfirm={closeStatus}
+      />
 
       <ModeChangeAlert {...opMode.alertProps} />
     </View>
