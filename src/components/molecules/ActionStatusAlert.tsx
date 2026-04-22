@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
+import SunkenPressable from '../atoms/SunkenPressable';
 
 type ActionStatusVariant = 'success' | 'warning' | 'error' | 'info';
 
@@ -68,13 +69,15 @@ export function ActionStatusAlert({
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
 
-        <TouchableOpacity
+        <SunkenPressable
           style={[
             styles.confirmBtn,
             { backgroundColor: palette.buttonBg },
           ]}
           onPress={onConfirm}
-          activeOpacity={0.85}
+          activeScale={0.97}
+          activeTranslateY={3}
+          activeOpacity={0.92}
         >
           <Text
             style={[
@@ -84,7 +87,7 @@ export function ActionStatusAlert({
           >
             {confirmText}
           </Text>
-        </TouchableOpacity>
+        </SunkenPressable>
       </View>
     </View>
   );
