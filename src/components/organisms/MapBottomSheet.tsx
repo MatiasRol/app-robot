@@ -4,12 +4,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { Route } from '../../../lib/core/types';
 import { RouteListItem } from '../molecules/RouteListItem';
+import SunkenPressable from '../atoms/SunkenPressable';
 
 interface MapBottomSheetProps {
   mapName: string;
@@ -58,17 +58,26 @@ export function MapBottomSheet({
 
             <View style={styles.headerButtons}>
               {isEditingWaypoints && onAcceptWaypoints && (
-                <TouchableOpacity
+                <SunkenPressable
                   style={styles.acceptBtn}
                   onPress={onAcceptWaypoints}
+                  activeScale={0.97}
+                  activeTranslateY={3}
+                  activeOpacity={0.92}
                 >
                   <Text style={styles.acceptBtnText}>ACEPTAR</Text>
-                </TouchableOpacity>
+                </SunkenPressable>
               )}
 
-              <TouchableOpacity style={styles.addBtn} onPress={onAddRoute}>
+              <SunkenPressable
+                style={styles.addBtn}
+                onPress={onAddRoute}
+                activeScale={0.94}
+                activeTranslateY={2}
+                activeOpacity={0.9}
+              >
                 <Text style={styles.addBtnText}>+</Text>
-              </TouchableOpacity>
+              </SunkenPressable>
             </View>
           </View>
 
@@ -81,23 +90,12 @@ export function MapBottomSheet({
             </View>
           ) : (
             routes.map((route) => (
-              <View key={route.id} style={styles.routeWrap}>
-                <RouteListItem
-                  route={route}
-                  onNamePress={() => onEditRouteWaypoints(route.id)}
-                  onPlayPress={() => onPlayRoute(route.id)}
-                />
-
-                <View style={styles.routeActions}>
-                  <TouchableOpacity
-                    onPress={() => onDeleteRoute(route.id, route.name)}
-                    style={styles.deleteBtn}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.deleteBtnText}>Eliminar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <RouteListItem
+                key={route.id}
+                route={route}
+                onNamePress={() => onEditRouteWaypoints(route.id)}
+                onPlayPress={() => onPlayRoute(route.id)}
+              />
             ))
           )}
         </ScrollView>
@@ -169,6 +167,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   acceptBtnText: {
     color: '#FFFFFF',
@@ -202,22 +202,5 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 13,
     color: '#999999',
-  },
-  routeWrap: {
-    marginBottom: 10,
-  },
-  routeActions: {
-    alignItems: 'flex-end',
-    paddingRight: 8,
-    marginTop: -4,
-  },
-  deleteBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  deleteBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B13A3A',
   },
 });
