@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -22,9 +22,7 @@ import { RouteModal } from '../../src/components/molecules/RouteModal';
 import MapActionButton from '../../src/components/atoms/MapActionButton';
 import { ModeChangeAlert } from '../../src/components/molecules/ModeChangeAlert';
 import { MapBottomSheet } from '../../src/components/organisms/MapBottomSheet';
-import MapViewer, { RobotPose } from '../../src/components/organisms/MapViewer';
-
-const robotPose: RobotPose = { worldX: 0, worldY: 0 };
+import MapViewer from '../../src/components/organisms/MapViewer';
 
 function sanitizeTimeInput(value: string) {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -41,7 +39,14 @@ export default function MapDetailScreen() {
 
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
-  const { sendNavigateToPose, sendFollowWaypoints } = useCameraConnectionContext();
+
+  const {
+    robotPose,
+    requestRobotPositionStream,
+    stopRobotPositionStream,
+    sendNavigateToPose,
+    sendFollowWaypoints,
+  } = useCameraConnectionContext();
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
@@ -56,6 +61,14 @@ export default function MapDetailScreen() {
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
+
+  useEffect(() => {
+    requestRobotPositionStream();
+
+    return () => {
+      stopRobotPositionStream();
+    };
+  }, [requestRobotPositionStream, stopRobotPositionStream, id]);
 
   const openCreateRoute = () => {
     waypointEditor.clearWaypoints();
@@ -243,7 +256,7 @@ export default function MapDetailScreen() {
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Image
-          source={require('../../assets/images/regresoCamara.png')}
+          source={require('../../assets/images/regreso.png')}
           style={{ width: 40, height: 40 }}
         />
       </TouchableOpacity>
