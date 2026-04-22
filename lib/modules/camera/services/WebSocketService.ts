@@ -20,7 +20,7 @@ export class WebSocketService {
   private maxReconnectAttempts: number = 5;
   private isManualDisconnect: boolean = false;
   private hasErrored: boolean = false;
-  
+
   private commandCount: number = 0;
   private latencyBuffer: number[] = [];
   private videoStartTime: number = 0;
@@ -32,11 +32,11 @@ export class WebSocketService {
   connect(videoStartTime: number = 0): Promise<void> {
     this.hasErrored = false;
     this.isManualDisconnect = false;
-    
+
     return new Promise((resolve, reject) => {
       try {
         this.videoStartTime = videoStartTime;
-        
+
         this.ws = new WebSocket(this.config.serverUrl);
 
         this.ws.onopen = () => {
@@ -67,7 +67,6 @@ export class WebSocketService {
             this.attemptReconnect();
           }
         };
-
       } catch (error) {
         if (!this.hasErrored) {
           this.hasErrored = true;
@@ -98,9 +97,28 @@ export class WebSocketService {
 
       case 'emergency_ack':
         break;
+
+      case 'pos_suscrito':
+        break;
+
+      case 'pos_robot':
+        break;
+
+      case 'pos_detenido':
+        break;
     }
 
     this.config.onMessage?.(data);
+  }
+
+  private sendJson(payload: any) {
+    if (!this.isConnected()) {
+      return;
+    }
+
+    try {
+      this.ws!.send(JSON.stringify(payload));
+    } catch (error) {}
   }
 
   sendVelocityCommand(linear: number, angular: number) {
@@ -111,11 +129,10 @@ export class WebSocketService {
     try {
       const command = {
         type: 'cmd_vel',
-        linear: linear,
-        angular: angular,
-        videoTimestamp: this.videoStartTime > 0 
-          ? Date.now() - this.videoStartTime + 150
-          : 0,
+        linear,
+        angular,
+        videoTimestamp:
+          this.videoStartTime > 0 ? Date.now() - this.videoStartTime + 150 : 0,
         clientTimestamp: Date.now(),
       };
 
@@ -128,30 +145,35 @@ export class WebSocketService {
     this.sendVelocityCommand(0, 0);
   }
 
-  // ✅ NUEVO MÉTODO
+  requestRobotPositionStream() {
+    this.sendJson({ type: 'solicitar_pos' });
+  }
+
+  stopRobotPositionStream() {
+    this.sendJson({ type: 'detener_pos' });
+  }
+
   sendNavigateToPose(
     x: number,
     y: number,
     quaternion: { x: number; y: number; z: number; w: number }
   ) {
     if (!this.isConnected()) return;
-    try {
-      this.ws!.send(JSON.stringify({
-        type: 'navigate_to_pose',
-        pose: {
-          position: { x, y, z: 0.0 },
-          orientation: {
-            x: quaternion.x,
-            y: quaternion.y,
-            z: quaternion.z,
-            w: quaternion.w,
-          },
+
+    this.sendJson({
+      type: 'navigate_to_pose',
+      pose: {
+        position: { x, y, z: 0.0 },
+        orientation: {
+          x: quaternion.x,
+          y: quaternion.y,
+          z: quaternion.z,
+          w: quaternion.w,
         },
-      }));
-    } catch (error) {}
+      },
+    });
   }
 
-  // ✅ NUEVO MÉTODO
   sendFollowWaypoints(
     waypoints: Array<{
       worldX: number;
@@ -160,32 +182,29 @@ export class WebSocketService {
     }>
   ) {
     if (!this.isConnected()) return;
-    try {
-      this.ws!.send(JSON.stringify({
-        type: 'follow_waypoints',
-        waypoints: waypoints.map((wp) => ({
-          position: { x: wp.worldX, y: wp.worldY, z: 0.0 },
-          orientation: {
-            x: wp.quaternion.x,
-            y: wp.quaternion.y,
-            z: wp.quaternion.z,
-            w: wp.quaternion.w,
-          },
-        })),
-      }));
-    } catch (error) {}
+
+    this.sendJson({
+      type: 'follow_waypoints',
+      waypoints: waypoints.map((wp) => ({
+        position: { x: wp.worldX, y: wp.worldY, z: 0.0 },
+        orientation: {
+          x: wp.quaternion.x,
+          y: wp.quaternion.y,
+          z: wp.quaternion.z,
+          w: wp.quaternion.w,
+        },
+      })),
+    });
   }
 
   emergencyStop() {
     this.stopRobot();
-    
+
     if (this.isConnected()) {
-      try {
-        this.ws!.send(JSON.stringify({
-          type: 'emergency_stop',
-          timestamp: Date.now(),
-        }));
-      } catch (error) {}
+      this.sendJson({
+        type: 'emergency_stop',
+        timestamp: Date.now(),
+      });
     }
   }
 
@@ -194,9 +213,11 @@ export class WebSocketService {
   }
 
   getStats(): CommandStats {
-    const avgLatency = this.latencyBuffer.length > 0
-      ? this.latencyBuffer.reduce((a, b) => a + b, 0) / this.latencyBuffer.length
-      : 0;
+    const avgLatency =
+      this.latencyBuffer.length > 0
+        ? this.latencyBuffer.reduce((a, b) => a + b, 0) /
+          this.latencyBuffer.length
+        : 0;
 
     return {
       commandCount: this.commandCount,
@@ -206,7 +227,10 @@ export class WebSocketService {
   }
 
   private attemptReconnect() {
-    if (this.isManualDisconnect || this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (
+      this.isManualDisconnect ||
+      this.reconnectAttempts >= this.maxReconnectAttempts
+    ) {
       if (!this.isManualDisconnect && !this.hasErrored) {
         this.hasErrored = true;
         this.config.onError?.('No se pudo reconectar al servidor de comandos');
@@ -229,7 +253,7 @@ export class WebSocketService {
   disconnect() {
     this.isManualDisconnect = true;
     this.hasErrored = true;
-    
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
