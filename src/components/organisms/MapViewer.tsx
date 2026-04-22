@@ -85,16 +85,16 @@ export default function MapViewer({
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
-  const toMapCoordinates = (
-    x: number,
-    y: number,
+  const handleTap = (
+    tapX: number,
+    tapY: number,
     currentTranslateX: number,
     currentTranslateY: number
   ) => {
-    if (!mapData) return null;
+    if (!onPointTap || !mapData) return;
 
-    const svgX = x - currentTranslateX;
-    const svgY = y - currentTranslateY;
+    const svgX = tapX - currentTranslateX;
+    const svgY = tapY - currentTranslateY;
     const pixelX = svgX / SCALE_FACTOR;
     const pixelY = svgY / SCALE_FACTOR;
 
@@ -104,33 +104,24 @@ export default function MapViewer({
       mapData.metadata as any
     );
 
-    return {
-      worldX,
-      worldY,
-      pixelX: Math.round(pixelX),
-      pixelY: Math.round(pixelY),
-    };
+    onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
   };
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (isAdjustingWaypointDirection) {
-        if (!onDirectionDrag || !mapData) return;
+        if (!onDirectionDrag) return;
 
-        const coords = toMapCoordinates(
-          e.x,
-          e.y,
-          translateX.value,
-          translateY.value
-        );
-
-        if (!coords) return;
+        const svgX = e.x - translateX.value;
+        const svgY = e.y - translateY.value;
+        const pixelX = svgX / SCALE_FACTOR;
+        const pixelY = svgY / SCALE_FACTOR;
 
         runOnJS(onDirectionDrag)(
-          coords.worldX,
-          coords.worldY,
-          coords.pixelX,
-          coords.pixelY
+          0,
+          0,
+          Math.round(pixelX),
+          Math.round(pixelY)
         );
         return;
       }
@@ -140,34 +131,10 @@ export default function MapViewer({
     })
     .onEnd(() => {
       if (isAdjustingWaypointDirection) return;
+
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     });
-
-  const handleTap = (
-    tapX: number,
-    tapY: number,
-    currentTranslateX: number,
-    currentTranslateY: number
-  ) => {
-    if (!onPointTap || !mapData) return;
-
-    const coords = toMapCoordinates(
-      tapX,
-      tapY,
-      currentTranslateX,
-      currentTranslateY
-    );
-
-    if (!coords) return;
-
-    onPointTap(
-      coords.worldX,
-      coords.worldY,
-      coords.pixelX,
-      coords.pixelY
-    );
-  };
 
   const singleTap = Gesture.Tap()
     .numberOfTaps(1)
