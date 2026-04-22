@@ -243,7 +243,7 @@ export default function MapDetailScreen() {
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Image
-          source={require('../../assets/images/regreso.png')}
+          source={require('../../assets/images/regresoCamara.png')}
           style={{ width: 40, height: 40 }}
         />
       </TouchableOpacity>

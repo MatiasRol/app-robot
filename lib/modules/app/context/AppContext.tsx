@@ -1,7 +1,13 @@
-import React, { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
 import { MapItem, Robot } from '../../../core/types';
-import { useCameraConnectionContext } from '../../camera/context/CameraConnectionContext';
 
 interface AppContextType {
   robots: Robot[];
@@ -14,41 +20,28 @@ interface AppContextType {
   selectedMapId: string | null;
   setSelectedMapId: (mapId: string | null) => void;
   selectedMap: MapItem | null;
+
+  syncActiveMapFromRobot: (mapKey: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-function basenameWithoutExtension(value?: string | null) {
-  if (!value) return null;
-  const clean = value.split('/').pop() || value;
-  return clean.replace(/\.[^/.]+$/, '');
+function normalizeMapKey(value?: string | null) {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\.(json|png)$/i, '');
 }
 
-function resolveMapIdFromRobotKey(robotMapKey: string, maps: MapItem[]): string | null {
-  const normalized = robotMapKey.trim().toLowerCase();
-
-  const byId = maps.find((m) => String(m.id).trim().toLowerCase() === normalized);
-  if (byId) return byId.id;
-
-  const byName = maps.find((m) => String(m.name).trim().toLowerCase() === normalized);
-  if (byName) return byName.id;
-
-  const byJsonBase = maps.find(
-    (m) => basenameWithoutExtension(m.json_url)?.trim().toLowerCase() === normalized
-  );
-  if (byJsonBase) return byJsonBase.id;
-
-  const byPngBase = maps.find(
-    (m) => basenameWithoutExtension(m.png_url)?.trim().toLowerCase() === normalized
-  );
-  if (byPngBase) return byPngBase.id;
-
-  return null;
+function extractFileBase(value?: string | null) {
+  if (!value) return '';
+  const clean = value.split('?')[0];
+  const lastPart = clean.split('/').pop() || '';
+  return normalizeMapKey(lastPart);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { currentMapId: robotCurrentMapKey } = useCameraConnectionContext();
-
   const [robots, setRobots] = useState<Robot[]>([
     {
       id: '1',
@@ -63,9 +56,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [maps, setMaps] = useState<MapItem[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
-  const lastSyncedRobotMapId = useRef<string | null>(null);
 
-  const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
+  const selectedMap = useMemo(
+    () => maps.find((m) => m.id === selectedMapId) || null,
+    [maps, selectedMapId]
+  );
 
   useEffect(() => {
     const fetchMaps = async () => {
@@ -122,58 +117,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchMaps();
   }, []);
 
-  useEffect(() => {
-    if (!robotCurrentMapKey || maps.length === 0) return;
-
-    const resolvedMapId = resolveMapIdFromRobotKey(robotCurrentMapKey, maps);
-    if (!resolvedMapId) {
-      console.warn('⚠️ No se encontró un mapa para:', robotCurrentMapKey);
-      return;
-    }
-
-    if (selectedMapId !== resolvedMapId) {
-      setSelectedMapIdState(resolvedMapId);
-    }
-
-    setMaps((prev) =>
-      prev.map((m) => ({
-        ...m,
-        is_active: m.id === resolvedMapId,
-      }))
-    );
-
-    setRobots((prev) =>
-      prev.map((robot) =>
-        robot.id === '1'
-          ? { ...robot, currentMapId: resolvedMapId }
-          : robot
-      )
-    );
-
-    if (lastSyncedRobotMapId.current === resolvedMapId) return;
-    lastSyncedRobotMapId.current = resolvedMapId;
-
-    const syncToDb = async () => {
-      if (!supabase) return;
-
-      try {
-        await supabase
-          .from('maps')
-          .update({ is_active: false })
-          .neq('id', '');
-
-        await supabase
-          .from('maps')
-          .update({ is_active: true })
-          .eq('id', resolvedMapId);
-      } catch (err) {
-        console.error('Error sincronizando mapa activo del robot a Supabase:', err);
-      }
-    };
-
-    syncToDb();
-  }, [robotCurrentMapKey, maps, selectedMapId]);
-
   const setSelectedMapId = async (mapId: string | null) => {
     try {
       if (!supabase) {
@@ -185,23 +128,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      await supabase
-        .from('maps')
-        .update({ is_active: false })
-        .neq('id', '');
-
       if (mapId) {
         const { error } = await supabase
+          .from('maps')
+          .update({ is_active: false })
+          .neq('id', '');
+
+        if (error) throw error;
+
+        const { error: error2 } = await supabase
           .from('maps')
           .update({ is_active: true })
           .eq('id', mapId);
 
-        if (error) throw error;
+        if (error2) throw error2;
 
         setMaps((prev) =>
           prev.map((m) => ({ ...m, is_active: m.id === mapId }))
         );
       } else {
+        const { error } = await supabase
+          .from('maps')
+          .update({ is_active: false })
+          .neq('id', '');
+
+        if (error) throw error;
+
         setMaps((prev) => prev.map((m) => ({ ...m, is_active: false })));
       }
 
@@ -209,6 +161,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Error actualizando mapa activo:', err);
     }
+  };
+
+  const syncActiveMapFromRobot = (mapKey: string | null) => {
+    if (!mapKey || maps.length === 0) return;
+
+    const normalizedIncoming = normalizeMapKey(mapKey);
+
+    const matchedMap = maps.find((map) => {
+      const byId = normalizeMapKey(map.id) === normalizedIncoming;
+      const byName = normalizeMapKey(map.name) === normalizedIncoming;
+      const byJson = extractFileBase(map.json_url) === normalizedIncoming;
+      const byPng = extractFileBase(map.png_url) === normalizedIncoming;
+      return byId || byName || byJson || byPng;
+    });
+
+    if (!matchedMap) {
+      console.warn('⚠️ No se encontró mapa local para active_map:', mapKey);
+      return;
+    }
+
+    if (matchedMap.id === selectedMapId) return;
+
+    setSelectedMapIdState(matchedMap.id);
+    setMaps((prev) =>
+      prev.map((m) => ({
+        ...m,
+        is_active: m.id === matchedMap.id,
+      }))
+    );
   };
 
   const updateRobotName = (robotId: string, newName: string) => {
@@ -235,6 +216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectedMapId,
         setSelectedMapId,
         selectedMap,
+        syncActiveMapFromRobot,
       }}
     >
       {children}
