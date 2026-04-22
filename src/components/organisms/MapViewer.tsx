@@ -22,6 +22,7 @@ const ARROW_COLOR = '#00E5FF';
 export interface RobotPose {
   worldX: number;
   worldY: number;
+  yaw?: number;
 }
 
 export interface GoalPoint {
@@ -193,6 +194,39 @@ export default function MapViewer({
       />
     ));
 
+  const renderRobot = () => {
+    if (!robotPose) return null;
+
+    const pos = worldToSvgCoords(
+      robotPose.worldX,
+      robotPose.worldY,
+      metadata as any,
+      SCALE_FACTOR
+    );
+
+    const yaw = robotPose.yaw ?? 0;
+    const lineLength = 28;
+
+    const endX = pos.svgX + Math.cos(yaw) * lineLength;
+    const endY = pos.svgY - Math.sin(yaw) * lineLength;
+
+    return (
+      <G>
+        <Circle cx={pos.svgX} cy={pos.svgY} r={11} fill="#FFFFFF" opacity={0.95} />
+        <Circle cx={pos.svgX} cy={pos.svgY} r={7} fill="#FFD600" />
+        <Line
+          x1={pos.svgX}
+          y1={pos.svgY}
+          x2={endX}
+          y2={endY}
+          stroke="#00E5FF"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+      </G>
+    );
+  };
+
   const renderArrow = () => {
     if (!robotPose || !goalPoint) return null;
 
@@ -220,13 +254,47 @@ export default function MapViewer({
 
     return (
       <G>
-        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke="rgba(0,0,0,0.4)" strokeWidth={6} strokeDasharray="12,8" />
-        <Line x1={from.svgX} y1={from.svgY} x2={lineEndX} y2={lineEndY} stroke={ARROW_COLOR} strokeWidth={3} strokeDasharray="12,8" strokeOpacity={0.95} />
-        <Polygon points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)} fill={ARROW_COLOR} />
-        <Circle cx={from.svgX} cy={from.svgY} r={14} fill="#FFFFFF" opacity={0.95} />
-        <Circle cx={from.svgX} cy={from.svgY} r={9} fill="#FFD600" />
-        <Line x1={to.svgX - GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX + GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
-        <Line x1={to.svgX + GOAL_RADIUS} y1={to.svgY - GOAL_RADIUS} x2={to.svgX - GOAL_RADIUS} y2={to.svgY + GOAL_RADIUS} stroke="#FF4444" strokeWidth={4} strokeLinecap="round" />
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke="rgba(0,0,0,0.4)"
+          strokeWidth={6}
+          strokeDasharray="12,8"
+        />
+        <Line
+          x1={from.svgX}
+          y1={from.svgY}
+          x2={lineEndX}
+          y2={lineEndY}
+          stroke={ARROW_COLOR}
+          strokeWidth={3}
+          strokeDasharray="12,8"
+          strokeOpacity={0.95}
+        />
+        <Polygon
+          points={arrowheadPoints(from.svgX, from.svgY, to.svgX, to.svgY, 22)}
+          fill={ARROW_COLOR}
+        />
+        <Line
+          x1={to.svgX - GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX + GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="#FF4444"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
+        <Line
+          x1={to.svgX + GOAL_RADIUS}
+          y1={to.svgY - GOAL_RADIUS}
+          x2={to.svgX - GOAL_RADIUS}
+          y2={to.svgY + GOAL_RADIUS}
+          stroke="#FF4444"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
       </G>
     );
   };
@@ -241,6 +309,7 @@ export default function MapViewer({
                 {renderLayer(layers.free_space.polygons, layers.free_space.color)}
                 {renderLayer(layers.unknown.polygons, layers.unknown.color)}
                 {renderLayer(layers.obstacles.polygons, layers.obstacles.color)}
+                {renderRobot()}
                 {renderArrow()}
               </G>
             </Svg>
@@ -269,9 +338,22 @@ export default function MapViewer({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  viewport: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: Colors.error },
-  placeholderText: { color: Colors.textSecondary },
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  viewport: {
+    flex: 1,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: Colors.error,
+  },
+  placeholderText: {
+    color: Colors.textSecondary,
+  },
 });
