@@ -7,6 +7,8 @@ import {
   ViewStyle,
 } from 'react-native';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface SunkenPressableProps {
   children: ReactNode;
   onPress?: (event: GestureResponderEvent) => void;
@@ -73,27 +75,24 @@ export default function SunkenPressable({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       disabled={disabled}
       hitSlop={hitSlop}
       onPress={onPress}
       onPressIn={animateToPressed}
       onPressOut={animateToReleased}
+      style={[
+        style,
+        {
+          opacity: opacityAnim,
+          transform: [
+            { scale: scaleAnim },
+            { translateY: translateYAnim },
+          ],
+        },
+      ]}
     >
-      <Animated.View
-        style={[
-          style,
-          {
-            opacity: opacityAnim,
-            transform: [
-              { scale: scaleAnim },
-              { translateY: translateYAnim },
-            ],
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   );
 }
