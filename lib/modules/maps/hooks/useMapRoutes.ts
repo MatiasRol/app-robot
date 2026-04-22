@@ -73,6 +73,7 @@ export function useMapRoutes(mapId: string) {
   const fetchRoutes = async () => {
     try {
       setRoutesLoading(true);
+
       const { data, error } = await supabase
         .from('routes')
         .select('*')
@@ -85,7 +86,10 @@ export function useMapRoutes(mapId: string) {
         id: item.id,
         name: item.name,
         mapId: item.map_id,
-        schedule: item.schedule,
+        schedule:
+          typeof item.schedule === 'string'
+            ? item.schedule
+            : item.schedule?.label ?? 'Sin horario',
         waypoints: item.waypoints || [],
       }));
 
@@ -98,7 +102,8 @@ export function useMapRoutes(mapId: string) {
   };
 
   const handleAddRoute = async (name: string, date: Date) => {
-    if (!name.trim()) return;
+    if (!name.trim()) return false;
+
     try {
       const { data, error } = await supabase
         .from('routes')
@@ -127,8 +132,10 @@ export function useMapRoutes(mapId: string) {
       setNewRouteName('');
       setNewRouteDate(new Date());
       setShowAddRouteModal(false);
+      return true;
     } catch (err) {
       console.error('Error creando ruta:', err);
+      return false;
     }
   };
 
@@ -188,7 +195,8 @@ export function useMapRoutes(mapId: string) {
   };
 
   const handleSaveRoute = async (name: string, date: Date) => {
-    if (!editingRouteId || !name.trim()) return;
+    if (!editingRouteId || !name.trim()) return false;
+
     try {
       const { error } = await supabase
         .from('routes')
@@ -204,9 +212,12 @@ export function useMapRoutes(mapId: string) {
             : r
         )
       );
+
       setEditingRouteId(null);
+      return true;
     } catch (err) {
       console.error('Error editando ruta:', err);
+      return false;
     }
   };
 
@@ -226,8 +237,11 @@ export function useMapRoutes(mapId: string) {
           r.id === routeId ? { ...r, waypoints } : r
         )
       );
+
+      return true;
     } catch (err) {
       console.error('Error guardando waypoints:', err);
+      return false;
     }
   };
 
