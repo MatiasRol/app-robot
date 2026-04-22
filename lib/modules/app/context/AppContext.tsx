@@ -1,6 +1,7 @@
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -15,6 +16,8 @@ interface AppContextType {
 
   maps: MapItem[];
   mapsLoading: boolean;
+  mapsError: string | null;
+  reloadMaps: () => Promise<void>;
   deleteMap: (mapId: string) => void;
 
   selectedMapId: string | null;
@@ -55,6 +58,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [maps, setMaps] = useState<MapItem[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
+  const [mapsError, setMapsError] = useState<string | null>(null);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
 
   const selectedMap = useMemo(
@@ -62,60 +66,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [maps, selectedMapId]
   );
 
-  useEffect(() => {
-    const fetchMaps = async () => {
-      try {
-        setMapsLoading(true);
+  const reloadMaps = useCallback(async () => {
+    try {
+      setMapsLoading(true);
+      setMapsError(null);
 
-        if (!supabase) {
-          console.warn('⚠️ Supabase no está disponible. No se cargarán mapas.');
-          setMaps([]);
-          setSelectedMapIdState(null);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('maps')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const adapted: MapItem[] = (data || []).map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          robotId: '1',
-          thumbnail: item.png_url,
-          size: 'Robot 1',
-          createdAt: item.created_at ? new Date(item.created_at) : new Date(),
-          png_url: item.png_url,
-          json_url: item.json_url,
-          resolution: item.resolution,
-          origin: item.origin,
-          width_px: item.width_px,
-          height_px: item.height_px,
-          is_active: item.is_active,
-        }));
-
-        setMaps(adapted);
-
-        const activeMap = adapted.find((m) => m.is_active === true);
-        if (activeMap) {
-          setSelectedMapIdState(activeMap.id);
-        } else {
-          setSelectedMapIdState(null);
-        }
-      } catch (err) {
-        console.error('Error cargando mapas desde Supabase:', err);
+      if (!supabase) {
+        console.warn('⚠️ Supabase no está disponible. No se cargarán mapas.');
         setMaps([]);
         setSelectedMapIdState(null);
-      } finally {
-        setMapsLoading(false);
+        setMapsError('No se pudo conectar con la base de datos.');
+        return;
       }
-    };
 
-    fetchMaps();
+      const { data, error } = await supabase
+        .from('maps')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const adapted: MapItem[] = (data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        robotId: '1',
+        thumbnail: item.png_url,
+        size: 'Robot 1',
+        createdAt: item.created_at ? new Date(item.created_at) : new Date(),
+        png_url: item.png_url,
+        json_url: item.json_url,
+        resolution: item.resolution,
+        origin: item.origin,
+        width_px: item.width_px,
+        height_px: item.height_px,
+        is_active: item.is_active,
+      }));
+
+      setMaps(adapted);
+
+      const activeMap = adapted.find((m) => m.is_active === true);
+      if (activeMap) {
+        setSelectedMapIdState(activeMap.id);
+      } else {
+        setSelectedMapIdState(null);
+      }
+    } catch (err) {
+      console.error('Error cargando mapas desde Supabase:', err);
+      setMaps([]);
+      setSelectedMapIdState(null);
+      setMapsError('No se pudieron cargar los mapas.');
+    } finally {
+      setMapsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    reloadMaps();
+  }, [reloadMaps]);
 
   const setSelectedMapId = async (mapId: string | null) => {
     try {
@@ -212,6 +219,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateRobotName,
         maps,
         mapsLoading,
+        mapsError,
+        reloadMaps,
         deleteMap,
         selectedMapId,
         setSelectedMapId,
