@@ -4,15 +4,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
+import { hapticLight } from '../../lib/core/utils/haptics';
 import { useApp } from '../../lib/modules/app/context/AppContext';
 import MapCard from '../../src/components/molecules/MapCard';
 
 export default function MapsScreen() {
-  const { maps, mapsLoading, selectedMapId } = useApp();
+  const { maps, mapsLoading, mapsError, reloadMaps, selectedMapId } = useApp();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -33,6 +35,22 @@ export default function MapsScreen() {
             <View style={styles.centerContent}>
               <ActivityIndicator size="large" color={Colors.primary} />
               <Text style={styles.helperText}>Cargando mapas...</Text>
+            </View>
+          ) : mapsError ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.emptyTitle}>No se pudieron cargar</Text>
+              <Text style={styles.helperText}>{mapsError}</Text>
+
+              <TouchableOpacity
+                style={styles.retryButton}
+                activeOpacity={0.85}
+                onPress={() => {
+                  void hapticLight();
+                  void reloadMaps();
+                }}
+              >
+                <Text style={styles.retryButtonText}>Reintentar</Text>
+              </TouchableOpacity>
             </View>
           ) : maps.length === 0 ? (
             <View style={styles.centerContent}>
@@ -108,5 +126,19 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 24,
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
