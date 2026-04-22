@@ -4,9 +4,8 @@ import {
   ImageSourcePropType,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View,
 } from 'react-native';
+import SunkenPressable from './SunkenPressable';
 
 interface MapActionButtonProps {
   label: string;
@@ -20,46 +19,42 @@ export default function MapActionButton({
   onPress,
 }: MapActionButtonProps) {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.88}>
-      <View style={styles.iconWrap}>
-        <Image source={icon} style={styles.icon} resizeMode="contain" />
-      </View>
+    <SunkenPressable
+      style={styles.button}
+      onPress={onPress}
+      activeScale={0.96}
+      activeTranslateY={3}
+      activeOpacity={0.9}
+    >
+      <Image source={icon} style={styles.icon} resizeMode="contain" />
       <Text style={styles.label}>{label}</Text>
-    </TouchableOpacity>
+    </SunkenPressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 14,
-    paddingHorizontal: 22,
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     alignItems: 'center',
     gap: 6,
-    minWidth: 112,
-    elevation: 8,
+    minWidth: 100,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#EEF4FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
   icon: {
-    width: 22,
-    height: 22,
+    width: 28,
+    height: 28,
   },
   label: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0D111C',
-    letterSpacing: 0.35,
+    letterSpacing: 0.5,
   },
 });
