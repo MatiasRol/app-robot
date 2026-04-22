@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -57,6 +57,7 @@ export default function MapDetailScreen() {
 
   const {
     connectionStatus,
+    stopRobot,
     sendNavigateToPose,
     sendFollowWaypoints,
   } = useCameraConnectionContext();
@@ -78,11 +79,31 @@ export default function MapDetailScreen() {
     variant: 'info',
   });
 
+  const [isNavigatingNow, setIsNavigatingNow] = useState(false);
+  const [navigatingDots, setNavigatingDots] = useState('');
+
   const bottomSheet = useBottomSheet();
   const mapRoutes = useMapRoutes(id as string);
   const opMode = useOperationMode();
 
   const commandsConnected = connectionStatus.commands === 'connected';
+
+  useEffect(() => {
+    if (!isNavigatingNow) {
+      setNavigatingDots('');
+      return;
+    }
+
+    const frames = ['', '.', '..', '...'];
+    let index = 0;
+
+    const interval = setInterval(() => {
+      index = (index + 1) % frames.length;
+      setNavigatingDots(frames[index]);
+    }, 450);
+
+    return () => clearInterval(interval);
+  }, [isNavigatingNow]);
 
   const showStatus = (
     title: string,
@@ -199,6 +220,8 @@ export default function MapDetailScreen() {
     pixelX: number,
     pixelY: number
   ) => {
+    if (isNavigatingNow) return;
+
     if (mapMode === 'navigate') {
       if (!navigate.navPoint) {
         void hapticSelection();
@@ -227,6 +250,8 @@ export default function MapDetailScreen() {
     pixelX: number,
     pixelY: number
   ) => {
+    if (isNavigatingNow) return;
+
     if (mapMode === 'navigate') {
       if (!navigate.navPoint || navigate.navPoint.confirmed) return;
       navigate.updateOrientation(pixelX, pixelY);
@@ -343,12 +368,26 @@ export default function MapDetailScreen() {
     );
 
     navigate.reset();
-    setMapMode('idle');
+    setIsNavigatingNow(true);
 
     showStatus(
       'Navegación enviada',
       'El punto de navegación fue enviado al robot.',
       'success'
+    );
+  };
+
+  const handleCancelNavigation = () => {
+    void hapticLight();
+    stopRobot();
+    setIsNavigatingNow(false);
+    navigate.reset();
+    setMapMode('idle');
+
+    showStatus(
+      'Navegación cancelada',
+      'Se envió la orden para detener el movimiento del robot.',
+      'info'
     );
   };
 
@@ -362,10 +401,11 @@ export default function MapDetailScreen() {
           onPointTap={handleMapTap}
           onDirectionDrag={handleDirectionDrag}
           isAdjustingWaypointDirection={
-            (mapMode === 'navigate' &&
+            !isNavigatingNow &&
+            ((mapMode === 'navigate' &&
               !!navigate.navPoint &&
               !navigate.navPoint.confirmed) ||
-            (mapMode === 'route_edit' && waypointEditor.hasActiveRotating)
+              (mapMode === 'route_edit' && waypointEditor.hasActiveRotating))
           }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
@@ -400,6 +440,7 @@ export default function MapDetailScreen() {
             icon={require('../../assets/images/mapMark.png')}
             onPress={() => {
               void hapticLight();
+              setIsNavigatingNow(false);
               setMapMode('navigate');
             }}
           />
@@ -408,33 +449,54 @@ export default function MapDetailScreen() {
 
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => {
-              void hapticLight();
-              navigate.reset();
-              setMapMode('idle');
-            }}
-          >
-            <Text style={styles.cancelText}>CANCELAR</Text>
-          </TouchableOpacity>
+          {isNavigatingNow ? (
+            <>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelNavigation}
+              >
+                <Text style={styles.cancelText}>CANCELAR</Text>
+              </TouchableOpacity>
 
-          {navigate.navPoint?.confirmed && (
-            <TouchableOpacity
-              style={styles.navigateButton}
-              onPress={handleNavigateNow}
-            >
-              <Text style={styles.navigateText}>NAVEGAR</Text>
-            </TouchableOpacity>
+              <Text style={styles.navigatingTitle}>
+                {`Navegando${navigatingDots}`}
+              </Text>
+
+              <Text style={styles.navigateHint}>
+                El robot está ejecutando la navegación.
+              </Text>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  void hapticLight();
+                  navigate.reset();
+                  setMapMode('idle');
+                }}
+              >
+                <Text style={styles.cancelText}>CANCELAR</Text>
+              </TouchableOpacity>
+
+              {navigate.navPoint?.confirmed && (
+                <TouchableOpacity
+                  style={styles.navigateButton}
+                  onPress={handleNavigateNow}
+                >
+                  <Text style={styles.navigateText}>NAVEGAR</Text>
+                </TouchableOpacity>
+              )}
+
+              <Text style={styles.navigateHint}>
+                {!navigate.navPoint
+                  ? 'Selecciona un punto de navegación'
+                  : !navigate.navPoint.confirmed
+                  ? 'Arrastra para orientar y toca para confirmar'
+                  : 'Listo para navegar'}
+              </Text>
+            </>
           )}
-
-          <Text style={styles.navigateHint}>
-            {!navigate.navPoint
-              ? 'Selecciona un punto de navegación'
-              : !navigate.navPoint.confirmed
-              ? 'Arrastra para orientar y toca para confirmar'
-              : 'Listo para navegar'}
-          </Text>
         </View>
       )}
 
@@ -615,6 +677,12 @@ const styles = StyleSheet.create({
   navigateText: {
     color: '#FFF',
     fontWeight: '700',
+  },
+  navigatingTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   navigateHint: {
     color: Colors.textSecondary,
