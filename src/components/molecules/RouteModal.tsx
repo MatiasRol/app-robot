@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import React, { useMemo, useState } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +34,37 @@ interface RouteModalProps {
   onConfirm: () => void;
 }
 
+function buildPickerDateFromTime(value: string) {
+  const now = new Date();
+
+  if (!/^\d{2}:\d{2}$/.test(value)) {
+    return now;
+  }
+
+  const [hours, minutes] = value.split(':').map(Number);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return now;
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function formatTime(date: Date) {
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 export function RouteModal({
   visible,
   routeName,
@@ -45,6 +78,13 @@ export function RouteModal({
   onClose,
   onConfirm,
 }: RouteModalProps) {
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const pickerDate = useMemo(
+    () => buildPickerDateFromTime(executeAt),
+    [executeAt]
+  );
+
   if (!visible) return null;
 
   return (
@@ -95,15 +135,20 @@ export function RouteModal({
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Ejecutar a las:</Text>
 
-          <TextInput
-            value={executeAt}
-            onChangeText={onChangeExecuteAt}
-            placeholder="00:00"
-            placeholderTextColor="#707070"
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
+          <TouchableOpacity
             style={styles.timeInput}
-          />
+            activeOpacity={0.85}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Text
+              style={[
+                styles.timeInputText,
+                !executeAt && styles.timeInputPlaceholder,
+              ]}
+            >
+              {executeAt || '00:00'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.row}>
@@ -133,6 +178,34 @@ export function RouteModal({
         >
           <Text style={styles.confirmButtonText}>CONFIRMAR</Text>
         </TouchableOpacity>
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={pickerDate}
+            mode="time"
+            is24Hour
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, selectedDate) => {
+              if (Platform.OS !== 'ios') {
+                setShowTimePicker(false);
+              }
+
+              if (selectedDate) {
+                onChangeExecuteAt(formatTime(selectedDate));
+              }
+            }}
+          />
+        )}
+
+        {showTimePicker && Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={styles.iosDoneButton}
+            onPress={() => setShowTimePicker(false)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.iosDoneButtonText}>Listo</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -230,11 +303,18 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 12,
     backgroundColor: '#D8D8D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  timeInputText: {
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '800',
     color: '#202020',
-    paddingHorizontal: 14,
+  },
+  timeInputPlaceholder: {
+    color: '#707070',
   },
   toggleTrack: {
     width: 56,
@@ -272,5 +352,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  iosDoneButton: {
+    marginTop: 12,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#D8D8D8',
+  },
+  iosDoneButtonText: {
+    color: '#202020',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
