@@ -12,7 +12,6 @@ function angleToQuaternion(angle: number) {
 
 export function useNavigateMode() {
   const [navPoint, setNavPoint] = useState<WaypointPoint | null>(null);
-  const [isDraggingOrientation, setIsDraggingOrientation] = useState(false);
 
   const handleFirstTap = (
     pixelX: number,
@@ -29,7 +28,6 @@ export function useNavigateMode() {
       quaternion: angleToQuaternion(0),
       confirmed: false,
     });
-    setIsDraggingOrientation(true);
   };
 
   const updateOrientation = (
@@ -48,26 +46,29 @@ export function useNavigateMode() {
         ...prev,
         orientationAngle: angle,
         quaternion: angleToQuaternion(angle),
-        confirmed: true,
+        confirmed: false,
       };
     });
   };
 
-  const finishOrientation = () => {
-    setIsDraggingOrientation(false);
+  const confirmOrientation = () => {
+    setNavPoint((prev) =>
+      prev
+        ? {
+            ...prev,
+            confirmed: true,
+          }
+        : null
+    );
   };
 
-  const reset = () => {
-    setNavPoint(null);
-    setIsDraggingOrientation(false);
-  };
+  const reset = () => setNavPoint(null);
 
   return {
     navPoint,
-    isDraggingOrientation,
     handleFirstTap,
     updateOrientation,
-    finishOrientation,
+    confirmOrientation,
     reset,
   };
 }

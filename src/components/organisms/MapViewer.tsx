@@ -35,6 +35,8 @@ interface MapViewerProps {
   error?: string | null;
   renderOverlay?: () => React.ReactNode;
   onPointTap?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
+  onDirectionDrag?: (worldX: number, worldY: number, pixelX: number, pixelY: number) => void;
+  isAdjustingWaypointDirection?: boolean;
   robotPose?: RobotPose | null;
   goalPoint?: GoalPoint | null;
   waypoints?: WaypointPoint[];
@@ -72,6 +74,8 @@ export default function MapViewer({
   error = null,
   renderOverlay,
   onPointTap,
+  onDirectionDrag,
+  isAdjustingWaypointDirection = false,
   robotPose = null,
   goalPoint = null,
   waypoints = [],
@@ -81,12 +85,61 @@ export default function MapViewer({
   const translateY = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
+  const toMapCoordinates = (
+    x: number,
+    y: number,
+    currentTranslateX: number,
+    currentTranslateY: number
+  ) => {
+    if (!mapData) return null;
+
+    const svgX = x - currentTranslateX;
+    const svgY = y - currentTranslateY;
+    const pixelX = svgX / SCALE_FACTOR;
+    const pixelY = svgY / SCALE_FACTOR;
+
+    const { worldX, worldY } = pixelToWorld(
+      pixelX,
+      pixelY,
+      mapData.metadata as any
+    );
+
+    return {
+      worldX,
+      worldY,
+      pixelX: Math.round(pixelX),
+      pixelY: Math.round(pixelY),
+    };
+  };
+
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
+      if (isAdjustingWaypointDirection) {
+        if (!onDirectionDrag || !mapData) return;
+
+        const coords = toMapCoordinates(
+          e.x,
+          e.y,
+          translateX.value,
+          translateY.value
+        );
+
+        if (!coords) return;
+
+        runOnJS(onDirectionDrag)(
+          coords.worldX,
+          coords.worldY,
+          coords.pixelX,
+          coords.pixelY
+        );
+        return;
+      }
+
       translateX.value = savedTranslateX.value + e.translationX;
       translateY.value = savedTranslateY.value + e.translationY;
     })
     .onEnd(() => {
+      if (isAdjustingWaypointDirection) return;
       savedTranslateX.value = translateX.value;
       savedTranslateY.value = translateY.value;
     });
@@ -99,18 +152,21 @@ export default function MapViewer({
   ) => {
     if (!onPointTap || !mapData) return;
 
-    const svgX = tapX - currentTranslateX;
-    const svgY = tapY - currentTranslateY;
-    const pixelX = svgX / SCALE_FACTOR;
-    const pixelY = svgY / SCALE_FACTOR;
-
-    const { worldX, worldY } = pixelToWorld(
-      pixelX,
-      pixelY,
-      mapData.metadata as any
+    const coords = toMapCoordinates(
+      tapX,
+      tapY,
+      currentTranslateX,
+      currentTranslateY
     );
 
-    onPointTap(worldX, worldY, Math.round(pixelX), Math.round(pixelY));
+    if (!coords) return;
+
+    onPointTap(
+      coords.worldX,
+      coords.worldY,
+      coords.pixelX,
+      coords.pixelY
+    );
   };
 
   const singleTap = Gesture.Tap()

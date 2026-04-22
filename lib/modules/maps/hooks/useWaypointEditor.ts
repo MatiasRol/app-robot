@@ -33,9 +33,9 @@ export function useWaypointEditor() {
     };
 
     setWaypoints((prev) => {
-      const next = [...prev, newWaypoint];
-      setActiveIndex(next.length - 1);
-      return next;
+      const nextIndex = prev.length;
+      setActiveIndex(nextIndex);
+      return [...prev, newWaypoint];
     });
   };
 
@@ -59,23 +59,38 @@ export function useWaypointEditor() {
         ...active,
         orientationAngle: angle,
         quaternion: angleToQuaternion(angle),
-        confirmed: true,
+        confirmed: false,
       };
 
       return updated;
     });
   };
 
-  const finishActiveWaypointOrientation = () => {
+  const confirmWaypointOrientation = () => {
     if (activeIndex === null) return;
+
+    setWaypoints((prev) => {
+      const active = prev[activeIndex];
+      if (!active) return prev;
+
+      const updated = [...prev];
+      updated[activeIndex] = {
+        ...active,
+        confirmed: true,
+      };
+
+      return updated;
+    });
+
     setActiveIndex(null);
   };
 
   const removeWaypoint = (index: number) => {
     setWaypoints((prev) => prev.filter((_, i) => i !== index));
+
     if (activeIndex === index) {
       setActiveIndex(null);
-    } else if (activeIndex !== null && activeIndex > index) {
+    } else if (activeIndex !== null && index < activeIndex) {
       setActiveIndex(activeIndex - 1);
     }
   };
@@ -93,7 +108,7 @@ export function useWaypointEditor() {
     hasActiveRotating,
     addWaypointFirstTap,
     updateActiveWaypointOrientation,
-    finishActiveWaypointOrientation,
+    confirmWaypointOrientation,
     removeWaypoint,
     clearWaypoints,
   };
