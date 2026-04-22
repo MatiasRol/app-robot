@@ -2,11 +2,17 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
-const VIDEO_SERVER_URL = 'http://XicoCamara.local:8889';
+const VIDEO_SERVER_URL = 'http://XicoCamara:8889';
 const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://Xico.local:9090';
+const COMMAND_SERVER_URL = 'ws://Xico:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
+
+type LiveRobotPose = {
+  worldX: number;
+  worldY: number;
+  yaw: number;
+};
 
 interface ConnectionStatus {
   video: ConnectionState;
@@ -20,10 +26,13 @@ interface CameraConnectionContextType {
   errorMessage: string;
   showConnectionError: boolean;
   currentMapId: string | null;
+  robotPose: LiveRobotPose | null;
   connectToRobot: () => Promise<void>;
   disconnectFromRobot: () => void;
   handleRetryConnection: () => void;
   handleCancelConnection: () => void;
+  requestRobotPositionStream: () => void;
+  stopRobotPositionStream: () => void;
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
   sendNavigateToPose: (
@@ -52,6 +61,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [errorMessage, setErrorMessage] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
+  const [robotPose, setRobotPose] = useState<LiveRobotPose | null>(null);
 
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
@@ -82,6 +92,25 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
     if (data.type === 'active_map' && typeof data.map === 'string') {
       setCurrentMapId(data.map);
+      return;
+    }
+
+    if (
+      (data.type === 'pos_suscrito' || data.type === 'pos_robot') &&
+      typeof data.x === 'number' &&
+      typeof data.y === 'number' &&
+      typeof data.yaw === 'number'
+    ) {
+      setRobotPose({
+        worldX: data.x,
+        worldY: data.y,
+        yaw: data.yaw,
+      });
+      return;
+    }
+
+    if (data.type === 'pos_detenido') {
+      return;
     }
   };
 
@@ -201,6 +230,20 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
+  const requestRobotPositionStream = () => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.requestRobotPositionStream();
+    } else {
+      console.warn('⚠️ Comandos no disponibles - solicitar_pos ignorado');
+    }
+  };
+
+  const stopRobotPositionStream = () => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.stopRobotPositionStream();
+    }
+  };
+
   const disconnectFromRobot = () => {
     isDisconnecting.current = true;
     canShowError.current = false;
@@ -222,6 +265,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
     setRemoteStream(null);
     setCurrentMapId(null);
+    setRobotPose(null);
     setVideoConnectionState('disconnected');
     setCommandConnectionState('disconnected');
     setShowConnectionError(false);
@@ -306,10 +350,13 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         errorMessage,
         showConnectionError,
         currentMapId,
+        robotPose,
         connectToRobot,
         disconnectFromRobot,
         handleRetryConnection,
         handleCancelConnection,
+        requestRobotPositionStream,
+        stopRobotPositionStream,
         sendVelocityCommand,
         stopRobot,
         sendNavigateToPose,
