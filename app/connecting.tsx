@@ -1,22 +1,29 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   Image,
+  Modal,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors } from '../lib/core/constants/Colors';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
-import SunkenPressable from '../src/components/atoms/SunkenPressable';
 
 const CONNECTION_TIMEOUT_MS = 2500;
+const MIN_SPLASH_DURATION_MS = 2000;
 
 export default function ConnectingScreen() {
   const router = useRouter();
+
   const hasStartedRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const minDelayDoneRef = useRef(false);
+  const isConnectedRef = useRef(false);
+
+  const spinAnim = useRef(new Animated.Value(0)).current;
 
   const {
     connectionStatus,
@@ -28,10 +35,29 @@ export default function ConnectingScreen() {
   } = useCameraConnectionContext();
 
   const [timedOut, setTimedOut] = useState(false);
+  const [, forceUpdate] = useState(0);
 
   const hasAnyConnection =
     connectionStatus.video === 'connected' ||
     connectionStatus.commands === 'connected';
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    loop.start();
+
+    return () => {
+      loop.stop();
+      spinAnim.stopAnimation();
+    };
+  }, [spinAnim]);
 
   useEffect(() => {
     if (hasStartedRef.current) return;
@@ -43,27 +69,45 @@ export default function ConnectingScreen() {
       setTimedOut(true);
     }, CONNECTION_TIMEOUT_MS);
 
+    const minDelay = setTimeout(() => {
+      minDelayDoneRef.current = true;
+
+      if (isConnectedRef.current) {
+        router.replace('/(tabs)');
+      } else {
+        forceUpdate((v) => v + 1);
+      }
+    }, MIN_SPLASH_DURATION_MS);
+
     return () => {
+      clearTimeout(minDelay);
+
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
     };
-  }, [connectToRobot]);
+  }, [connectToRobot, router]);
 
   useEffect(() => {
     if (!hasAnyConnection) return;
+
+    isConnectedRef.current = true;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
 
-    router.replace('/(tabs)');
+    if (minDelayDoneRef.current) {
+      router.replace('/(tabs)');
+    }
   }, [hasAnyConnection, router]);
 
   const handleRetry = () => {
     setTimedOut(false);
+    isConnectedRef.current = false;
+    minDelayDoneRef.current = false;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -74,6 +118,15 @@ export default function ConnectingScreen() {
     timeoutRef.current = setTimeout(() => {
       setTimedOut(true);
     }, CONNECTION_TIMEOUT_MS);
+
+    setTimeout(() => {
+      minDelayDoneRef.current = true;
+      if (isConnectedRef.current) {
+        router.replace('/(tabs)');
+      } else {
+        forceUpdate((v) => v + 1);
+      }
+    }, MIN_SPLASH_DURATION_MS);
   };
 
   const handleCancel = () => {
@@ -86,81 +139,67 @@ export default function ConnectingScreen() {
     router.replace('/(tabs)');
   };
 
-  const shouldShowError = showConnectionError || (timedOut && !hasAnyConnection);
+  const shouldShowError =
+    showConnectionError || (timedOut && !hasAnyConnection);
 
-  const statusLabel =
-    connectionStatus.video === 'connecting' && connectionStatus.commands === 'connecting'
-      ? 'Conectando video y comandos...'
-      : connectionStatus.video === 'connecting'
-      ? 'Conectando video...'
-      : connectionStatus.commands === 'connecting'
-      ? 'Conectando comandos...'
-      : 'Conectando a ...';
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.container}>
-      <View style={styles.logoWrap}>
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
+      <Animated.Image
+        source={require('../assets/images/logo.png')}
+        style={[styles.logo, { transform: [{ rotate: spin }] }]}
+        resizeMode="contain"
+      />
 
-      {shouldShowError ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>
-            {errorMessage || 'No se pudo conectar al robot'}
-          </Text>
-          <Text style={styles.errorHint}>
-            Verifica que el robot esté encendido y en la misma red.
-          </Text>
+      {!shouldShowError && <Text style={styles.connectingText}>Conectando</Text>}
 
-          <View style={styles.errorButtons}>
-            <SunkenPressable
-              style={styles.cancelBtn}
-              onPress={handleCancel}
-              activeScale={0.97}
-              activeTranslateY={3}
-              activeOpacity={0.92}
-            >
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </SunkenPressable>
+      <Modal
+        visible={shouldShowError}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancel}
+      >
+        <TouchableOpacity
+          style={styles.errorOverlay}
+          activeOpacity={1}
+          onPress={handleCancel}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.errorBox}>
+              <Text style={styles.errorTitle}>No se pudo conectar</Text>
 
-            <SunkenPressable
-              style={styles.retryBtn}
-              onPress={handleRetry}
-              activeScale={0.97}
-              activeTranslateY={3}
-              activeOpacity={0.92}
-            >
-              <Text style={styles.retryText}>Reintentar</Text>
-            </SunkenPressable>
-          </View>
-        </View>
-      ) : (
-        <>
-          <ActivityIndicator
-            size="large"
-            color={Colors.primary}
-            style={styles.spinner}
-          />
-          <View style={styles.textWrap}>
-            <Text style={styles.label}>{statusLabel}</Text>
-            <Text style={styles.robotName}>Robot 1</Text>
+              <Text style={styles.errorMessage}>
+                {errorMessage || 'No se pudo conectar al robot'}
+              </Text>
 
-            <SunkenPressable
-              style={styles.cancelLink}
-              onPress={handleCancel}
-              activeScale={0.98}
-              activeTranslateY={2}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.cancelLinkText}>Cancelar</Text>
-            </SunkenPressable>
-          </View>
-        </>
-      )}
+              <View style={styles.errorButtons}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={handleCancel}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.cancelText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.retryBtn}
+                  onPress={handleRetry}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.retryText}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -168,99 +207,82 @@ export default function ConnectingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 28,
-  },
-  logoWrap: {
-    width: 90,
-    height: 90,
-    borderRadius: 22,
-    backgroundColor: Colors.logo,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 110,
+    height: 110,
   },
-  spinner: {
-    marginVertical: 4,
+  connectingText: {
+    marginTop: 18,
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#1B1B1B',
   },
-  textWrap: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: '400',
-  },
-  robotName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  cancelLink: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+
+  errorOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
     justifyContent: 'center',
-  },
-  cancelLinkText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  errorWrap: {
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
-  errorText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.danger,
-    textAlign: 'center',
+  errorBox: {
+    width: 260,
+    backgroundColor: '#F4F4F4',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+    alignItems: 'center',
   },
-  errorHint: {
-    fontSize: 13,
-    color: Colors.textSecondary,
+  errorTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#202020',
     textAlign: 'center',
-    lineHeight: 18,
+    marginBottom: 10,
+  },
+  errorMessage: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#555555',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 18,
   },
   errorButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    width: '100%',
+    gap: 10,
   },
   cancelBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    backgroundColor: Colors.button,
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BDBDBD',
+    backgroundColor: '#F7F7F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    color: '#8A8A8A',
+    fontSize: 16,
+    fontWeight: '500',
   },
   retryBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#124BAF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   retryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

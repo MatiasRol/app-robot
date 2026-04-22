@@ -1,245 +1,276 @@
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
-  Modal,
-  Platform,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { Colors } from '../../../lib/core/constants/Colors';
-import SunkenPressable from '../atoms/SunkenPressable';
+
+const DAYS = [
+  { key: 'mon', label: 'L' },
+  { key: 'tue', label: 'M' },
+  { key: 'wed', label: 'M' },
+  { key: 'thu', label: 'J' },
+  { key: 'fri', label: 'V' },
+  { key: 'sat', label: 'S' },
+  { key: 'sun', label: 'D' },
+];
 
 interface RouteModalProps {
   visible: boolean;
-  mode: 'add' | 'edit';
-  initialName?: string;
-  initialDate?: Date;
-  onConfirm: (name: string, date: Date) => void;
-  onCancel: () => void;
+  routeName: string;
+  onChangeRouteName: (value: string) => void;
+  selectedDays: string[];
+  onToggleDay: (day: string) => void;
+  executeAt: string;
+  onChangeExecuteAt: (value: string) => void;
+  recordRoute: boolean;
+  onToggleRecordRoute: () => void;
+  onClose: () => void;
+  onConfirm: () => void;
 }
 
 export function RouteModal({
   visible,
-  mode,
-  initialName = '',
-  initialDate,
+  routeName,
+  onChangeRouteName,
+  selectedDays,
+  onToggleDay,
+  executeAt,
+  onChangeExecuteAt,
+  recordRoute,
+  onToggleRecordRoute,
+  onClose,
   onConfirm,
-  onCancel,
 }: RouteModalProps) {
-  const [name, setName] = useState(initialName);
-  const [date, setDate] = useState(initialDate ?? new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-
-  useEffect(() => {
-    if (visible) {
-      setName(initialName);
-      setDate(initialDate ?? new Date());
-    }
-  }, [visible, initialName, initialDate]);
-
-  const handleDateChange = (_: any, selected?: Date) => {
-    setShowDatePicker(false);
-    if (selected) setDate(selected);
-  };
-
-  const handleTimeChange = (_: any, selected?: Date) => {
-    setShowTimePicker(false);
-    if (selected) {
-      setDate((prev) => {
-        const updated = new Date(prev);
-        updated.setHours(selected.getHours());
-        updated.setMinutes(selected.getMinutes());
-        return updated;
-      });
-    }
-  };
-
-  const title = mode === 'add' ? 'Nueva Ruta' : 'Editar Ruta';
-  const confirmLabel = mode === 'add' ? 'Crear' : 'Guardar';
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.content}>
-          <Text style={styles.title}>{title}</Text>
+    <View pointerEvents="box-none" style={styles.wrapper}>
+      <View style={styles.sheet}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color="#202020" />
+          </TouchableOpacity>
 
           <TextInput
-            style={styles.input}
-            placeholder="Nombre de la ruta"
-            placeholderTextColor={Colors.textMuted}
-            value={name}
-            onChangeText={setName}
-            autoFocus
+            value={routeName}
+            onChangeText={onChangeRouteName}
+            placeholder="Nom. Ruta"
+            placeholderTextColor="#202020"
+            style={styles.titleInput}
           />
 
-          <View style={styles.dateBlock}>
-            <Text style={styles.dateLabel}>Programar inicio:</Text>
-
-            <SunkenPressable
-              style={styles.dateBtn}
-              onPress={() => setShowDatePicker(true)}
-              activeScale={0.985}
-              activeTranslateY={2}
-              activeOpacity={0.94}
-            >
-              <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-              <Text style={styles.dateBtnText}>
-                {date.toLocaleDateString('es-ES', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
-              </Text>
-            </SunkenPressable>
-
-            <SunkenPressable
-              style={styles.dateBtn}
-              onPress={() => setShowTimePicker(true)}
-              activeScale={0.985}
-              activeTranslateY={2}
-              activeOpacity={0.94}
-            >
-              <Ionicons name="time-outline" size={20} color={Colors.primary} />
-              <Text style={styles.dateBtnText}>
-                {date.toLocaleTimeString('es-ES', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </SunkenPressable>
-          </View>
-
-          <View style={styles.buttons}>
-            <SunkenPressable
-              style={styles.cancelBtn}
-              onPress={onCancel}
-              activeScale={0.97}
-              activeTranslateY={3}
-              activeOpacity={0.92}
-            >
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </SunkenPressable>
-
-            <SunkenPressable
-              style={styles.confirmBtn}
-              onPress={() => onConfirm(name, date)}
-              activeScale={0.97}
-              activeTranslateY={3}
-              activeOpacity={0.92}
-            >
-              <Text style={styles.confirmText}>{confirmLabel}</Text>
-            </SunkenPressable>
-          </View>
+          <View style={styles.rightSpacer} />
         </View>
-      </View>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-        />
-      )}
-      {showTimePicker && (
-        <DateTimePicker
-          value={date}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleTimeChange}
-        />
-      )}
-    </Modal>
+        <Text style={styles.sectionTitle}>Horario</Text>
+
+        <View style={styles.daysContainer}>
+          {DAYS.map((day) => {
+            const selected = selectedDays.includes(day.key);
+
+            return (
+              <TouchableOpacity
+                key={day.key}
+                style={[styles.dayChip, selected && styles.dayChipActive]}
+                onPress={() => onToggleDay(day.key)}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    styles.dayChipText,
+                    selected && styles.dayChipTextActive,
+                  ]}
+                >
+                  {day.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Ejecutar a las:</Text>
+
+          <TextInput
+            value={executeAt}
+            onChangeText={onChangeExecuteAt}
+            placeholder="00:00"
+            placeholderTextColor="#707070"
+            keyboardType="numbers-and-punctuation"
+            maxLength={5}
+            style={styles.timeInput}
+          />
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Grabar la ruta:</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.toggleTrack,
+              recordRoute && styles.toggleTrackActive,
+            ]}
+            onPress={onToggleRecordRoute}
+            activeOpacity={0.85}
+          >
+            <View
+              style={[
+                styles.toggleThumb,
+                recordRoute ? styles.toggleThumbRight : styles.toggleThumbLeft,
+              ]}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.confirmButton}
+          onPress={onConfirm}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.confirmButtonText}>CONFIRMAR</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+  wrapper: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 30,
+  },
+  sheet: {
+    backgroundColor: '#F4F4F4',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 36,
+    minHeight: 320,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  backButton: {
+    width: 28,
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  content: {
-    backgroundColor: Colors.surface,
-    borderRadius: 24,
-    padding: 24,
-    width: '88%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: Colors.divider + '40',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 20,
+  titleInput: {
+    flex: 1,
     textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#202020',
+    paddingVertical: 0,
   },
-  input: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 16,
+  rightSpacer: {
+    width: 28,
+  },
+  sectionTitle: {
     fontSize: 16,
-    color: Colors.text,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.divider + '40',
+    fontWeight: '800',
+    color: '#202020',
+    marginBottom: 12,
   },
-  dateBlock: { marginBottom: 20 },
-  dateLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginBottom: 10,
-  },
-  dateBtn: {
+  daysContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    gap: 12,
     borderWidth: 1,
-    borderColor: Colors.divider + '40',
+    borderColor: '#A9A9A9',
+    borderRadius: 22,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  dateBtnText: {
-    fontSize: 15,
-    color: Colors.text,
-    flex: 1,
+  dayChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  buttons: {
+  dayChipActive: {
+    backgroundColor: '#124BAF',
+  },
+  dayChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#124BAF',
+  },
+  dayChipTextActive: {
+    color: '#FFFFFF',
+  },
+  row: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.button,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
   },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+  rowLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#303030',
   },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 14,
+  timeInput: {
+    minWidth: 94,
+    height: 40,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
+    backgroundColor: '#D8D8D8',
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#202020',
+    paddingHorizontal: 14,
   },
-  confirmText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
+  toggleTrack: {
+    width: 56,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D8D8D8',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  toggleTrackActive: {
+    backgroundColor: '#3074E9',
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#EDEDED',
+  },
+  toggleThumbLeft: {
+    alignSelf: 'flex-start',
+  },
+  toggleThumbRight: {
+    alignSelf: 'flex-end',
+  },
+  confirmButton: {
+    marginTop: 10,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
