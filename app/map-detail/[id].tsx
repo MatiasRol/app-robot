@@ -11,6 +11,13 @@ import {
 } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
+import {
+  hapticError,
+  hapticLight,
+  hapticSelection,
+  hapticSuccess,
+  hapticWarning,
+} from '../../lib/core/utils/haptics';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import { useBottomSheet } from '../../lib/modules/maps/hooks/useBottomSheet';
 import { useMapDetail } from '../../lib/modules/maps/hooks/useMapDetail';
@@ -82,6 +89,16 @@ export default function MapDetailScreen() {
     message: string,
     variant: StatusAlertState['variant'] = 'info'
   ) => {
+    if (variant === 'success') {
+      void hapticSuccess();
+    } else if (variant === 'warning') {
+      void hapticWarning();
+    } else if (variant === 'error') {
+      void hapticError();
+    } else {
+      void hapticLight();
+    }
+
     setStatusAlert({
       visible: true,
       title,
@@ -95,6 +112,7 @@ export default function MapDetailScreen() {
   };
 
   const openCreateRoute = () => {
+    void hapticLight();
     waypointEditor.clearWaypoints();
     setEditingRouteId(null);
     setRouteNameDraft('');
@@ -106,6 +124,7 @@ export default function MapDetailScreen() {
   };
 
   const closeCreateRoute = () => {
+    void hapticLight();
     setShowCreateRouteModal(false);
     waypointEditor.clearWaypoints();
     setEditingRouteId(null);
@@ -114,6 +133,7 @@ export default function MapDetailScreen() {
   };
 
   const toggleDay = (day: string) => {
+    void hapticSelection();
     setSelectedDays((prev) =>
       prev.includes(day)
         ? prev.filter((item) => item !== day)
@@ -123,11 +143,13 @@ export default function MapDetailScreen() {
 
   const handleConfirmCreateRoute = async () => {
     if (!routeNameDraft.trim()) {
+      void hapticWarning();
       Alert.alert('Ruta', 'Escribe un nombre para la ruta.');
       return;
     }
 
     if (waypointEditor.waypoints.length === 0) {
+      void hapticWarning();
       Alert.alert('Ruta', 'Agrega al menos un waypoint en el mapa.');
       return;
     }
@@ -179,8 +201,10 @@ export default function MapDetailScreen() {
   ) => {
     if (mapMode === 'navigate') {
       if (!navigate.navPoint) {
+        void hapticSelection();
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
       } else if (!navigate.navPoint.confirmed) {
+        void hapticSelection();
         navigate.confirmOrientation();
       }
       return;
@@ -188,8 +212,10 @@ export default function MapDetailScreen() {
 
     if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
+        void hapticSelection();
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
       } else {
+        void hapticSelection();
         waypointEditor.confirmWaypointOrientation();
       }
     }
@@ -214,6 +240,7 @@ export default function MapDetailScreen() {
   };
 
   const handlePlayRoute = (routeId: string) => {
+    void hapticLight();
     setPendingPlayRouteId(routeId);
   };
 
@@ -363,6 +390,7 @@ export default function MapDetailScreen() {
             label="RUTAS"
             icon={require('../../assets/images/ruta.png')}
             onPress={() => {
+              void hapticLight();
               setMapMode('route_list');
               bottomSheet.expandBottomSheet();
             }}
@@ -370,7 +398,10 @@ export default function MapDetailScreen() {
           <MapActionButton
             label="NAVEGAR"
             icon={require('../../assets/images/mapMark.png')}
-            onPress={() => setMapMode('navigate')}
+            onPress={() => {
+              void hapticLight();
+              setMapMode('navigate');
+            }}
           />
         </View>
       )}
@@ -380,6 +411,7 @@ export default function MapDetailScreen() {
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => {
+              void hapticLight();
               navigate.reset();
               setMapMode('idle');
             }}
@@ -416,6 +448,7 @@ export default function MapDetailScreen() {
             routes={mapRoutes.routes}
             onAddRoute={openCreateRoute}
             onEditRouteWaypoints={(routeId) => {
+              void hapticLight();
               waypointEditor.clearWaypoints();
               setEditingRouteId(routeId);
               setMapMode('route_edit');
@@ -431,6 +464,7 @@ export default function MapDetailScreen() {
               }
 
               if (waypointEditor.waypoints.length === 0) {
+                void hapticWarning();
                 Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
                 return;
               }
@@ -470,7 +504,10 @@ export default function MapDetailScreen() {
         executeAt={executeAt}
         onChangeExecuteAt={(value) => setExecuteAt(sanitizeTimeInput(value))}
         recordRoute={recordRoute}
-        onToggleRecordRoute={() => setRecordRoute((prev) => !prev)}
+        onToggleRecordRoute={() => {
+          void hapticSelection();
+          setRecordRoute((prev) => !prev);
+        }}
         onClose={closeCreateRoute}
         onConfirm={handleConfirmCreateRoute}
       />
@@ -495,7 +532,10 @@ export default function MapDetailScreen() {
 
             <TouchableOpacity
               style={styles.confirmSecondaryBtn}
-              onPress={() => setPendingPlayRouteId(null)}
+              onPress={() => {
+                void hapticLight();
+                setPendingPlayRouteId(null);
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.confirmSecondaryText}>CANCELAR</Text>

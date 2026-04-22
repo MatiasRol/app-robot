@@ -10,6 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  hapticError,
+  hapticLight,
+} from '../lib/core/utils/haptics';
 import { useCameraConnectionContext } from '../lib/modules/camera/context/CameraConnectionContext';
 
 const CONNECTION_TIMEOUT_MS = 2500;
@@ -22,6 +26,7 @@ export default function ConnectingScreen() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const minDelayDoneRef = useRef(false);
   const isConnectedRef = useRef(false);
+  const errorShownRef = useRef(false);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
 
@@ -104,10 +109,27 @@ export default function ConnectingScreen() {
     }
   }, [hasAnyConnection, router]);
 
+  const shouldShowError =
+    showConnectionError || (timedOut && !hasAnyConnection);
+
+  useEffect(() => {
+    if (shouldShowError && !errorShownRef.current) {
+      errorShownRef.current = true;
+      void hapticError();
+    }
+
+    if (!shouldShowError) {
+      errorShownRef.current = false;
+    }
+  }, [shouldShowError]);
+
   const handleRetry = () => {
+    void hapticLight();
+
     setTimedOut(false);
     isConnectedRef.current = false;
     minDelayDoneRef.current = false;
+    errorShownRef.current = false;
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -130,6 +152,8 @@ export default function ConnectingScreen() {
   };
 
   const handleCancel = () => {
+    void hapticLight();
+
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -138,9 +162,6 @@ export default function ConnectingScreen() {
     handleCancelConnection();
     router.replace('/(tabs)');
   };
-
-  const shouldShowError =
-    showConnectionError || (timedOut && !hasAnyConnection);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
+import { hapticLight } from '../../lib/core/utils/haptics';
 import { useApp } from '../../lib/modules/app/context/AppContext';
 import SunkenPressable from '../../src/components/atoms/SunkenPressable';
 
@@ -41,7 +42,10 @@ export default function HomeScreen() {
           <View style={styles.actionsRow}>
             <SunkenPressable
               style={styles.cameraButton}
-              onPress={() => router.push('/camera')}
+              onPress={() => {
+                void hapticLight();
+                router.push('/camera');
+              }}
               activeScale={0.97}
               activeTranslateY={3}
               activeOpacity={0.92}
@@ -57,6 +61,8 @@ export default function HomeScreen() {
             <SunkenPressable
               style={styles.mapButton}
               onPress={() => {
+                void hapticLight();
+
                 if (selectedMapId) {
                   router.push(`/map-detail/${selectedMapId}` as any);
                 } else {
