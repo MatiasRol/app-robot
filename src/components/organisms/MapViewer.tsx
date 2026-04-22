@@ -52,6 +52,7 @@ interface MapViewerProps {
   robotPose?: RobotPose | null;
   goalPoint?: GoalPoint | null;
   waypoints?: WaypointPoint[];
+  showInfoBar?: boolean;
 }
 
 function pointsToSvgString(points: [number, number][], _height: number): string {
@@ -92,6 +93,7 @@ export default function MapViewer({
   robotPose = null,
   goalPoint = null,
   waypoints = [],
+  showInfoBar = true,
 }: MapViewerProps) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -350,13 +352,15 @@ export default function MapViewer({
 
   return (
     <View style={styles.container}>
-      <View style={styles.infoBar}>
-        <Text style={styles.infoText}>Res: {metadata.resolution} m/px</Text>
-        <Text style={styles.infoText}>
-          {metadata.width_px} × {metadata.height_px} px
-        </Text>
-        <Text style={styles.infoHint}>Doble tap = reset</Text>
-      </View>
+      {showInfoBar && (
+        <View style={styles.infoBar}>
+          <Text style={styles.infoText}>Res: {metadata.resolution} m/px</Text>
+          <Text style={styles.infoText}>
+            {metadata.width_px} × {metadata.height_px} px
+          </Text>
+          <Text style={styles.infoHint}>Doble tap = reset</Text>
+        </View>
+      )}
 
       <GestureDetector gesture={gesture}>
         <View style={styles.viewport}>

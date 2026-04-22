@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-
   topSection: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -112,7 +111,6 @@ const styles = StyleSheet.create({
     height: 330,
     marginTop: 8,
   },
-
   bottomPanel: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 24,
@@ -126,7 +124,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
   },
-
   cameraButton: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -147,20 +144,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
   },
-
   actionIcon: {
     width: 42,
     height: 42,
     marginBottom: 8,
   },
-
   cameraButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1B1B1B',
     textAlign: 'center',
   },
-
   mapButtonLabel: {
     fontSize: 11,
     fontWeight: '500',

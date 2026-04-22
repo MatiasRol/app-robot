@@ -63,7 +63,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [maps, setMaps] = useState<MapItem[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
   const [selectedMapId, setSelectedMapIdState] = useState<string | null>(null);
-
   const lastSyncedRobotMapId = useRef<string | null>(null);
 
   const selectedMap = maps.find((m) => m.id === selectedMapId) || null;
@@ -136,18 +135,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSelectedMapIdState(resolvedMapId);
     }
 
-    setMaps((prev) => {
-      const alreadyCorrect = prev.every(
-        (m) => Boolean(m.is_active) === (m.id === resolvedMapId)
-      );
-
-      if (alreadyCorrect) return prev;
-
-      return prev.map((m) => ({
+    setMaps((prev) =>
+      prev.map((m) => ({
         ...m,
         is_active: m.id === resolvedMapId,
-      }));
-    });
+      }))
+    );
 
     setRobots((prev) =>
       prev.map((robot) =>

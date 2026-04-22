@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -32,7 +31,6 @@ export default function CameraScreen() {
   const [showConnectingSplash, setShowConnectingSplash] = useState(true);
   const [showRetryModal, setShowRetryModal] = useState(false);
 
-  const isKeepAwakeActive = useRef(false);
   const splashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connectToRobotRef = useRef(connectToRobot);
@@ -84,12 +82,9 @@ export default function CameraScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      let isMounted = true;
-
       setShowRetryModal(false);
       startSplash();
 
-      // Solo intenta conectar automáticamente la primera vez
       if (!hasAttemptedConnectionRef.current) {
         connectToRobotRef.current().catch((error) => {
           console.error('Error conectando al robot:', error);
@@ -103,19 +98,11 @@ export default function CameraScreen() {
         parent.setOptions({ tabBarStyle: { display: 'none' } });
       }
 
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-
-      activateKeepAwakeAsync()
-        .then(() => {
-          if (isMounted) {
-            isKeepAwakeActive.current = true;
-          }
-        })
-        .catch(() => {});
+      ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.LANDSCAPE
+      ).catch(() => {});
 
       return () => {
-        isMounted = false;
-
         if (splashTimeoutRef.current) {
           clearTimeout(splashTimeoutRef.current);
           splashTimeoutRef.current = null;
@@ -143,22 +130,17 @@ export default function CameraScreen() {
           });
         }
 
-        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
-
-        if (isKeepAwakeActive.current) {
-          try {
-            deactivateKeepAwake();
-            isKeepAwakeActive.current = false;
-          } catch (error) {
-            console.error('Error desactivando keep awake:', error);
-          }
-        }
+        ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT
+        ).catch(() => {});
       };
     }, [navigation])
   );
 
   const handleBack = async () => {
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => {});
+    await ScreenOrientation.lockAsync(
+      ScreenOrientation.OrientationLock.PORTRAIT
+    ).catch(() => {});
     router.back();
   };
 

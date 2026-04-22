@@ -11,7 +11,6 @@ export default function RootLayout() {
       <AppProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <StatusBar hidden style="light" />
-
           <Stack
             screenOptions={{
               headerStyle: {

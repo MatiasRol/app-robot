@@ -28,8 +28,7 @@ export default function MapDetailScreen() {
   const navigate = useNavigateMode();
   const waypointEditor = useWaypointEditor();
 
-  const { sendNavigateToPose, sendFollowWaypoints } =
-    useCameraConnectionContext();
+  const { sendNavigateToPose, sendFollowWaypoints } = useCameraConnectionContext();
 
   const [mapMode, setMapMode] = useState<MapMode>('idle');
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
@@ -45,53 +44,26 @@ export default function MapDetailScreen() {
     pixelY: number
   ) => {
     if (mapMode === 'navigate') {
-      if (!navigate.navPoint || navigate.navPoint.confirmed) {
+      if (!navigate.navPoint) {
         navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
+      } else if (!navigate.navPoint.confirmed) {
+        navigate.handleSecondTap(pixelX, pixelY);
       }
-      return;
-    }
-
-    if (mapMode === 'route_edit') {
+    } else if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
         waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
+      } else {
+        waypointEditor.confirmWaypointOrientation(pixelX, pixelY);
       }
-    }
-  };
-
-  const handleDirectionDrag = (
-    _worldX: number,
-    _worldY: number,
-    pixelX: number,
-    pixelY: number
-  ) => {
-    if (
-      mapMode === 'navigate' &&
-      navigate.isDraggingOrientation &&
-      navigate.navPoint
-    ) {
-      navigate.updateOrientation(pixelX, pixelY);
-      return;
-    }
-
-    if (mapMode === 'route_edit' && waypointEditor.hasActiveRotating) {
-      waypointEditor.updateActiveWaypointOrientation(pixelX, pixelY);
-    }
-  };
-
-  const handleDirectionDragEnd = () => {
-    if (mapMode === 'navigate' && navigate.isDraggingOrientation) {
-      navigate.finishOrientation();
-      return;
-    }
-
-    if (mapMode === 'route_edit' && waypointEditor.hasActiveRotating) {
-      waypointEditor.finishActiveWaypointOrientation();
     }
   };
 
   const handlePlayRoute = (routeId: string) => {
     const route = mapRoutes.routes.find((r) => r.id === routeId);
-    if (!route?.waypoints?.length) return;
+    if (!route?.waypoints?.length) {
+      Alert.alert('Ruta', 'Esta ruta no tiene waypoints guardados.');
+      return;
+    }
 
     const waypointsForRos = (route.waypoints as any[])
       .map((wp) => {
@@ -129,13 +101,17 @@ export default function MapDetailScreen() {
       })
       .filter(Boolean);
 
-    if (waypointsForRos.length === 0) return;
+    if (waypointsForRos.length === 0) {
+      Alert.alert('Ruta', 'No se pudieron interpretar los waypoints de esta ruta.');
+      return;
+    }
 
     sendFollowWaypoints(waypointsForRos);
   };
 
   return (
     <View style={styles.container}>
+      {/* MAPA */}
       <View style={styles.mapCanvas}>
         <MapViewer
           mapData={mapData}
@@ -143,12 +119,6 @@ export default function MapDetailScreen() {
           error={mapError}
           robotPose={robotPose}
           onPointTap={handleMapTap}
-          onDirectionDrag={handleDirectionDrag}
-          onDirectionDragEnd={handleDirectionDragEnd}
-          isAdjustingWaypointDirection={
-            (mapMode === 'navigate' && navigate.isDraggingOrientation) ||
-            (mapMode === 'route_edit' && waypointEditor.hasActiveRotating)
-          }
           waypoints={
             mapMode === 'navigate' && navigate.navPoint
               ? [navigate.navPoint]
@@ -159,6 +129,7 @@ export default function MapDetailScreen() {
         />
       </View>
 
+      {/* BOTÓN ATRÁS */}
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Image
           source={require('../../assets/images/regreso.png')}
@@ -166,6 +137,7 @@ export default function MapDetailScreen() {
         />
       </TouchableOpacity>
 
+      {/* BOTONES FLOTANTES */}
       {mapMode === 'idle' && (
         <View style={styles.floatingButtons}>
           <MapActionButton
@@ -184,6 +156,7 @@ export default function MapDetailScreen() {
         </View>
       )}
 
+      {/* MODO NAVEGAR */}
       {mapMode === 'navigate' && (
         <View style={styles.navigateBar}>
           <TouchableOpacity
@@ -219,12 +192,13 @@ export default function MapDetailScreen() {
             {!navigate.navPoint
               ? 'Selecciona un punto de navegación'
               : !navigate.navPoint.confirmed
-              ? 'Arrastra para fijar la orientación'
+              ? 'Toca de nuevo para fijar la orientación'
               : 'Listo para navegar'}
           </Text>
         </View>
       )}
 
+      {/* BOTTOM SHEET RUTAS */}
       {(mapMode === 'route_list' || mapMode === 'route_edit') && (
         <MapBottomSheet
           mapName={mapName || `Mapa ${id}`}
@@ -240,7 +214,7 @@ export default function MapDetailScreen() {
           }}
           onPlayRoute={handlePlayRoute}
           onDeleteRoute={mapRoutes.onDeleteRoute}
-          isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
+          isEditingWaypoints={mapMode === 'route_edit'}
           onAcceptWaypoints={() => {
             if (editingRouteId && waypointEditor.waypoints.length > 0) {
               mapRoutes.saveWaypoints(
@@ -248,10 +222,7 @@ export default function MapDetailScreen() {
                 waypointEditor.waypoints
               );
             } else if (editingRouteId) {
-              Alert.alert(
-                'Ruta',
-                'Agrega al menos un waypoint antes de guardar.'
-              );
+              Alert.alert('Ruta', 'Agrega al menos un waypoint antes de guardar.');
             }
 
             waypointEditor.clearWaypoints();
@@ -261,6 +232,7 @@ export default function MapDetailScreen() {
         />
       )}
 
+      {/* MODALES DE RUTA */}
       <RouteModal {...mapRoutes.addModalProps} />
       <RouteModal {...mapRoutes.editModalProps} />
 
