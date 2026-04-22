@@ -4,12 +4,12 @@ import {
   Image,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
 import { useApp } from '../../lib/modules/app/context/AppContext';
+import SunkenPressable from '../../src/components/atoms/SunkenPressable';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -39,10 +39,12 @@ export default function HomeScreen() {
 
         <View style={styles.bottomPanel}>
           <View style={styles.actionsRow}>
-            <TouchableOpacity
+            <SunkenPressable
               style={styles.cameraButton}
               onPress={() => router.push('/camera')}
-              activeOpacity={0.85}
+              activeScale={0.97}
+              activeTranslateY={3}
+              activeOpacity={0.92}
             >
               <Image
                 source={require('../../assets/images/camara.png')}
@@ -50,9 +52,9 @@ export default function HomeScreen() {
                 resizeMode="contain"
               />
               <Text style={styles.cameraButtonText}>Ver cámara</Text>
-            </TouchableOpacity>
+            </SunkenPressable>
 
-            <TouchableOpacity
+            <SunkenPressable
               style={styles.mapButton}
               onPress={() => {
                 if (selectedMapId) {
@@ -61,7 +63,9 @@ export default function HomeScreen() {
                   router.push('/maps');
                 }
               }}
-              activeOpacity={0.85}
+              activeScale={0.97}
+              activeTranslateY={3}
+              activeOpacity={0.92}
             >
               <Image
                 source={require('../../assets/images/mapaBoton.png')}
@@ -70,7 +74,7 @@ export default function HomeScreen() {
               />
               <Text style={styles.mapButtonLabel}>Mapa activo</Text>
               <Text style={styles.mapButtonTitle}>{selectedMapName}</Text>
-            </TouchableOpacity>
+            </SunkenPressable>
           </View>
         </View>
       </View>
