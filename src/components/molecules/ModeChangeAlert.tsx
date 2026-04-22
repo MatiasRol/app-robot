@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../../lib/core/constants/Colors';
 import { OperationMode } from 'lib/modules/maps/hooks/useOperationMode';
+import SunkenPressable from '../atoms/SunkenPressable';
 
 interface ModeChangeAlertProps {
   visible: boolean;
@@ -29,13 +30,27 @@ export function ModeChangeAlert({
           </Text>
           ?
         </Text>
+
         <View style={styles.buttons}>
-          <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+          <SunkenPressable
+            style={styles.cancelBtn}
+            onPress={onCancel}
+            activeScale={0.97}
+            activeTranslateY={3}
+            activeOpacity={0.92}
+          >
             <Text style={styles.cancelText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm}>
+          </SunkenPressable>
+
+          <SunkenPressable
+            style={styles.confirmBtn}
+            onPress={onConfirm}
+            activeScale={0.97}
+            activeTranslateY={3}
+            activeOpacity={0.92}
+          >
             <Text style={styles.confirmText}>Confirmar</Text>
-          </TouchableOpacity>
+          </SunkenPressable>
         </View>
       </View>
     </View>
@@ -77,7 +92,10 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
   },
-  buttons: { flexDirection: 'row', gap: 12 },
+  buttons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   cancelBtn: {
     flex: 1,
     paddingVertical: 13,
@@ -85,7 +103,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.button,
     alignItems: 'center',
   },
-  cancelText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
   confirmBtn: {
     flex: 1,
     paddingVertical: 13,
@@ -93,5 +115,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
   },
-  confirmText: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  confirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
 });
