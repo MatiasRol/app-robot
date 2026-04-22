@@ -25,7 +25,9 @@ function AppShell() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ActiveMapSync />
-      <StatusBar style="light" backgroundColor={Colors.background} />
+
+      <StatusBar hidden />
+
       <Stack
         screenOptions={{
           headerStyle: {
@@ -39,6 +41,7 @@ function AppShell() {
             backgroundColor: Colors.background,
           },
           animation: 'slide_from_right',
+          statusBarHidden: true,
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -48,14 +51,22 @@ function AppShell() {
             headerShown: false,
             animation: 'fade',
             gestureEnabled: false,
+            statusBarHidden: true,
           }}
         />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+            statusBarHidden: true,
+          }}
+        />
         <Stack.Screen
           name="map-detail/[id]"
           options={{
             headerShown: false,
             presentation: 'card',
+            statusBarHidden: true,
           }}
         />
         <Stack.Screen
@@ -63,6 +74,7 @@ function AppShell() {
           options={{
             title: 'Configuración del Robot',
             presentation: 'modal',
+            statusBarHidden: true,
           }}
         />
       </Stack>
