@@ -5,6 +5,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import { Colors } from '../../lib/core/constants/Colors';
+import {
+  hapticError,
+  hapticLight,
+  hapticSelection,
+} from '../../lib/core/utils/haptics';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import JoystickControl from '../../src/components/organisms/JoystickControl';
 
@@ -35,7 +40,9 @@ export default function CameraScreen() {
 
   const connectToRobotRef = useRef(connectToRobot);
   const hasAttemptedConnectionRef = useRef(hasAttemptedConnection);
+  const stopRobotRef = useRef(stopRobot);
   const streamURLRef = useRef<string | null>(null);
+  const retryModalShownRef = useRef(false);
 
   useEffect(() => {
     connectToRobotRef.current = connectToRobot;
@@ -44,6 +51,10 @@ export default function CameraScreen() {
   useEffect(() => {
     hasAttemptedConnectionRef.current = hasAttemptedConnection;
   }, [hasAttemptedConnection]);
+
+  useEffect(() => {
+    stopRobotRef.current = stopRobot;
+  }, [stopRobot]);
 
   const streamURL = useMemo(() => {
     try {
@@ -59,10 +70,23 @@ export default function CameraScreen() {
 
   useEffect(() => {
     streamURLRef.current = streamURL;
+
     if (streamURL) {
+      retryModalShownRef.current = false;
       setShowRetryModal(false);
     }
   }, [streamURL]);
+
+  useEffect(() => {
+    if (showRetryModal && !retryModalShownRef.current) {
+      retryModalShownRef.current = true;
+      void hapticError();
+    }
+
+    if (!showRetryModal) {
+      retryModalShownRef.current = false;
+    }
+  }, [showRetryModal]);
 
   const startSplash = () => {
     setShowConnectingSplash(true);
@@ -83,6 +107,7 @@ export default function CameraScreen() {
   useFocusEffect(
     React.useCallback(() => {
       setShowRetryModal(false);
+      retryModalShownRef.current = false;
       startSplash();
 
       if (!hasAttemptedConnectionRef.current) {
@@ -107,6 +132,16 @@ export default function CameraScreen() {
           clearTimeout(splashTimeoutRef.current);
           splashTimeoutRef.current = null;
         }
+
+        try {
+          stopRobotRef.current();
+        } catch (error) {
+          console.error('Error deteniendo robot al salir de cámara:', error);
+        }
+
+        setMode('view');
+        setShowModeAlert(false);
+        setPendingMode(null);
 
         navigation.setOptions({
           tabBarStyle: {
@@ -138,6 +173,14 @@ export default function CameraScreen() {
   );
 
   const handleBack = async () => {
+    void hapticLight();
+
+    try {
+      stopRobotRef.current();
+    } catch (error) {
+      console.error('Error deteniendo robot al volver:', error);
+    }
+
     await ScreenOrientation.lockAsync(
       ScreenOrientation.OrientationLock.PORTRAIT
     ).catch(() => {});
@@ -145,7 +188,9 @@ export default function CameraScreen() {
   };
 
   const handleRetryConnection = () => {
+    void hapticLight();
     setShowRetryModal(false);
+    retryModalShownRef.current = false;
     startSplash();
 
     connectToRobotRef.current().catch((error) => {
@@ -154,23 +199,36 @@ export default function CameraScreen() {
   };
 
   const handleCancelRetry = () => {
+    void hapticLight();
     setShowRetryModal(false);
   };
 
   const handleModeChange = (newMode: CameraMode) => {
     if (newMode !== mode) {
+      void hapticSelection();
       setPendingMode(newMode);
       setShowModeAlert(true);
     }
   };
 
   const confirmModeChange = () => {
+    void hapticLight();
+
+    if (mode === 'control' && pendingMode === 'view') {
+      try {
+        stopRobotRef.current();
+      } catch (error) {
+        console.error('Error deteniendo robot al cambiar a vista:', error);
+      }
+    }
+
     if (pendingMode) setMode(pendingMode);
     setShowModeAlert(false);
     setPendingMode(null);
   };
 
   const cancelModeChange = () => {
+    void hapticLight();
     setShowModeAlert(false);
     setPendingMode(null);
   };
