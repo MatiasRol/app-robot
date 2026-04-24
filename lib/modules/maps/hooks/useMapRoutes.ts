@@ -11,6 +11,10 @@ type RouteScheduleMeta = {
   label: string;
 };
 
+type RouteRecord = Route & {
+  scheduleMeta?: RouteScheduleMeta | null;
+};
+
 function buildScheduleLabel(days: string[], time: string) {
   const DAY_LABELS: Record<string, string> = {
     mon: 'L',
@@ -53,8 +57,95 @@ function uiWaypointsToDb(waypoints: WaypointPoint[]) {
   }));
 }
 
+function dbWaypointsToUi(waypoints: any[] = []): WaypointPoint[] {
+  return waypoints
+    .map((wp) => {
+      if (!wp?.position || !wp?.orientation) return null;
+
+      const x = Number(wp.position.x ?? 0);
+      const y = Number(wp.position.y ?? 0);
+
+      const qx = Number(wp.orientation.x ?? 0);
+      const qy = Number(wp.orientation.y ?? 0);
+      const qz = Number(wp.orientation.z ?? 0);
+      const qw = Number(wp.orientation.w ?? 1);
+
+      const orientationAngle = 2 * Math.atan2(qz, qw);
+
+      return {
+        pixelX: 0,
+        pixelY: 0,
+        worldX: x,
+        worldY: y,
+        orientationAngle,
+        quaternion: {
+          x: qx,
+          y: qy,
+          z: qz,
+          w: qw,
+        },
+        confirmed: true,
+      } satisfies WaypointPoint;
+    })
+    .filter(Boolean) as WaypointPoint[];
+}
+
+function parseScheduleMeta(scheduleValue: any): RouteScheduleMeta | null {
+  if (!scheduleValue) return null;
+
+  if (typeof scheduleValue === 'object') {
+    const days = Array.isArray(scheduleValue.days) ? scheduleValue.days : [];
+    const time =
+      typeof scheduleValue.time === 'string' ? scheduleValue.time : '';
+    const recordRoute = Boolean(scheduleValue.recordRoute);
+    const label =
+      typeof scheduleValue.label === 'string'
+        ? scheduleValue.label
+        : buildScheduleLabel(days, time);
+
+    return {
+      days,
+      time,
+      recordRoute,
+      label,
+    };
+  }
+
+  if (typeof scheduleValue === 'string') {
+    try {
+      const parsed = JSON.parse(scheduleValue);
+
+      if (parsed && typeof parsed === 'object') {
+        const days = Array.isArray(parsed.days) ? parsed.days : [];
+        const time = typeof parsed.time === 'string' ? parsed.time : '';
+        const recordRoute = Boolean(parsed.recordRoute);
+        const label =
+          typeof parsed.label === 'string'
+            ? parsed.label
+            : buildScheduleLabel(days, time);
+
+        return {
+          days,
+          time,
+          recordRoute,
+          label,
+        };
+      }
+    } catch {
+      return {
+        days: [],
+        time: '',
+        recordRoute: false,
+        label: scheduleValue,
+      };
+    }
+  }
+
+  return null;
+}
+
 export function useMapRoutes(mapId: string) {
-  const [routes, setRoutes] = useState<Route[]>([]);
+  const [routes, setRoutes] = useState<RouteRecord[]>([]);
   const [routesLoading, setRoutesLoading] = useState(true);
 
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
@@ -82,16 +173,18 @@ export function useMapRoutes(mapId: string) {
 
       if (error) throw error;
 
-      const adapted: Route[] = (data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        mapId: item.map_id,
-        schedule:
-          typeof item.schedule === 'string'
-            ? item.schedule
-            : item.schedule?.label ?? 'Sin horario',
-        waypoints: item.waypoints || [],
-      }));
+      const adapted: RouteRecord[] = (data || []).map((item: any) => {
+        const scheduleMeta = parseScheduleMeta(item.schedule);
+
+        return {
+          id: item.id,
+          name: item.name,
+          mapId: item.map_id,
+          schedule: scheduleMeta?.label ?? 'Sin horario',
+          scheduleMeta,
+          waypoints: item.waypoints || [],
+        };
+      });
 
       setRoutes(adapted);
     } catch (err) {
@@ -125,6 +218,12 @@ export function useMapRoutes(mapId: string) {
           name: data.name,
           mapId: data.map_id,
           schedule: data.schedule,
+          scheduleMeta: {
+            days: [],
+            time: '',
+            recordRoute: false,
+            label: data.schedule,
+          },
           waypoints: [],
         },
       ]);
@@ -176,16 +275,85 @@ export function useMapRoutes(mapId: string) {
 
     if (error) throw error;
 
-    const created: Route = {
+    const created: RouteRecord = {
       id: data.id,
       name: data.name,
       mapId: data.map_id,
       schedule: scheduleMeta.label,
+      scheduleMeta,
       waypoints,
     };
 
     setRoutes((prev) => [...prev, created]);
     return created;
+  };
+
+  const updateRoute = async ({
+    routeId,
+    name,
+    selectedDays,
+    executeAt,
+    recordRoute,
+    waypoints,
+  }: {
+    routeId: string;
+    name: string;
+    selectedDays: string[];
+    executeAt: string;
+    recordRoute: boolean;
+    waypoints: WaypointPoint[];
+  }) => {
+    const cleanName = name.trim();
+    if (!routeId || !cleanName) return false;
+    if (!waypoints.length) return false;
+
+    const scheduleMeta: RouteScheduleMeta = {
+      days: selectedDays,
+      time: executeAt,
+      recordRoute,
+      label: buildScheduleLabel(selectedDays, executeAt),
+    };
+
+    const { error } = await supabase
+      .from('routes')
+      .update({
+        name: cleanName,
+        schedule: JSON.stringify(scheduleMeta),
+        waypoints: uiWaypointsToDb(waypoints),
+      })
+      .eq('id', routeId);
+
+    if (error) throw error;
+
+    setRoutes((prev) =>
+      prev.map((route) =>
+        route.id === routeId
+          ? {
+              ...route,
+              name: cleanName,
+              schedule: scheduleMeta.label,
+              scheduleMeta,
+              waypoints,
+            }
+          : route
+      )
+    );
+
+    return true;
+  };
+
+  const getRouteEditData = (routeId: string) => {
+    const route = routes.find((r) => r.id === routeId);
+    if (!route) return null;
+
+    return {
+      id: route.id,
+      name: route.name,
+      selectedDays: route.scheduleMeta?.days ?? [],
+      executeAt: route.scheduleMeta?.time ?? '',
+      recordRoute: route.scheduleMeta?.recordRoute ?? false,
+      waypoints: dbWaypointsToUi(route.waypoints as any[]),
+    };
   };
 
   const handleEditRoute = (routeId: string, name: string) => {
@@ -208,7 +376,17 @@ export function useMapRoutes(mapId: string) {
       setRoutes((prev) =>
         prev.map((r) =>
           r.id === editingRouteId
-            ? { ...r, name: name.trim(), schedule: formatDate(date) }
+            ? {
+                ...r,
+                name: name.trim(),
+                schedule: formatDate(date),
+                scheduleMeta: {
+                  days: [],
+                  time: '',
+                  recordRoute: false,
+                  label: formatDate(date),
+                },
+              }
             : r
         )
       );
@@ -223,6 +401,7 @@ export function useMapRoutes(mapId: string) {
 
   const saveWaypoints = async (routeId: string, waypoints: WaypointPoint[]) => {
     try {
+      const route = routes.find((r) => r.id === routeId);
       const waypointsJson = uiWaypointsToDb(waypoints);
 
       const { error } = await supabase
@@ -234,7 +413,13 @@ export function useMapRoutes(mapId: string) {
 
       setRoutes((prev) =>
         prev.map((r) =>
-          r.id === routeId ? { ...r, waypoints } : r
+          r.id === routeId
+            ? {
+                ...r,
+                waypoints,
+                scheduleMeta: r.scheduleMeta ?? route?.scheduleMeta ?? null,
+              }
+            : r
         )
       );
 
@@ -273,9 +458,11 @@ export function useMapRoutes(mapId: string) {
   };
 
   return {
-    routes,
+    routes: routes as Route[],
     routesLoading,
     createRoute,
+    updateRoute,
+    getRouteEditData,
     onEditRoute: handleEditRoute,
     onDeleteRoute: handleDeleteRoute,
     saveWaypoints,

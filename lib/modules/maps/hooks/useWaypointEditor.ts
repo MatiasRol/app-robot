@@ -85,6 +85,11 @@ export function useWaypointEditor() {
     setActiveIndex(null);
   };
 
+  const loadWaypoints = (nextWaypoints: WaypointPoint[]) => {
+    setWaypoints(nextWaypoints);
+    setActiveIndex(null);
+  };
+
   const removeWaypoint = (index: number) => {
     setWaypoints((prev) => prev.filter((_, i) => i !== index));
 
@@ -109,6 +114,7 @@ export function useWaypointEditor() {
     addWaypointFirstTap,
     updateActiveWaypointOrientation,
     confirmWaypointOrientation,
+    loadWaypoints,
     removeWaypoint,
     clearWaypoints,
   };
