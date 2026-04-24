@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Colors } from '../../lib/core/constants/Colors';
 import { MapMode } from '../../lib/core/types';
+import { worldToPixel } from '../../lib/core/utils/mapCoordinates';
 import {
   hapticError,
   hapticLight,
@@ -132,14 +133,18 @@ export default function MapDetailScreen() {
     setStatusAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  const openCreateRoute = () => {
-    void hapticLight();
-    waypointEditor.clearWaypoints();
+  const resetRouteForm = () => {
     setEditingRouteId(null);
     setRouteNameDraft('');
     setSelectedDays([]);
     setExecuteAt('');
     setRecordRoute(false);
+    waypointEditor.clearWaypoints();
+  };
+
+  const openCreateRoute = () => {
+    void hapticLight();
+    resetRouteForm();
     setShowCreateRouteModal(true);
     setMapMode('route_edit');
   };
@@ -147,10 +152,48 @@ export default function MapDetailScreen() {
   const closeCreateRoute = () => {
     void hapticLight();
     setShowCreateRouteModal(false);
-    waypointEditor.clearWaypoints();
-    setEditingRouteId(null);
+    resetRouteForm();
     setMapMode('route_list');
     bottomSheet.expandBottomSheet();
+  };
+
+  const openEditRoute = (routeId: string) => {
+    void hapticLight();
+
+    const routeData = mapRoutes.getRouteEditData(routeId);
+    if (!routeData) {
+      showStatus(
+        'Ruta no encontrada',
+        'No se pudieron cargar los datos de la ruta.',
+        'error'
+      );
+      return;
+    }
+
+    const hydratedWaypoints = routeData.waypoints.map((wp) => {
+      if (!mapData?.metadata) return wp;
+
+      const { pixelX, pixelY } = worldToPixel(
+        wp.worldX,
+        wp.worldY,
+        mapData.metadata as any
+      );
+
+      return {
+        ...wp,
+        pixelX,
+        pixelY,
+      };
+    });
+
+    setEditingRouteId(routeData.id);
+    setRouteNameDraft(routeData.name);
+    setSelectedDays(routeData.selectedDays);
+    setExecuteAt(routeData.executeAt);
+    setRecordRoute(routeData.recordRoute);
+    waypointEditor.loadWaypoints(hydratedWaypoints);
+    setShowCreateRouteModal(true);
+    setMapMode('route_edit');
   };
 
   const toggleDay = (day: string) => {
@@ -176,6 +219,38 @@ export default function MapDetailScreen() {
     }
 
     try {
+      if (editingRouteId) {
+        const updated = await mapRoutes.updateRoute({
+          routeId: editingRouteId,
+          name: routeNameDraft,
+          selectedDays,
+          executeAt,
+          recordRoute,
+          waypoints: waypointEditor.waypoints,
+        });
+
+        if (!updated) {
+          showStatus(
+            'No se pudo guardar',
+            'La ruta no se pudo actualizar correctamente.',
+            'error'
+          );
+          return;
+        }
+
+        setShowCreateRouteModal(false);
+        resetRouteForm();
+        setMapMode('route_list');
+        bottomSheet.expandBottomSheet();
+
+        showStatus(
+          'Ruta actualizada',
+          'La ruta se actualizó correctamente.',
+          'success'
+        );
+        return;
+      }
+
       const created = await mapRoutes.createRoute({
         name: routeNameDraft,
         selectedDays,
@@ -194,8 +269,7 @@ export default function MapDetailScreen() {
       }
 
       setShowCreateRouteModal(false);
-      waypointEditor.clearWaypoints();
-      setEditingRouteId(null);
+      resetRouteForm();
       setMapMode('route_list');
       bottomSheet.expandBottomSheet();
 
@@ -207,8 +281,10 @@ export default function MapDetailScreen() {
     } catch (error) {
       console.error(error);
       showStatus(
-        'No se pudo guardar',
-        'Ocurrió un error al guardar la ruta.',
+        editingRouteId ? 'No se pudo actualizar' : 'No se pudo guardar',
+        editingRouteId
+          ? 'Ocurrió un error al actualizar la ruta.'
+          : 'Ocurrió un error al guardar la ruta.',
         'error'
       );
     }
@@ -509,12 +585,7 @@ export default function MapDetailScreen() {
             panHandlers={bottomSheet.panHandlers}
             routes={mapRoutes.routes}
             onAddRoute={openCreateRoute}
-            onEditRouteWaypoints={(routeId) => {
-              void hapticLight();
-              waypointEditor.clearWaypoints();
-              setEditingRouteId(routeId);
-              setMapMode('route_edit');
-            }}
+            onEditRouteWaypoints={openEditRoute}
             onPlayRoute={handlePlayRoute}
             onDeleteRoute={mapRoutes.onDeleteRoute}
             isEditingWaypoints={mapMode === 'route_edit' && editingRouteId !== null}
