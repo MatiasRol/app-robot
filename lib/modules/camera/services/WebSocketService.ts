@@ -197,6 +197,15 @@ export class WebSocketService {
     });
   }
 
+  sendRecordingCommand(value: 'on' | 'off') {
+    if (!this.isConnected()) return;
+
+    this.sendJson({
+      type: 'grabacion',
+      value,
+    });
+  }
+
   emergencyStop() {
     this.stopRobot();
 

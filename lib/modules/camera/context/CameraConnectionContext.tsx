@@ -35,6 +35,7 @@ interface CameraConnectionContextType {
   stopRobotPositionStream: () => void;
   sendVelocityCommand: (linear: number, angular: number) => void;
   stopRobot: () => void;
+  sendRecordingCommand: (value: 'on' | 'off') => void;
   sendNavigateToPose: (
     x: number,
     y: number,
@@ -300,6 +301,14 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
   };
 
+  const sendRecordingCommand = (value: 'on' | 'off') => {
+    if (commandService.current && commandService.current.isConnected()) {
+      commandService.current.sendRecordingCommand(value);
+    } else {
+      console.warn('⚠️ Comandos no disponibles - grabacion ignorada');
+    }
+  };
+
   const sendNavigateToPose = (
     x: number,
     y: number,
@@ -359,6 +368,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         stopRobotPositionStream,
         sendVelocityCommand,
         stopRobot,
+        sendRecordingCommand,
         sendNavigateToPose,
         sendFollowWaypoints,
         isFullyConnected,

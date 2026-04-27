@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -59,6 +59,7 @@ export default function MapDetailScreen() {
   const {
     connectionStatus,
     stopRobot,
+    sendRecordingCommand,
     sendNavigateToPose,
     sendFollowWaypoints,
   } = useCameraConnectionContext();
@@ -88,6 +89,7 @@ export default function MapDetailScreen() {
   const opMode = useOperationMode();
 
   const commandsConnected = connectionStatus.commands === 'connected';
+  const recordingCommandActiveRef = useRef(false);
 
   useEffect(() => {
     if (!isNavigatingNow) {
@@ -133,7 +135,15 @@ export default function MapDetailScreen() {
     setStatusAlert((prev) => ({ ...prev, visible: false }));
   };
 
+  const stopRecordingIfNeeded = () => {
+    if (recordingCommandActiveRef.current && commandsConnected) {
+      sendRecordingCommand('off');
+    }
+    recordingCommandActiveRef.current = false;
+  };
+
   const resetRouteForm = () => {
+    stopRecordingIfNeeded();
     setEditingRouteId(null);
     setRouteNameDraft('');
     setSelectedDays([]);
@@ -159,6 +169,8 @@ export default function MapDetailScreen() {
 
   const openEditRoute = (routeId: string) => {
     void hapticLight();
+
+    stopRecordingIfNeeded();
 
     const routeData = mapRoutes.getRouteEditData(routeId);
     if (!routeData) {
@@ -205,6 +217,28 @@ export default function MapDetailScreen() {
     );
   };
 
+  const handleToggleRecordRoute = () => {
+    void hapticSelection();
+
+    const nextValue = !recordRoute;
+    setRecordRoute(nextValue);
+
+    if (!commandsConnected) {
+      if (nextValue) {
+        showStatus(
+          'Sin conexión',
+          'No hay conexión de comandos para iniciar la grabación.',
+          'warning'
+        );
+      }
+      recordingCommandActiveRef.current = false;
+      return;
+    }
+
+    sendRecordingCommand(nextValue ? 'on' : 'off');
+    recordingCommandActiveRef.current = nextValue;
+  };
+
   const handleConfirmCreateRoute = async () => {
     if (!routeNameDraft.trim()) {
       void hapticWarning();
@@ -238,6 +272,7 @@ export default function MapDetailScreen() {
           return;
         }
 
+        stopRecordingIfNeeded();
         setShowCreateRouteModal(false);
         resetRouteForm();
         setMapMode('route_list');
@@ -268,6 +303,7 @@ export default function MapDetailScreen() {
         return;
       }
 
+      stopRecordingIfNeeded();
       setShowCreateRouteModal(false);
       resetRouteForm();
       setMapMode('route_list');
@@ -637,10 +673,7 @@ export default function MapDetailScreen() {
         executeAt={executeAt}
         onChangeExecuteAt={(value) => setExecuteAt(sanitizeTimeInput(value))}
         recordRoute={recordRoute}
-        onToggleRecordRoute={() => {
-          void hapticSelection();
-          setRecordRoute((prev) => !prev);
-        }}
+        onToggleRecordRoute={handleToggleRecordRoute}
         onClose={closeCreateRoute}
         onConfirm={handleConfirmCreateRoute}
       />
