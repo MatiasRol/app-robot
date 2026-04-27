@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -12,14 +11,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../lib/core/constants/Colors';
 import { hapticLight } from '../../lib/core/utils/haptics';
 import { useHomeActionMode } from '../../lib/modules/app/hooks/useHomeActionMode';
+import { useHomeRecordingControl } from '../../lib/modules/app/hooks/useHomeRecordingControl';
 import { useApp } from '../../lib/modules/app/context/AppContext';
+import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
 import SunkenPressable from '../../src/components/atoms/SunkenPressable';
+import HomeRecordingConfirmModal from '../../src/components/molecules/HomeRecordingConfirmModal';
 import HomeSideButtons from '../../src/components/organisms/HomeSideButtons';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { robots, selectedMapId, selectedMap } = useApp();
   const { isMediaMode, toggleActionMode } = useHomeActionMode();
+
+  const {
+    connectionStatus,
+    sendRecordingCommand,
+    isRobotRecording,
+    robotRecordingState,
+  } = useCameraConnectionContext();
+
+  const commandsConnected = connectionStatus.commands === 'connected';
+
+  const {
+    showRecordingConfirm,
+    isRecordingActive,
+    handleRecordingPress,
+    cancelRecordingAction,
+    confirmRecordingAction,
+  } = useHomeRecordingControl({
+    commandsConnected,
+    isRobotRecording,
+    robotRecordingState,
+    sendRecordingCommand,
+  });
 
   const robotName = robots[0]?.name ?? 'Robot 1';
   const selectedMapName = selectedMap?.name ?? 'Sin mapa activo';
@@ -44,15 +68,9 @@ export default function HomeScreen() {
 
           <HomeSideButtons
             isMediaMode={isMediaMode}
-            isRecordingActive={false}
+            isRecordingActive={isRecordingActive}
             onToggleMode={toggleActionMode}
-            onRecordingPress={() => {
-              void hapticLight();
-              Alert.alert(
-                'Grabación',
-                'La lógica del botón lateral de grabación la hacemos en la siguiente tarea.'
-              );
-            }}
+            onRecordingPress={handleRecordingPress}
           />
         </View>
 
@@ -143,6 +161,13 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+
+        <HomeRecordingConfirmModal
+          visible={showRecordingConfirm}
+          isRecordingActive={isRecordingActive}
+          onConfirm={confirmRecordingAction}
+          onCancel={cancelRecordingAction}
+        />
       </View>
     </SafeAreaView>
   );

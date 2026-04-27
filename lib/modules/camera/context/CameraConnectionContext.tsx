@@ -2,11 +2,12 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
-const VIDEO_SERVER_URL = 'http://XicoCamara:8889';
+const VIDEO_SERVER_URL = 'http://XicoCamara.local:8889';
 const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://Xico:9090';
+const COMMAND_SERVER_URL = 'ws://Xico.local:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
+export type RobotRecordingState = 'idle' | 'starting' | 'recording' | 'stopping';
 
 type LiveRobotPose = {
   worldX: number;
@@ -27,6 +28,8 @@ interface CameraConnectionContextType {
   showConnectionError: boolean;
   currentMapId: string | null;
   robotPose: LiveRobotPose | null;
+  robotRecordingState: RobotRecordingState;
+  isRobotRecording: boolean;
   connectToRobot: () => Promise<void>;
   disconnectFromRobot: () => void;
   handleRetryConnection: () => void;
@@ -63,6 +66,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const [isConnecting, setIsConnecting] = useState(false);
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [robotPose, setRobotPose] = useState<LiveRobotPose | null>(null);
+  const [robotRecordingState, setRobotRecordingState] =
+    useState<RobotRecordingState>('idle');
 
   const canShowError = useRef(true);
   const isDisconnecting = useRef(false);
@@ -108,6 +113,20 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         yaw: data.yaw,
       });
       return;
+    }
+
+    if (data.type === 'grabacion' && typeof data.message === 'string') {
+      const normalized = data.message.trim().toLowerCase();
+
+      if (normalized === 'grabacion iniciada') {
+        setRobotRecordingState('recording');
+        return;
+      }
+
+      if (normalized === 'grabacion finalizada') {
+        setRobotRecordingState('idle');
+        return;
+      }
     }
 
     if (data.type === 'pos_detenido') {
@@ -267,6 +286,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     setRemoteStream(null);
     setCurrentMapId(null);
     setRobotPose(null);
+    setRobotRecordingState('idle');
     setVideoConnectionState('disconnected');
     setCommandConnectionState('disconnected');
     setShowConnectionError(false);
@@ -303,6 +323,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
 
   const sendRecordingCommand = (value: 'on' | 'off') => {
     if (commandService.current && commandService.current.isConnected()) {
+      setRobotRecordingState(value === 'on' ? 'starting' : 'stopping');
       commandService.current.sendRecordingCommand(value);
     } else {
       console.warn('⚠️ Comandos no disponibles - grabacion ignorada');
@@ -347,6 +368,9 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     videoConnectionState === 'connected' &&
     commandConnectionState === 'connected';
 
+  const isRobotRecording =
+    robotRecordingState === 'starting' || robotRecordingState === 'recording';
+
   return (
     <CameraConnectionContext.Provider
       value={{
@@ -360,6 +384,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         showConnectionError,
         currentMapId,
         robotPose,
+        robotRecordingState,
+        isRobotRecording,
         connectToRobot,
         disconnectFromRobot,
         handleRetryConnection,
