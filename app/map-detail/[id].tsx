@@ -6,14 +6,14 @@ import { MapDetailScene } from '../../src/components/organisms/MapDetailScene';
 export default function MapDetailScreen() {
   const router = useRouter();
 
-  const { mapViewerProps, overlayProps } = useMapDetailController(() =>
-    router.back()
-  );
+  const { mapViewerProps, overlayProps, pointConfirmProps } =
+    useMapDetailController(() => router.back());
 
   return (
     <MapDetailScene
       mapViewerProps={mapViewerProps}
       overlayProps={overlayProps}
+      pointConfirmProps={pointConfirmProps}
     />
   );
 }

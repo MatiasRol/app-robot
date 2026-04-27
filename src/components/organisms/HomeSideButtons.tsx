@@ -1,6 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import ControlIcon from '../../../assets/images/control.svg';
+import GaleriaIcon from '../../../assets/images/galeria.svg';
+import GrabarIcon from '../../../assets/images/grabar.svg';
 import SunkenPressable from '../atoms/SunkenPressable';
 
 interface HomeSideButtonsProps {
@@ -29,11 +31,11 @@ export default function HomeSideButtons({
           activeTranslateY={2}
           activeOpacity={0.92}
         >
-          <Ionicons
-            name="game-controller-outline"
-            size={22}
-            color={isMediaMode ? '#124BAF' : '#0E2A57'}
-          />
+          {isMediaMode ? (
+            <ControlIcon width={22} height={22} />
+          ) : (
+            <GaleriaIcon width={22} height={22} />
+          )}
         </SunkenPressable>
 
         <SunkenPressable
@@ -46,10 +48,10 @@ export default function HomeSideButtons({
           activeTranslateY={2}
           activeOpacity={0.92}
         >
-          <Ionicons
-            name="videocam-outline"
-            size={22}
-            color={isRecordingActive ? '#D92D20' : '#2E6BFF'}
+          <GrabarIcon
+            width={22}
+            height={22}
+            color={isRecordingActive ? '#D92D20' : '#3074E9'}
           />
         </SunkenPressable>
       </View>

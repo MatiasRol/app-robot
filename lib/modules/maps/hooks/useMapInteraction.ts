@@ -35,6 +35,18 @@ interface UseMapInteractionParams {
   isNavigatingNow: boolean;
   navigate: NavigateLike;
   waypointEditor: WaypointEditorLike;
+  requestNavigatePointConfirmation: (point: {
+    worldX: number;
+    worldY: number;
+    pixelX: number;
+    pixelY: number;
+  }) => void;
+  requestRouteWaypointConfirmation: (point: {
+    worldX: number;
+    worldY: number;
+    pixelX: number;
+    pixelY: number;
+  }) => void;
 }
 
 export function useMapInteraction({
@@ -42,6 +54,8 @@ export function useMapInteraction({
   isNavigatingNow,
   navigate,
   waypointEditor,
+  requestNavigatePointConfirmation,
+  requestRouteWaypointConfirmation,
 }: UseMapInteractionParams) {
   const handleMapTap = (
     worldX: number,
@@ -54,7 +68,12 @@ export function useMapInteraction({
     if (mapMode === 'navigate') {
       if (!navigate.navPoint) {
         void hapticSelection();
-        navigate.handleFirstTap(pixelX, pixelY, worldX, worldY);
+        requestNavigatePointConfirmation({
+          worldX,
+          worldY,
+          pixelX,
+          pixelY,
+        });
       } else if (!navigate.navPoint.confirmed) {
         void hapticSelection();
         navigate.confirmOrientation();
@@ -65,7 +84,12 @@ export function useMapInteraction({
     if (mapMode === 'route_edit') {
       if (!waypointEditor.hasActiveRotating) {
         void hapticSelection();
-        waypointEditor.addWaypointFirstTap(pixelX, pixelY, worldX, worldY);
+        requestRouteWaypointConfirmation({
+          worldX,
+          worldY,
+          pixelX,
+          pixelY,
+        });
       } else {
         void hapticSelection();
         waypointEditor.confirmWaypointOrientation();

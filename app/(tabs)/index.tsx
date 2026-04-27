@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -8,6 +7,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FotosIcon from '../../assets/images/fotos.svg';
+import VideosIcon from '../../assets/images/videos.svg';
 import { Colors } from '../../lib/core/constants/Colors';
 import { hapticLight } from '../../lib/core/utils/haptics';
 import { useHomeActionMode } from '../../lib/modules/app/hooks/useHomeActionMode';
@@ -88,9 +89,7 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <View style={styles.mediaIconWrap}>
-                    <Ionicons name="images-outline" size={38} color="#1B1B1B" />
-                  </View>
+                  <FotosIcon width={42} height={42} style={styles.mediaIcon} />
                   <Text style={styles.cameraButtonText}>Fotos</Text>
                 </SunkenPressable>
 
@@ -104,13 +103,7 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <View style={styles.mediaIconWrap}>
-                    <Ionicons
-                      name="play-circle-outline"
-                      size={38}
-                      color="#FFFFFF"
-                    />
-                  </View>
+                  <VideosIcon width={42} height={42} style={styles.mediaIcon} />
                   <Text style={styles.mediaButtonText}>Videos</Text>
                 </SunkenPressable>
               </>
@@ -244,7 +237,7 @@ const styles = StyleSheet.create({
     height: 42,
     marginBottom: 8,
   },
-  mediaIconWrap: {
+  mediaIcon: {
     marginBottom: 8,
   },
   cameraButtonText: {

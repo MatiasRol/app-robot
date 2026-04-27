@@ -8,6 +8,7 @@ import { useMapDetailOverlayActions } from './useMapDetailOverlayActions';
 import { useMapDetailStatusAlert } from './useMapDetailStatusAlert';
 import { useMapInteraction } from './useMapInteraction';
 import { useMapNavigationExecution } from './useMapNavigationExecution';
+import { useMapPointConfirmation } from './useMapPointConfirmation';
 import { useMapRouteExecution } from './useMapRouteExecution';
 import { useMapRouteForm } from './useMapRouteForm';
 import { useMapRoutes } from './useMapRoutes';
@@ -137,11 +138,39 @@ export function useMapDetailController(onBack: () => void) {
     waypointEditor,
   });
 
+  const {
+    pointConfirmModalVisible,
+    pointConfirmVariant,
+    cancelPointConfirmation,
+    confirmPointConfirmation,
+    requestNavigatePointConfirmation,
+    requestRouteWaypointConfirmation,
+  } = useMapPointConfirmation({
+    onConfirmNavigatePoint: (point) => {
+      navigate.handleFirstTap(
+        point.pixelX,
+        point.pixelY,
+        point.worldX,
+        point.worldY
+      );
+    },
+    onConfirmRouteWaypoint: (point) => {
+      waypointEditor.addWaypointFirstTap(
+        point.pixelX,
+        point.pixelY,
+        point.worldX,
+        point.worldY
+      );
+    },
+  });
+
   const { handleMapTap, handleDirectionDrag } = useMapInteraction({
     mapMode,
     isNavigatingNow,
     navigate,
     waypointEditor,
+    requestNavigatePointConfirmation,
+    requestRouteWaypointConfirmation,
   });
 
   const {
@@ -214,6 +243,13 @@ export function useMapDetailController(onBack: () => void) {
       statusAlert,
       onCloseStatus: closeStatus,
       modeAlertProps: opMode.alertProps,
+    },
+
+    pointConfirmProps: {
+      visible: pointConfirmModalVisible,
+      variant: pointConfirmVariant,
+      onConfirm: confirmPointConfirmation,
+      onCancel: cancelPointConfirmation,
     },
   };
 }
