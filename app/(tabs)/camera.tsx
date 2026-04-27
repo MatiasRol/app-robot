@@ -1,21 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
-import { RTCView } from 'react-native-webrtc';
-import { Colors } from '../../lib/core/constants/Colors';
-import {
-  hapticError,
-  hapticLight,
-  hapticSelection,
-} from '../../lib/core/utils/haptics';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useCameraConnectionContext } from '../../lib/modules/camera/context/CameraConnectionContext';
-import JoystickControl from '../../src/components/organisms/JoystickControl';
-
-type CameraMode = 'view' | 'control';
-
-const CONNECTING_SPLASH_MS = 2000;
+import { useCameraBackHandler } from '../../lib/modules/camera/hooks/useCameraBackHandler';
+import { useCameraConnectionFlow } from '../../lib/modules/camera/hooks/useCameraConnectionFlow';
+import {
+  useCameraModeState,
+} from '../../lib/modules/camera/hooks/useCameraModeState';
+import { useCameraRobotControl } from '../../lib/modules/camera/hooks/useCameraRobotControl';
+import { useCameraScreenLifecycle } from '../../lib/modules/camera/hooks/useCameraScreenLifecycle';
+import CameraModeAlert from '../../src/components/molecules/CameraModeAlert';
+import CameraRetryModal from '../../src/components/molecules/CameraRetryModal';
+import CameraControlOverlay from '../../src/components/organisms/CameraControlOverlay';
+import CameraLoadingSplash from '../../src/components/organisms/CameraLoadingSplash';
+import CameraTopBar from '../../src/components/organisms/CameraTopBar';
+import CameraVideoSurface from '../../src/components/organisms/CameraVideoSurface';
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -30,400 +29,111 @@ export default function CameraScreen() {
     stopRobot,
   } = useCameraConnectionContext();
 
-  const [mode, setMode] = useState<CameraMode>('view');
-  const [showModeAlert, setShowModeAlert] = useState(false);
-  const [pendingMode, setPendingMode] = useState<CameraMode | null>(null);
-  const [showConnectingSplash, setShowConnectingSplash] = useState(true);
-  const [showRetryModal, setShowRetryModal] = useState(false);
-
-  const splashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const connectToRobotRef = useRef(connectToRobot);
-  const hasAttemptedConnectionRef = useRef(hasAttemptedConnection);
   const stopRobotRef = useRef(stopRobot);
-  const streamURLRef = useRef<string | null>(null);
-  const retryModalShownRef = useRef(false);
-
-  useEffect(() => {
-    connectToRobotRef.current = connectToRobot;
-  }, [connectToRobot]);
-
-  useEffect(() => {
-    hasAttemptedConnectionRef.current = hasAttemptedConnection;
-  }, [hasAttemptedConnection]);
 
   useEffect(() => {
     stopRobotRef.current = stopRobot;
   }, [stopRobot]);
 
-  const streamURL = useMemo(() => {
-    try {
-      if (remoteStream && typeof remoteStream.toURL === 'function') {
-        return remoteStream.toURL();
-      }
-      return null;
-    } catch (error) {
-      console.error('Error obteniendo streamURL:', error);
-      return null;
-    }
-  }, [remoteStream]);
+  const {
+    streamURL,
+    showConnectingSplash,
+    showRetryModal,
+    beginConnectionFlow,
+    handleRetryConnection,
+    handleCancelRetry,
+    cleanupConnectionFlow,
+  } = useCameraConnectionFlow({
+    remoteStream,
+    connectToRobot,
+    hasAttemptedConnection,
+  });
 
-  useEffect(() => {
-    streamURLRef.current = streamURL;
+  const {
+    handleJoystickMove,
+    handleJoystickStop,
+    stopRobotSafely,
+  } = useCameraRobotControl({
+    sendVelocityCommand,
+    stopRobot,
+  });
 
-    if (streamURL) {
-      retryModalShownRef.current = false;
-      setShowRetryModal(false);
-    }
-  }, [streamURL]);
+  const {
+    mode,
+    pendingMode,
+    showModeAlert,
+    handleModeChange,
+    confirmModeChange,
+    cancelModeChange,
+    resetModeState,
+  } = useCameraModeState({
+    onLeaveControl: () => {
+      stopRobotSafely();
+    },
+  });
 
-  useEffect(() => {
-    if (showRetryModal && !retryModalShownRef.current) {
-      retryModalShownRef.current = true;
-      void hapticError();
-    }
+  const { handleBack } = useCameraBackHandler({
+    router,
+    stopRobotSafely,
+  });
 
-    if (!showRetryModal) {
-      retryModalShownRef.current = false;
-    }
-  }, [showRetryModal]);
+  const handleEnterScreen = useCallback(() => {
+    beginConnectionFlow();
+  }, [beginConnectionFlow]);
 
-  const startSplash = () => {
-    setShowConnectingSplash(true);
-
-    if (splashTimeoutRef.current) {
-      clearTimeout(splashTimeoutRef.current);
-    }
-
-    splashTimeoutRef.current = setTimeout(() => {
-      setShowConnectingSplash(false);
-
-      if (!streamURLRef.current && hasAttemptedConnectionRef.current) {
-        setShowRetryModal(true);
-      }
-    }, CONNECTING_SPLASH_MS);
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      setShowRetryModal(false);
-      retryModalShownRef.current = false;
-      startSplash();
-
-      if (!hasAttemptedConnectionRef.current) {
-        connectToRobotRef.current().catch((error) => {
-          console.error('Error conectando al robot:', error);
-        });
-      }
-
-      navigation.setOptions({ tabBarStyle: { display: 'none' } });
-
-      const parent = navigation.getParent();
-      if (parent) {
-        parent.setOptions({ tabBarStyle: { display: 'none' } });
-      }
-
-      ScreenOrientation.lockAsync(
-        ScreenOrientation.OrientationLock.LANDSCAPE
-      ).catch(() => {});
-
-      return () => {
-        if (splashTimeoutRef.current) {
-          clearTimeout(splashTimeoutRef.current);
-          splashTimeoutRef.current = null;
-        }
-
-        try {
-          stopRobotRef.current();
-        } catch (error) {
-          console.error('Error deteniendo robot al salir de cámara:', error);
-        }
-
-        setMode('view');
-        setShowModeAlert(false);
-        setPendingMode(null);
-
-        navigation.setOptions({
-          tabBarStyle: {
-            backgroundColor: Colors.background,
-            borderTopColor: 'transparent',
-            height: 70,
-            paddingBottom: 10,
-            paddingTop: 10,
-          },
-        });
-
-        if (parent) {
-          parent.setOptions({
-            tabBarStyle: {
-              backgroundColor: Colors.background,
-              borderTopColor: 'transparent',
-              height: 70,
-              paddingBottom: 10,
-              paddingTop: 10,
-            },
-          });
-        }
-
-        ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.PORTRAIT
-        ).catch(() => {});
-      };
-    }, [navigation])
-  );
-
-  const handleBack = async () => {
-    void hapticLight();
+  const handleExitScreen = useCallback(() => {
+    cleanupConnectionFlow();
 
     try {
       stopRobotRef.current();
     } catch (error) {
-      console.error('Error deteniendo robot al volver:', error);
+      console.error('Error deteniendo robot al salir de cámara:', error);
     }
 
-    await ScreenOrientation.lockAsync(
-      ScreenOrientation.OrientationLock.PORTRAIT
-    ).catch(() => {});
-    router.back();
-  };
+    resetModeState();
+  }, [cleanupConnectionFlow, resetModeState]);
 
-  const handleRetryConnection = () => {
-    void hapticLight();
-    setShowRetryModal(false);
-    retryModalShownRef.current = false;
-    startSplash();
-
-    connectToRobotRef.current().catch((error) => {
-      console.error('Error reintentando conexión al robot:', error);
-    });
-  };
-
-  const handleCancelRetry = () => {
-    void hapticLight();
-    setShowRetryModal(false);
-  };
-
-  const handleModeChange = (newMode: CameraMode) => {
-    if (newMode !== mode) {
-      void hapticSelection();
-      setPendingMode(newMode);
-      setShowModeAlert(true);
-    }
-  };
-
-  const confirmModeChange = () => {
-    void hapticLight();
-
-    if (mode === 'control' && pendingMode === 'view') {
-      try {
-        stopRobotRef.current();
-      } catch (error) {
-        console.error('Error deteniendo robot al cambiar a vista:', error);
-      }
-    }
-
-    if (pendingMode) setMode(pendingMode);
-    setShowModeAlert(false);
-    setPendingMode(null);
-  };
-
-  const cancelModeChange = () => {
-    void hapticLight();
-    setShowModeAlert(false);
-    setPendingMode(null);
-  };
-
-  const handleJoystickMove = (velocity: { linear: number; angular: number }) => {
-    try {
-      sendVelocityCommand(velocity.linear, velocity.angular);
-    } catch (error) {
-      console.error('Error enviando comando de velocidad:', error);
-    }
-  };
-
-  const handleJoystickStop = () => {
-    try {
-      stopRobot();
-    } catch (error) {
-      console.error('Error deteniendo robot:', error);
-    }
-  };
+  useCameraScreenLifecycle({
+    navigation,
+    onEnter: handleEnterScreen,
+    onExit: handleExitScreen,
+  });
 
   if (showConnectingSplash) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Image
-          source={require('../../assets/images/logo.png')}
-          style={styles.loadingLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.loadingSubtext}>Conectando a ...</Text>
-        <Text style={styles.loadingRobotText}>Robot 1</Text>
-      </View>
-    );
+    return <CameraLoadingSplash robotName="Robot 1" />;
   }
 
   return (
     <View style={styles.container}>
-      {streamURL ? (
-        <RTCView
-          streamURL={streamURL}
-          style={styles.cameraView}
-          objectFit="cover"
-        />
-      ) : (
-        <View style={styles.noVideoContainer}>
-          <Ionicons name="videocam-off-outline" size={64} color="#666" />
-          <Text style={styles.noVideoTitle}>No se conectó a la cámara</Text>
-          <Text style={styles.noVideoText}>
-            Verifica que el robot esté encendido y disponible.
-          </Text>
-        </View>
-      )}
+      <CameraVideoSurface streamURL={streamURL} />
 
       <View style={styles.overlay}>
-        <View style={styles.topBar}>
-          <View style={styles.leftSection}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Image
-                source={require('../../assets/images/regresoCamara.png')}
-                style={{ width: 50, height: 50 }}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          </View>
+        <CameraTopBar
+          mode={mode}
+          onBack={handleBack}
+          onModeChange={handleModeChange}
+        />
 
-          <View style={styles.rightSection}>
-            <View style={styles.tabs}>
-              <TouchableOpacity
-                style={[styles.tab, mode === 'view' && styles.tabActive]}
-                onPress={() => handleModeChange('view')}
-              >
-                <Ionicons
-                  name="eye-outline"
-                  size={20}
-                  color={mode === 'view' ? '#FFFFFF' : '#666'}
-                />
-                <Text style={[styles.tabText, mode === 'view' && styles.tabTextActive]}>
-                  Ver
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.tab, mode === 'control' && styles.tabActive]}
-                onPress={() => handleModeChange('control')}
-              >
-                <Ionicons
-                  name="game-controller-outline"
-                  size={20}
-                  color={mode === 'control' ? '#FFFFFF' : '#666'}
-                />
-                <Text style={[styles.tabText, mode === 'control' && styles.tabTextActive]}>
-                  Control
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {mode === 'control' && (
-          <View style={styles.joystickContainer}>
-            <JoystickControl
-              size={220}
-              onMove={handleJoystickMove}
-              onStop={handleJoystickStop}
-            />
-          </View>
-        )}
+        <CameraControlOverlay
+          visible={mode === 'control'}
+          onMove={handleJoystickMove}
+          onStop={handleJoystickStop}
+        />
       </View>
 
-      {showRetryModal && !streamURL && (
-        <Modal
-          visible={showRetryModal}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCancelRetry}
-        >
-          <TouchableOpacity
-            style={styles.errorOverlay}
-            activeOpacity={1}
-            onPress={handleCancelRetry}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.errorBox}>
-                <Ionicons name="warning-outline" size={48} color="#FF9800" />
-                <Text style={styles.errorTitle}>No se pudo conectar</Text>
-                <Text style={styles.errorMessage}>
-                  {errorMessage || 'No se pudo conectar a la cámara del robot.'}
-                </Text>
-                <View style={styles.errorButtons}>
-                  <TouchableOpacity
-                    style={styles.errorButtonCancel}
-                    onPress={handleCancelRetry}
-                  >
-                    <Text style={styles.errorButtonCancelText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.errorButtonRetry}
-                    onPress={handleRetryConnection}
-                  >
-                    <Text style={styles.errorButtonRetryText}>Reintentar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      <CameraRetryModal
+        visible={showRetryModal && !streamURL}
+        errorMessage={errorMessage}
+        onCancel={handleCancelRetry}
+        onRetry={handleRetryConnection}
+      />
 
-      {showModeAlert && (
-        <Modal
-          visible={showModeAlert}
-          transparent
-          animationType="fade"
-          onRequestClose={cancelModeChange}
-        >
-          <TouchableOpacity
-            style={styles.alertOverlay}
-            activeOpacity={1}
-            onPress={cancelModeChange}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.alertBox}>
-                <Ionicons
-                  name="information-circle-outline"
-                  size={48}
-                  color={Colors.primary}
-                />
-                <Text style={styles.alertTitle}>Cambiar modo</Text>
-                <Text style={styles.alertMessage}>
-                  ¿Deseas cambiar al modo {pendingMode === 'control' ? 'Control' : 'Visualización'}?
-                </Text>
-                <View style={styles.alertButtons}>
-                  <TouchableOpacity
-                    style={styles.alertButtonCancel}
-                    onPress={cancelModeChange}
-                  >
-                    <Text style={styles.alertButtonCancelText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.alertButtonConfirm}
-                    onPress={confirmModeChange}
-                  >
-                    <Text style={styles.alertButtonConfirmText}>Confirmar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
-      )}
+      <CameraModeAlert
+        visible={showModeAlert}
+        pendingMode={pendingMode}
+        onCancel={cancelModeChange}
+        onConfirm={confirmModeChange}
+      />
     </View>
   );
 }
@@ -433,246 +143,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  loadingLogo: {
-    width: 90,
-    height: 90,
-    marginBottom: 18,
-  },
-  loadingSubtext: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#3A3A3A',
-    marginBottom: 4,
-  },
-  loadingRobotText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-
-  cameraView: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  noVideoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
-  },
-  noVideoTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  noVideoText: {
-    color: '#C7C7C7',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-
   overlay: {
     ...StyleSheet.absoluteFillObject,
     pointerEvents: 'box-none',
-  },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    zIndex: 10,
-  },
-  leftSection: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  rightSection: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  backButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 22,
-    padding: 4,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-  },
-  tabActive: {
-    backgroundColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  joystickContainer: {
-    position: 'absolute',
-    right: 30,
-    bottom: 30,
-    zIndex: 5,
-  },
-
-  errorOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    width: '80%',
-    maxWidth: 380,
-    alignItems: 'center',
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#212121',
-    marginTop: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  errorButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  errorButtonCancel: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  errorButtonCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#666',
-  },
-  errorButtonRetry: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-  },
-  errorButtonRetryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alertBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    width: '75%',
-    maxWidth: 350,
-    alignItems: 'center',
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginTop: 12,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  alertButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  alertButtonCancel: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  alertButtonCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  alertButtonConfirm: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-  },
-  alertButtonConfirmText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
