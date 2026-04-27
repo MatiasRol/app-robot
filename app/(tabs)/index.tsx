@@ -64,10 +64,7 @@ export default function HomeScreen() {
                   style={styles.cameraButton}
                   onPress={() => {
                     void hapticLight();
-                    Alert.alert(
-                      'Fotos',
-                      'La pantalla de fotos la creamos en la siguiente tarea.'
-                    );
+                    router.push('/photos');
                   }}
                   activeScale={0.97}
                   activeTranslateY={3}
@@ -83,17 +80,18 @@ export default function HomeScreen() {
                   style={styles.mapButton}
                   onPress={() => {
                     void hapticLight();
-                    Alert.alert(
-                      'Videos',
-                      'La pantalla de videos la creamos en la siguiente tarea.'
-                    );
+                    router.push('/videos');
                   }}
                   activeScale={0.97}
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
                   <View style={styles.mediaIconWrap}>
-                    <Ionicons name="play-circle-outline" size={38} color="#FFFFFF" />
+                    <Ionicons
+                      name="play-circle-outline"
+                      size={38}
+                      color="#FFFFFF"
+                    />
                   </View>
                   <Text style={styles.mediaButtonText}>Videos</Text>
                 </SunkenPressable>
