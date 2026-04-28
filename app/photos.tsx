@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
@@ -14,52 +15,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../lib/core/constants/Colors';
 import { hapticLight } from '../lib/core/utils/haptics';
-
-type PhotoItem = {
-  id: string;
-  title: string;
-  source: any;
-};
+import {
+  RobotPhoto,
+  useRobotPhotos,
+} from '../lib/modules/photos/hooks/useRobotPhotos';
 
 export default function PhotosScreen() {
   const router = useRouter();
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoItem | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<RobotPhoto | null>(null);
 
-  const photos = useMemo<PhotoItem[]>(
-    () => [
-      {
-        id: '1',
-        title: 'Foto 1',
-        source: require('../assets/images/robot01.png'),
-      },
-      {
-        id: '2',
-        title: 'Foto 2',
-        source: require('../assets/images/robot01.png'),
-      },
-      {
-        id: '3',
-        title: 'Foto 3',
-        source: require('../assets/images/robot01.png'),
-      },
-      {
-        id: '4',
-        title: 'Foto 4',
-        source: require('../assets/images/robot01.png'),
-      },
-      {
-        id: '5',
-        title: 'Foto 5',
-        source: require('../assets/images/robot01.png'),
-      },
-      {
-        id: '6',
-        title: 'Foto 6',
-        source: require('../assets/images/robot01.png'),
-      },
-    ],
-    []
-  );
+  const { photos, loading, error, reloadPhotos } = useRobotPhotos();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -87,25 +52,59 @@ export default function PhotosScreen() {
           </Text>
         </View>
 
-        <FlatList
-          data={photos}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.listContent}
-          columnWrapperStyle={styles.row}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.card}
+        {loading ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.helperText}>Cargando fotos...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centerContent}>
+            <Text style={styles.emptyTitle}>No se pudieron cargar</Text>
+            <Text style={styles.helperText}>{error}</Text>
+
+            <TouchableOpacity
+              style={styles.retryButton}
               onPress={() => {
                 void hapticLight();
-                setSelectedPhoto(item);
+                void reloadPhotos();
               }}
+              activeOpacity={0.85}
             >
-              <Image source={item.source} style={styles.cardImage} />
-            </Pressable>
-          )}
-        />
+              <Text style={styles.retryButtonText}>REINTENTAR</Text>
+            </TouchableOpacity>
+          </View>
+        ) : photos.length === 0 ? (
+          <View style={styles.centerContent}>
+            <Text style={styles.emptyTitle}>No hay fotos todavía</Text>
+            <Text style={styles.helperText}>
+              Las imágenes subidas por el robot aparecerán aquí.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={photos}
+            keyExtractor={(item) => String(item.id)}
+            numColumns={2}
+            contentContainerStyle={styles.listContent}
+            columnWrapperStyle={styles.row}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable
+                style={styles.card}
+                onPress={() => {
+                  void hapticLight();
+                  setSelectedPhoto(item);
+                }}
+              >
+                <Image
+                  source={{ uri: item.url }}
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            )}
+          />
+        )}
 
         <Modal
           visible={selectedPhoto !== null}
@@ -128,11 +127,11 @@ export default function PhotosScreen() {
             {selectedPhoto && (
               <View style={styles.modalContent}>
                 <Image
-                  source={selectedPhoto.source}
+                  source={{ uri: selectedPhoto.url }}
                   style={styles.modalImage}
                   resizeMode="contain"
                 />
-                <Text style={styles.modalTitle}>{selectedPhoto.title}</Text>
+                <Text style={styles.modalTitle}>{selectedPhoto.file_name}</Text>
               </View>
             )}
           </View>
@@ -198,6 +197,40 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  helperText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  retryButton: {
+    marginTop: 16,
+    minWidth: 140,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,

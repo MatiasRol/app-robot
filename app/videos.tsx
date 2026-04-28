@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
@@ -14,59 +15,25 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../lib/core/constants/Colors';
 import { hapticLight } from '../lib/core/utils/haptics';
+import {
+  RobotVideo,
+  useRobotVideos,
+} from '../lib/modules/videos/hooks/useRobotVideos';
 
-type VideoItem = {
-  id: string;
-  title: string;
-  thumbnail: any;
-  duration: string;
-};
+function formatDuration(seconds?: number | null) {
+  if (!seconds || seconds <= 0) return null;
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 export default function VideosScreen() {
   const router = useRouter();
-  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<RobotVideo | null>(null);
 
-  const videos = useMemo<VideoItem[]>(
-    () => [
-      {
-        id: '1',
-        title: 'Video 1',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '00:18',
-      },
-      {
-        id: '2',
-        title: 'Video 2',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '00:32',
-      },
-      {
-        id: '3',
-        title: 'Video 3',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '01:05',
-      },
-      {
-        id: '4',
-        title: 'Video 4',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '00:41',
-      },
-      {
-        id: '5',
-        title: 'Video 5',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '00:27',
-      },
-      {
-        id: '6',
-        title: 'Video 6',
-        thumbnail: require('../assets/images/robot01.png'),
-        duration: '00:54',
-      },
-    ],
-    []
-  );
+  const { videos, loading, error, reloadVideos } = useRobotVideos();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -90,37 +57,80 @@ export default function VideosScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>TUS{'\n'}VIDEOS!</Text>
           <Text style={styles.subtitle}>
-            Aquí podrás ver las miniaturas y abrir los videos guardados.
+            Aquí podrás ver las portadas y abrir los videos guardados.
           </Text>
         </View>
 
-        <FlatList
-          data={videos}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.card}
+        {loading ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.helperText}>Cargando videos...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centerContent}>
+            <Text style={styles.emptyTitle}>No se pudieron cargar</Text>
+            <Text style={styles.helperText}>{error}</Text>
+
+            <TouchableOpacity
+              style={styles.retryButton}
               onPress={() => {
                 void hapticLight();
-                setSelectedVideo(item);
+                void reloadVideos();
               }}
+              activeOpacity={0.85}
             >
-              <View style={styles.thumbnailWrap}>
-                <Image source={item.thumbnail} style={styles.thumbnail} />
-                <View style={styles.playOverlay}>
-                  <Ionicons name="play" size={28} color="#FFFFFF" />
-                </View>
-                <View style={styles.durationBadge}>
-                  <Text style={styles.durationText}>{item.duration}</Text>
-                </View>
-              </View>
+              <Text style={styles.retryButtonText}>REINTENTAR</Text>
+            </TouchableOpacity>
+          </View>
+        ) : videos.length === 0 ? (
+          <View style={styles.centerContent}>
+            <Text style={styles.emptyTitle}>No hay videos todavía</Text>
+            <Text style={styles.helperText}>
+              Las portadas subidas por el robot aparecerán aquí.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={videos}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const duration = formatDuration(item.duration_seconds);
+              const title = item.title?.trim() || item.cover_file_name;
 
-              <Text style={styles.cardTitle}>{item.title}</Text>
-            </Pressable>
-          )}
-        />
+              return (
+                <Pressable
+                  style={styles.card}
+                  onPress={() => {
+                    void hapticLight();
+                    setSelectedVideo(item);
+                  }}
+                >
+                  <View style={styles.thumbnailWrap}>
+                    <Image
+                      source={{ uri: item.cover_url }}
+                      style={styles.thumbnail}
+                      resizeMode="cover"
+                    />
+
+                    <View style={styles.playOverlay}>
+                      <Ionicons name="play" size={28} color="#FFFFFF" />
+                    </View>
+
+                    {duration && (
+                      <View style={styles.durationBadge}>
+                        <Text style={styles.durationText}>{duration}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.cardTitle}>{title}</Text>
+                </Pressable>
+              );
+            }}
+          />
+        )}
 
         <Modal
           visible={selectedVideo !== null}
@@ -144,7 +154,7 @@ export default function VideosScreen() {
               <View style={styles.modalContent}>
                 <View style={styles.modalVideoMock}>
                   <Image
-                    source={selectedVideo.thumbnail}
+                    source={{ uri: selectedVideo.cover_url }}
                     style={styles.modalThumbnail}
                     resizeMode="cover"
                   />
@@ -153,7 +163,10 @@ export default function VideosScreen() {
                   </View>
                 </View>
 
-                <Text style={styles.modalTitle}>{selectedVideo.title}</Text>
+                <Text style={styles.modalTitle}>
+                  {selectedVideo.title?.trim() || selectedVideo.cover_file_name}
+                </Text>
+
                 <Text style={styles.modalSubtitle}>
                   Aquí luego conectamos la reproducción real del video.
                 </Text>
@@ -250,6 +263,40 @@ const styles = StyleSheet.create({
     color: '#111111',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  helperText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  retryButton: {
+    marginTop: 16,
+    minWidth: 140,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
