@@ -19,12 +19,17 @@ import {
   RobotPhoto,
   useRobotPhotos,
 } from '../lib/modules/photos/hooks/useRobotPhotos';
+import { usePhotoDownload } from '../lib/modules/photos/hooks/usePhotoDownload';
 
 export default function PhotosScreen() {
   const router = useRouter();
   const [selectedPhoto, setSelectedPhoto] = useState<RobotPhoto | null>(null);
 
   const { photos, loading, error, reloadPhotos } = useRobotPhotos();
+  const { downloadingPhotoId, downloadPhoto } = usePhotoDownload();
+
+  const isDownloadingSelected =
+    !!selectedPhoto && downloadingPhotoId === String(selectedPhoto.id);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -48,7 +53,7 @@ export default function PhotosScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>TUS{'\n'}FOTOS!</Text>
           <Text style={styles.subtitle}>
-            Aquí podrás ver y abrir las imágenes guardadas.
+            Aquí podrás ver, abrir y descargar las imágenes guardadas.
           </Text>
         </View>
 
@@ -131,7 +136,29 @@ export default function PhotosScreen() {
                   style={styles.modalImage}
                   resizeMode="contain"
                 />
+
                 <Text style={styles.modalTitle}>{selectedPhoto.file_name}</Text>
+
+                <TouchableOpacity
+                  style={[
+                    styles.downloadButton,
+                    isDownloadingSelected && styles.downloadButtonDisabled,
+                  ]}
+                  onPress={() => {
+                    void downloadPhoto(selectedPhoto);
+                  }}
+                  disabled={isDownloadingSelected}
+                  activeOpacity={0.85}
+                >
+                  {isDownloadingSelected ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.downloadButtonText}>DESCARGAR</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -251,7 +278,7 @@ const styles = StyleSheet.create({
   },
   modalImage: {
     width: '100%',
-    height: '72%',
+    height: '68%',
   },
   modalTitle: {
     marginTop: 14,
@@ -259,5 +286,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  downloadButton: {
+    marginTop: 16,
+    minWidth: 170,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#124BAF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 18,
+  },
+  downloadButtonDisabled: {
+    opacity: 0.75,
+  },
+  downloadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
