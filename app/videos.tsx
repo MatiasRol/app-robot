@@ -199,9 +199,10 @@ const styles = StyleSheet.create({
     height: 40,
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 56,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 30,
@@ -209,18 +210,22 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: '#FFFFFF',
     marginBottom: 8,
+    textAlign: 'left',
+    alignSelf: 'flex-start',
   },
   subtitle: {
     fontSize: 13,
     lineHeight: 16,
     color: Colors.textSecondary,
     maxWidth: 240,
+    textAlign: 'left',
+    alignSelf: 'flex-start',
   },
   listContent: {
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 24,
-    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 28,
+    gap: 14,
   },
   card: {
     borderRadius: 18,
@@ -263,6 +268,7 @@ const styles = StyleSheet.create({
     color: '#111111',
     paddingHorizontal: 14,
     paddingVertical: 12,
+    textAlign: 'right',
   },
   centerContent: {
     flex: 1,

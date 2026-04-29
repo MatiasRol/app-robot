@@ -1,11 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import {
-  Image,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FotosIcon from '../../assets/images/fotos.svg';
 import VideosIcon from '../../assets/images/videos.svg';
@@ -53,13 +48,15 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.topSection}>
-          <Image
-            source={require('../../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={styles.topHeader}>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
 
-          <Text style={styles.robotName}>{robotName}</Text>
+            <Text style={styles.robotName}>{robotName}</Text>
+          </View>
 
           <Image
             source={require('../../assets/images/robot01.png')}
@@ -80,7 +77,7 @@ export default function HomeScreen() {
             {isMediaMode ? (
               <>
                 <SunkenPressable
-                  style={styles.cameraButton}
+                  style={[styles.actionButtonBase, styles.lightButton]}
                   onPress={() => {
                     void hapticLight();
                     router.push('/photos');
@@ -89,12 +86,17 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <FotosIcon width={42} height={42} style={styles.mediaIcon} />
-                  <Text style={styles.cameraButtonText}>Fotos</Text>
+                  <View style={styles.iconSlot}>
+                    <FotosIcon width={42} height={42} />
+                  </View>
+
+                  <View style={styles.textAreaSingle}>
+                    <Text style={styles.lightMainText}>Fotos</Text>
+                  </View>
                 </SunkenPressable>
 
                 <SunkenPressable
-                  style={styles.mapButton}
+                  style={[styles.actionButtonBase, styles.darkButton]}
                   onPress={() => {
                     void hapticLight();
                     router.push('/videos');
@@ -103,14 +105,19 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <VideosIcon width={42} height={42} style={styles.mediaIcon} />
-                  <Text style={styles.mediaButtonText}>Videos</Text>
+                  <View style={styles.iconSlot}>
+                    <VideosIcon width={42} height={42} />
+                  </View>
+
+                  <View style={styles.textAreaSingle}>
+                    <Text style={styles.darkMainText}>Videos</Text>
+                  </View>
                 </SunkenPressable>
               </>
             ) : (
               <>
                 <SunkenPressable
-                  style={styles.cameraButton}
+                  style={[styles.actionButtonBase, styles.lightButton]}
                   onPress={() => {
                     void hapticLight();
                     router.push('/camera');
@@ -119,16 +126,21 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <Image
-                    source={require('../../assets/images/camara.png')}
-                    style={styles.actionIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.cameraButtonText}>Ver cámara</Text>
+                  <View style={styles.iconSlot}>
+                    <Image
+                      source={require('../../assets/images/camara.png')}
+                      style={styles.actionIcon}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  <View style={styles.textAreaSingle}>
+                    <Text style={styles.lightMainText}>Ver cámara</Text>
+                  </View>
                 </SunkenPressable>
 
                 <SunkenPressable
-                  style={styles.mapButton}
+                  style={[styles.actionButtonBase, styles.darkButton]}
                   onPress={() => {
                     void hapticLight();
 
@@ -142,13 +154,25 @@ export default function HomeScreen() {
                   activeTranslateY={3}
                   activeOpacity={0.92}
                 >
-                  <Image
-                    source={require('../../assets/images/mapaBoton.png')}
-                    style={styles.actionIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.mapButtonLabel}>Mapa relacionado</Text>
-                  <Text style={styles.mapButtonTitle}>{selectedMapName}</Text>
+                  <View style={styles.iconSlot}>
+                    <Image
+                      source={require('../../assets/images/mapaBoton.png')}
+                      style={styles.actionIcon}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  <View style={styles.textAreaMap}>
+                    <Text style={styles.mapButtonLabel}>Mapa relacionado</Text>
+                    <Text
+                      style={styles.mapButtonTitle}
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.78}
+                    >
+                      {selectedMapName}
+                    </Text>
+                  </View>
                 </SunkenPressable>
               </>
             )}
@@ -181,23 +205,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     paddingHorizontal: 20,
+    paddingBottom: 0,
+  },
+  topHeader: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 2,
   },
   logo: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     marginTop: 4,
-    marginBottom: 6,
-  },
-  robotName: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: '#1B1B1B',
     marginBottom: 8,
   },
+  robotName: {
+    fontSize: 21,
+    fontWeight: '500',
+    color: '#1B1B1B',
+  },
   robotImage: {
-    width: '115%',
-    height: 330,
-    marginTop: 8,
+    width: '118%',
+    height: 360,
+    marginTop: 'auto',
+    marginBottom: -8,
   },
   bottomPanel: {
     backgroundColor: Colors.background,
@@ -206,48 +236,59 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingHorizontal: 18,
     paddingBottom: 18,
-    minHeight: 180,
+    minHeight: 192,
   },
   actionsRow: {
     flexDirection: 'row',
     gap: 16,
   },
-  cameraButton: {
+  actionButtonBase: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    minHeight: 94,
+    height: 130,
+    borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
-  mapButton: {
-    flex: 1,
+  lightButton: {
+    backgroundColor: '#FFFFFF',
+  },
+  darkButton: {
     backgroundColor: Colors.button,
-    borderRadius: 8,
-    minHeight: 94,
+  },
+  iconSlot: {
+    width: 50,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    marginBottom: 6,
   },
   actionIcon: {
-    width: 42,
-    height: 42,
-    marginBottom: 8,
+    width: 38,
+    height: 38,
   },
-  mediaIcon: {
-    marginBottom: 8,
+  textAreaSingle: {
+    width: '100%',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cameraButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  textAreaMap: {
+    width: '100%',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  lightMainText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#1B1B1B',
     textAlign: 'center',
   },
-  mediaButtonText: {
-    fontSize: 16,
+  darkMainText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -257,13 +298,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#FFFFFF',
     textAlign: 'center',
+    lineHeight: 14,
     marginBottom: 2,
   },
   mapButtonTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
   },
 });

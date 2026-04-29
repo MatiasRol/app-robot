@@ -22,19 +22,16 @@ export default function HomeSideButtons({
     <View style={styles.wrapper}>
       <View style={styles.container}>
         <SunkenPressable
-          style={[
-            styles.iconButton,
-            isMediaMode && styles.iconButtonActive,
-          ]}
+          style={[styles.iconButton, isMediaMode && styles.iconButtonActive]}
           onPress={onToggleMode}
           activeScale={0.96}
           activeTranslateY={2}
           activeOpacity={0.92}
         >
           {isMediaMode ? (
-            <ControlIcon width={22} height={22} />
+            <ControlIcon width={28} height={28} />
           ) : (
-            <GaleriaIcon width={22} height={22} />
+            <GaleriaIcon width={28} height={28} />
           )}
         </SunkenPressable>
 
@@ -49,8 +46,8 @@ export default function HomeSideButtons({
           activeOpacity={0.92}
         >
           <GrabarIcon
-            width={22}
-            height={22}
+            width={28}
+            height={28}
             color={isRecordingActive ? '#D92D20' : '#3074E9'}
           />
         </SunkenPressable>
@@ -62,28 +59,28 @@ export default function HomeSideButtons({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    left: 14,
-    top: '40%',
+    left: 12,
+    top: '38%',
     zIndex: 20,
   },
   container: {
-    width: 46,
-    borderRadius: 23,
+    width: 58,
+    borderRadius: 29,
     backgroundColor: '#F4F4F4',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 5,
     alignItems: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.18,
     shadowRadius: 8,
     elevation: 6,
-    gap: 6,
+    gap: 8,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
