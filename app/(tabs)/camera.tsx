@@ -20,14 +20,14 @@ export default function CameraScreen() {
   const router = useRouter();
   const navigation = useNavigation();
 
-  const {
-    remoteStream,
-    connectToRobot,
-    errorMessage,
-    hasAttemptedConnection,
-    sendVelocityCommand,
-    stopRobot,
-  } = useCameraConnectionContext();
+   const {
+       remoteStream,
+       connectToRobot,
+       errorMessage,
+       hasAttemptedConnection,
+       sendVelocityCommand,
+       stopRobot,
+     } = useCameraConnectionContext();
 
   const stopRobotRef = useRef(stopRobot);
 
@@ -43,11 +43,11 @@ export default function CameraScreen() {
     handleRetryConnection,
     handleCancelRetry,
     cleanupConnectionFlow,
-  } = useCameraConnectionFlow({
-    remoteStream,
-    connectToRobot,
-    hasAttemptedConnection,
-  });
+    } = useCameraConnectionFlow({
+        remoteStream,
+        connectToRobot,
+        hasAttemptedConnection,
+      });
 
   const {
     handleJoystickMove,

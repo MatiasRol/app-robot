@@ -90,6 +90,14 @@ export function useCameraConnectionFlow({
   const beginConnectionFlow = () => {
     setShowRetryModal(false);
     retryModalShownRef.current = false;
+
+    // SOLO evitar reconectar si ya hay video real
+    if (streamURLRef.current) {
+      console.log('[CameraConnectionFlow] skip reconnect, stream already available');
+      setShowConnectingSplash(false);
+      return;
+    }
+
     startSplashWindow();
 
     connectToRobotRef.current().catch((error) => {
