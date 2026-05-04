@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,11 +30,38 @@ function formatDuration(seconds?: number | null) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+function VideoPlayerCard({ source }: { source: string }) {
+  const player = useVideoPlayer(
+    {
+      uri: source,
+      useCaching: false,
+    },
+    (videoPlayer) => {
+      videoPlayer.loop = false;
+      videoPlayer.play();
+    }
+  );
+
+  return (
+    <VideoView
+      player={player}
+      style={styles.modalVideo}
+      contentFit="contain"
+      allowsFullscreen
+      nativeControls
+    />
+  );
+}
+
 export default function VideosScreen() {
   const router = useRouter();
   const [selectedVideo, setSelectedVideo] = useState<RobotVideo | null>(null);
 
   const { videos, loading, error, reloadVideos } = useRobotVideos();
+
+  const selectedStreamUrl = useMemo(() => {
+    return selectedVideo?.stream_url || null;
+  }, [selectedVideo]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -152,23 +180,29 @@ export default function VideosScreen() {
 
             {selectedVideo && (
               <View style={styles.modalContent}>
-                <View style={styles.modalVideoMock}>
-                  <Image
-                    source={{ uri: selectedVideo.cover_url }}
-                    style={styles.modalThumbnail}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.modalPlayOverlay}>
-                    <Ionicons name="play-circle" size={72} color="#FFFFFF" />
+                {selectedStreamUrl ? (
+                  <VideoPlayerCard source={selectedStreamUrl} />
+                ) : (
+                  <View style={styles.modalFallback}>
+                    <Image
+                      source={{ uri: selectedVideo.cover_url }}
+                      style={styles.modalThumbnail}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.modalPlayOverlay}>
+                      <Ionicons name="warning-outline" size={54} color="#FFFFFF" />
+                    </View>
                   </View>
-                </View>
+                )}
 
                 <Text style={styles.modalTitle}>
                   {selectedVideo.title?.trim() || selectedVideo.cover_file_name}
                 </Text>
 
                 <Text style={styles.modalSubtitle}>
-                  Aquí luego conectamos la reproducción real del video.
+                  {selectedStreamUrl
+                    ? 'Reproduciendo video desde el robot.'
+                    : 'Este video todavía no tiene identificador para reproducirse.'}
                 </Text>
               </View>
             )}
@@ -321,7 +355,13 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  modalVideoMock: {
+  modalVideo: {
+    width: '100%',
+    height: 240,
+    borderRadius: 20,
+    backgroundColor: '#000000',
+  },
+  modalFallback: {
     width: '100%',
     height: 240,
     borderRadius: 20,

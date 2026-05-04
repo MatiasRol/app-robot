@@ -1,5 +1,9 @@
 import React from 'react';
 import { supabase } from '../../../core/services/supabaseClient';
+import {
+  buildRobotVideoDownloadUrl,
+  buildRobotVideoStreamUrl,
+} from '../utils/robotVideoUrl';
 
 export interface RobotVideo {
   id: string;
@@ -15,6 +19,9 @@ export interface RobotVideo {
   video_storage_path?: string | null;
   video_url?: string | null;
   local_video_path?: string | null;
+
+  stream_url?: string | null;
+  download_url?: string | null;
 }
 
 export function useRobotVideos() {
@@ -47,7 +54,13 @@ export function useRobotVideos() {
       return;
     }
 
-    setVideos((data as RobotVideo[]) ?? []);
+    const mapped = ((data as RobotVideo[]) ?? []).map((item) => ({
+      ...item,
+      stream_url: buildRobotVideoStreamUrl(item.video_file_name),
+      download_url: buildRobotVideoDownloadUrl(item.video_file_name),
+    }));
+
+    setVideos(mapped);
     setLoading(false);
   }, []);
 

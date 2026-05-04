@@ -78,7 +78,8 @@
           "photosPermission": "Permitir que $(PRODUCT_NAME) acceda a tus fotos.",
           "savePhotosPermission": "Permitir que $(PRODUCT_NAME) guarde fotos en tu galería."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
