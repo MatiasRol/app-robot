@@ -40,11 +40,18 @@ export class WebRTCVideoService {
 
     while (pc.iceGatheringState !== 'complete') {
       if (Date.now() - startedAt >= timeoutMs) {
+        console.log('[RobotConnect][VIDEO] ICE wait timeout', {
+          iceGatheringState: pc.iceGatheringState,
+        });
         break;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+
+    console.log('[RobotConnect][VIDEO] ICE complete or timeout', {
+      iceGatheringState: pc.iceGatheringState,
+    });
   }
 
   async connect(): Promise<number> {
@@ -56,6 +63,11 @@ export class WebRTCVideoService {
     this.hasErrored = false;
     this.isDisconnecting = false;
 
+    console.log('[RobotConnect][VIDEO] connect() start', {
+      serverUrl: this.config.serverUrl,
+      streamPath: this.config.streamPath,
+    });
+
     return new Promise(async (resolve, reject) => {
       this.resolvePromise = resolve;
       this.rejectPromise = reject;
@@ -63,6 +75,7 @@ export class WebRTCVideoService {
       try {
         this.connectionTimeout = setTimeout(() => {
           if (!this.hasErrored && !this.isDisconnecting) {
+            console.log('[RobotConnect][VIDEO] connection timeout');
             this.handleConnectionError('Tiempo de espera agotado', 'CONNECTION_TIMEOUT');
           }
         }, 10000);
@@ -72,6 +85,8 @@ export class WebRTCVideoService {
 
         pc.ontrack = (event: any) => {
           if (this.hasErrored || this.isDisconnecting) return;
+
+          console.log('[RobotConnect][VIDEO] ontrack');
 
           const stream = event.streams?.[0];
           if (stream) {
@@ -93,8 +108,13 @@ export class WebRTCVideoService {
           if (this.isDisconnecting) return;
 
           const state = pc.connectionState ?? 'unknown';
+          console.log('[RobotConnect][VIDEO] connectionState:', state);
 
-          if (state === 'connected' || state === 'connecting') {
+          if (
+            state === 'connected' ||
+            state === 'connecting' ||
+            state === 'disconnected'
+          ) {
             this.config.onConnectionStateChange?.(state);
           }
 
@@ -108,16 +128,32 @@ export class WebRTCVideoService {
           }
         };
 
+        pc.oniceconnectionstatechange = () => {
+          console.log('[RobotConnect][VIDEO] iceConnectionState:', pc.iceConnectionState);
+        };
+
+        pc.onicegatheringstatechange = () => {
+          console.log('[RobotConnect][VIDEO] iceGatheringState:', pc.iceGatheringState);
+        };
+
         const offer = await pc.createOffer({
           offerToReceiveVideo: true,
           offerToReceiveAudio: false,
         });
 
+        console.log('[RobotConnect][VIDEO] offer created');
         await pc.setLocalDescription(offer);
+        console.log('[RobotConnect][VIDEO] local description set');
+
         await this.waitForIceGatheringComplete(pc, 3000);
 
         const whepUrl = `${this.config.serverUrl}/${this.config.streamPath}/whep`;
         const finalSdp = pc.localDescription?.sdp || offer.sdp;
+
+        console.log('[RobotConnect][VIDEO] posting SDP to WHEP', {
+          whepUrl,
+          sdpLength: finalSdp?.length,
+        });
 
         const response = await fetch(whepUrl, {
           method: 'POST',
@@ -125,6 +161,12 @@ export class WebRTCVideoService {
             'Content-Type': 'application/sdp',
           },
           body: finalSdp,
+        });
+
+        console.log('[RobotConnect][VIDEO] WHEP response', {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
         });
 
         if (!response.ok) {
@@ -137,11 +179,17 @@ export class WebRTCVideoService {
           throw new Error('Respuesta SDP vacía');
         }
 
+        console.log('[RobotConnect][VIDEO] answer SDP length', answerSDP.length);
+
         await pc.setRemoteDescription({
           type: 'answer',
           sdp: answerSDP,
         } as RTCSessionDescription);
+
+        console.log('[RobotConnect][VIDEO] remote description set');
       } catch (error: any) {
+        console.log('[RobotConnect][VIDEO] connect exception', error);
+
         if (!this.hasErrored && !this.isDisconnecting) {
           this.handleConnectionError(
             'Error de conexión de video: ' + error.message,
@@ -154,6 +202,11 @@ export class WebRTCVideoService {
 
   private handleConnectionError(message: string, errorCode: string) {
     if (this.hasErrored || this.isDisconnecting) return;
+
+    console.log('[RobotConnect][VIDEO] handleConnectionError', {
+      message,
+      errorCode,
+    });
 
     this.hasErrored = true;
     this.clearConnectionTimeout();
@@ -184,6 +237,8 @@ export class WebRTCVideoService {
   }
 
   async disconnect() {
+    console.log('[RobotConnect][VIDEO] disconnect()');
+
     this.isDisconnecting = true;
     this.hasErrored = true;
     this.clearConnectionTimeout();

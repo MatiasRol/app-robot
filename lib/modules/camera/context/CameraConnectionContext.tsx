@@ -3,11 +3,11 @@ import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/W
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
 const VIDEO_SERVER_URL =
-  process.env.EXPO_PUBLIC_VIDEO_SERVER_URL || 'http://XicoCamara.local:8889';
+  process.env.EXPO_PUBLIC_VIDEO_SERVER_URL || 'http://192.168.1.50:8889';
 const VIDEO_STREAM_PATH =
   process.env.EXPO_PUBLIC_VIDEO_STREAM_PATH || 'cam';
 const COMMAND_SERVER_URL =
-  process.env.EXPO_PUBLIC_COMMAND_SERVER_URL || 'ws://Xico.local:9090';
+  process.env.EXPO_PUBLIC_COMMAND_SERVER_URL || 'ws://192.168.1.50:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 export type RobotRecordingState = 'idle' | 'starting' | 'recording' | 'stopping';
@@ -59,6 +59,25 @@ interface CameraConnectionContextType {
 
 const CameraConnectionContext = createContext<CameraConnectionContextType | null>(null);
 
+async function settleWithTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  ms: number = 12000
+): Promise<PromiseSettledResult<T>> {
+  try {
+    const value = await Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`${label}_TIMEOUT`)), ms)
+      ),
+    ]);
+
+    return { status: 'fulfilled', value };
+  } catch (reason) {
+    return { status: 'rejected', reason };
+  }
+}
+
 export function CameraConnectionProvider({ children }: { children: React.ReactNode }) {
   const [videoConnectionState, setVideoConnectionState] = useState<ConnectionState>('disconnected');
   const [commandConnectionState, setCommandConnectionState] = useState<ConnectionState>('disconnected');
@@ -82,6 +101,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   const showError = (message: string) => {
     if (!canShowError.current || isDisconnecting.current) return;
 
+    console.log('[RobotConnect][UI] showError:', message);
+
     canShowError.current = false;
 
     if (errorTimeout.current) {
@@ -97,6 +118,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   };
 
   const handleRobotMessage = (data: any) => {
+    console.log('[RobotConnect][WS] message:', data);
+
     if (!data?.type) return;
 
     if (data.type === 'active_map' && typeof data.map === 'string') {
@@ -131,23 +154,35 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         return;
       }
     }
-
-    if (data.type === 'pos_detenido') {
-      return;
-    }
   };
 
   const connectToRobot = async () => {
+    console.log('[RobotConnect] connectToRobot start', {
+      VIDEO_SERVER_URL,
+      VIDEO_STREAM_PATH,
+      COMMAND_SERVER_URL,
+    });
+
     setIsConnecting(true);
     setShowConnectionError(false);
     setErrorMessage('');
     canShowError.current = true;
     isDisconnecting.current = false;
 
-    const results = await Promise.allSettled([connectVideo(), connectCommands()]);
+    const [videoResult, commandsResult] = await Promise.all([
+      settleWithTimeout(connectVideo(), 'VIDEO', 12000),
+      settleWithTimeout(connectCommands(), 'COMMANDS', 12000),
+    ]);
 
-    const videoConnected = results[0].status === 'fulfilled';
-    const commandsConnected = results[1].status === 'fulfilled';
+    const videoConnected = videoResult.status === 'fulfilled';
+    const commandsConnected = commandsResult.status === 'fulfilled';
+
+    console.log('[RobotConnect] connectToRobot end', {
+      videoResult,
+      commandsResult,
+      videoConnected,
+      commandsConnected,
+    });
 
     setIsConnecting(false);
 
@@ -164,6 +199,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     if (isDisconnecting.current) return;
 
     try {
+      console.log('[RobotConnect][VIDEO] connecting...');
       setVideoConnectionState('connecting');
 
       const { WebRTCVideoService } = await import('../services/WebRTCVideoService');
@@ -174,6 +210,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         onStreamReceived: (stream) => {
           if (isDisconnecting.current) return;
 
+          console.log('[RobotConnect][VIDEO] stream received');
           setRemoteStream(stream);
           setVideoConnectionState('connected');
 
@@ -185,6 +222,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         onConnectionStateChange: (state) => {
           if (isDisconnecting.current) return;
 
+          console.log('[RobotConnect][VIDEO] state:', state);
+
           if (
             state === 'connected' ||
             state === 'connecting' ||
@@ -193,16 +232,19 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
             setVideoConnectionState(state as ConnectionState);
           }
         },
-        onError: () => {
+        onError: (message) => {
           if (isDisconnecting.current) return;
+          console.log('[RobotConnect][VIDEO] error:', message);
           setVideoConnectionState('failed');
         },
       });
 
       await videoService.current.connect();
+      console.log('[RobotConnect][VIDEO] connect resolved');
     } catch (error) {
       if (isDisconnecting.current) return;
 
+      console.log('[RobotConnect][VIDEO] connect rejected:', error);
       setVideoConnectionState('failed');
       throw error;
     }
@@ -212,6 +254,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     if (isDisconnecting.current) return;
 
     try {
+      console.log('[RobotConnect][WS] connecting...');
       setCommandConnectionState('connecting');
 
       const { WebSocketService } = await import('../services/WebSocketService');
@@ -220,24 +263,29 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         serverUrl: COMMAND_SERVER_URL,
         onConnected: () => {
           if (isDisconnecting.current) return;
+          console.log('[RobotConnect][WS] connected');
           setCommandConnectionState('connected');
         },
         onDisconnected: () => {
           if (isDisconnecting.current) return;
+          console.log('[RobotConnect][WS] disconnected');
           setCommandConnectionState('disconnected');
         },
         onMessage: handleRobotMessage,
-        onError: () => {
+        onError: (message) => {
           if (isDisconnecting.current) return;
+          console.log('[RobotConnect][WS] error:', message);
           setCommandConnectionState('failed');
         },
       });
 
       const videoStartTime = videoService.current?.getVideoStartTime() || 0;
       await commandService.current.connect(videoStartTime);
+      console.log('[RobotConnect][WS] connect resolved');
     } catch (error) {
       if (isDisconnecting.current) return;
 
+      console.log('[RobotConnect][WS] connect rejected:', error);
       setCommandConnectionState('failed');
       throw error;
     }
@@ -258,6 +306,8 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   };
 
   const disconnectFromRobot = () => {
+    console.log('[RobotConnect] disconnectFromRobot');
+
     isDisconnecting.current = true;
     canShowError.current = false;
 
@@ -288,13 +338,17 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   };
 
   const handleRetryConnection = () => {
+    console.log('[RobotConnect] retry');
     setShowConnectionError(false);
     canShowError.current = true;
     isDisconnecting.current = false;
-    connectToRobot().catch(() => {});
+    connectToRobot().catch((error) => {
+      console.log('[RobotConnect] retry connect error:', error);
+    });
   };
 
   const handleCancelConnection = () => {
+    console.log('[RobotConnect] cancel');
     setShowConnectionError(false);
     canShowError.current = false;
     disconnectFromRobot();
@@ -350,12 +404,23 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
   };
 
   useEffect(() => {
+    console.log('[RobotConnect] provider mounted');
+
     return () => {
+      console.log('[RobotConnect] provider unmounted');
       if (errorTimeout.current) {
         clearTimeout(errorTimeout.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    console.log('[RobotConnect] state snapshot', {
+      videoConnectionState,
+      commandConnectionState,
+      isConnecting,
+    });
+  }, [videoConnectionState, commandConnectionState, isConnecting]);
 
   const isFullyConnected =
     videoConnectionState === 'connected' &&

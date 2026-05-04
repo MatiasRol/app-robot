@@ -42,6 +42,11 @@ export class WebSocketService {
     this.isManualDisconnect = false;
     this.clearConnectionTimeout();
 
+    console.log('[RobotConnect][WS] connect() called', {
+      serverUrl: this.config.serverUrl,
+      videoStartTime,
+    });
+
     return new Promise((resolve, reject) => {
       let settled = false;
       let opened = false;
@@ -64,6 +69,7 @@ export class WebSocketService {
 
         this.connectionTimeout = setTimeout(() => {
           if (!opened && !this.isManualDisconnect) {
+            console.log('[RobotConnect][WS] timeout before open');
             this.hasErrored = true;
             this.config.onError?.('Tiempo de espera agotado al conectar comandos');
             safeReject(new Error('WS_CONNECT_TIMEOUT'));
@@ -75,6 +81,7 @@ export class WebSocketService {
         }, 8000);
 
         this.ws.onopen = () => {
+          console.log('[RobotConnect][WS] onopen');
           opened = true;
           this.clearConnectionTimeout();
           this.reconnectAttempts = 0;
@@ -86,13 +93,15 @@ export class WebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            console.log('[RobotConnect][WS] onmessage raw:', event.data);
             this.handleMessage(data);
           } catch {
-            console.warn('⚠️ Mensaje WS no válido:', event.data);
+            console.warn('[RobotConnect][WS] mensaje no válido:', event.data);
           }
         };
 
         this.ws.onerror = (error) => {
+          console.log('[RobotConnect][WS] onerror:', error);
           this.clearConnectionTimeout();
 
           if (!this.hasErrored && !this.isManualDisconnect) {
@@ -102,7 +111,15 @@ export class WebSocketService {
           }
         };
 
-        this.ws.onclose = () => {
+        this.ws.onclose = (event: any) => {
+          console.log('[RobotConnect][WS] onclose:', {
+            code: event?.code,
+            reason: event?.reason,
+            wasClean: event?.wasClean,
+            opened,
+            isManualDisconnect: this.isManualDisconnect,
+          });
+
           this.clearConnectionTimeout();
 
           if (!this.isManualDisconnect) {
@@ -121,6 +138,7 @@ export class WebSocketService {
           }
         };
       } catch (error) {
+        console.log('[RobotConnect][WS] exception creating socket:', error);
         this.clearConnectionTimeout();
 
         if (!this.hasErrored) {
@@ -135,6 +153,7 @@ export class WebSocketService {
   private handleMessage(data: any) {
     switch (data.type) {
       case 'welcome':
+        console.log('[RobotConnect][WS] welcome');
         break;
 
       case 'cmd_ack':
@@ -145,20 +164,21 @@ export class WebSocketService {
           }
         }
         this.commandCount = data.commands_total || this.commandCount;
+        console.log('[RobotConnect][WS] cmd_ack', {
+          latency_ms: data.latency_ms,
+          commands_total: data.commands_total,
+        });
         break;
 
       case 'telemetry_broadcast':
         break;
 
       case 'emergency_ack':
+        console.log('[RobotConnect][WS] emergency_ack');
         break;
 
       case 'pos_suscrito':
-        break;
-
       case 'pos_robot':
-        break;
-
       case 'pos_detenido':
         break;
     }
@@ -168,16 +188,21 @@ export class WebSocketService {
 
   private sendJson(payload: any) {
     if (!this.isConnected()) {
+      console.log('[RobotConnect][WS] sendJson ignored, socket not connected', payload);
       return;
     }
 
     try {
+      console.log('[RobotConnect][WS] sendJson', payload);
       this.ws!.send(JSON.stringify(payload));
-    } catch {}
+    } catch (error) {
+      console.log('[RobotConnect][WS] sendJson error', error);
+    }
   }
 
   sendVelocityCommand(linear: number, angular: number) {
     if (!this.isConnected()) {
+      console.log('[RobotConnect][WS] sendVelocityCommand ignored, socket not connected');
       return;
     }
 
@@ -191,9 +216,12 @@ export class WebSocketService {
         clientTimestamp: Date.now(),
       };
 
+      console.log('[RobotConnect][WS] sendVelocityCommand', command);
       this.ws!.send(JSON.stringify(command));
       this.commandCount++;
-    } catch {}
+    } catch (error) {
+      console.log('[RobotConnect][WS] sendVelocityCommand error', error);
+    }
   }
 
   stopRobot() {
@@ -295,6 +323,11 @@ export class WebSocketService {
       this.isManualDisconnect ||
       this.reconnectAttempts >= this.maxReconnectAttempts
     ) {
+      console.log('[RobotConnect][WS] reconnect stopped', {
+        isManualDisconnect: this.isManualDisconnect,
+        reconnectAttempts: this.reconnectAttempts,
+      });
+
       if (!this.isManualDisconnect && !this.hasErrored) {
         this.hasErrored = true;
         this.config.onError?.('No se pudo reconectar al servidor de comandos');
@@ -305,16 +338,26 @@ export class WebSocketService {
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
     this.reconnectAttempts++;
 
+    console.log('[RobotConnect][WS] reconnect scheduled', {
+      attempt: this.reconnectAttempts,
+      delay,
+    });
+
     this.reconnectTimeout = setTimeout(() => {
-      this.connect(this.videoStartTime).catch(() => {});
+      this.connect(this.videoStartTime).catch((error) => {
+        console.log('[RobotConnect][WS] reconnect connect() rejected', error);
+      });
     }, delay);
   }
 
   updateVideoStartTime(timestamp: number) {
+    console.log('[RobotConnect][WS] updateVideoStartTime', timestamp);
     this.videoStartTime = timestamp;
   }
 
   disconnect() {
+    console.log('[RobotConnect][WS] disconnect()');
+
     this.isManualDisconnect = true;
     this.hasErrored = true;
     this.clearConnectionTimeout();
