@@ -2,9 +2,12 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { WebRTCVideoService as WebRTCVideoServiceType } from '../services/WebRTCVideoService';
 import type { WebSocketService as WebSocketServiceType } from '../services/WebSocketService';
 
-const VIDEO_SERVER_URL = 'http://XicoCamara.local:8889';
-const VIDEO_STREAM_PATH = 'cam';
-const COMMAND_SERVER_URL = 'ws://Xico.local:9090';
+const VIDEO_SERVER_URL =
+  process.env.EXPO_PUBLIC_VIDEO_SERVER_URL || 'http://XicoCamara.local:8889';
+const VIDEO_STREAM_PATH =
+  process.env.EXPO_PUBLIC_VIDEO_STREAM_PATH || 'cam';
+const COMMAND_SERVER_URL =
+  process.env.EXPO_PUBLIC_COMMAND_SERVER_URL || 'ws://Xico.local:9090';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
 export type RobotRecordingState = 'idle' | 'starting' | 'recording' | 'stopping';
@@ -151,9 +154,9 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     if (!videoConnected && !commandsConnected) {
       showError('No se pudo conectar ni al video ni a los comandos.');
     } else if (!videoConnected) {
-      console.warn('⚠️ Comandos conectados, pero video no disponible');
+      showError('Comandos conectados, pero el video no está disponible.');
     } else if (!commandsConnected) {
-      console.warn('⚠️ Video conectado, pero comandos no disponibles');
+      showError('Video conectado, pero los comandos no están disponibles.');
     }
   };
 
@@ -192,12 +195,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         },
         onError: () => {
           if (isDisconnecting.current) return;
-
           setVideoConnectionState('failed');
-
-          if (commandConnectionState === 'failed') {
-            showError('Error de conexión: video y comandos no disponibles');
-          }
         },
       });
 
@@ -231,12 +229,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
         onMessage: handleRobotMessage,
         onError: () => {
           if (isDisconnecting.current) return;
-
           setCommandConnectionState('failed');
-
-          if (videoConnectionState === 'failed') {
-            showError('Error de conexión: video y comandos no disponibles');
-          }
         },
       });
 
@@ -274,7 +267,7 @@ export function CameraConnectionProvider({ children }: { children: React.ReactNo
     }
 
     if (videoService.current) {
-      videoService.current.disconnect();
+      void videoService.current.disconnect();
       videoService.current = null;
     }
 

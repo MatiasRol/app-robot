@@ -16,6 +16,7 @@ export class WebSocketService {
   private ws: WebSocket | null = null;
   private config: WebSocketConfig;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private isManualDisconnect: boolean = false;
@@ -29,49 +30,103 @@ export class WebSocketService {
     this.config = config;
   }
 
+  private clearConnectionTimeout() {
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+  }
+
   connect(videoStartTime: number = 0): Promise<void> {
     this.hasErrored = false;
     this.isManualDisconnect = false;
+    this.clearConnectionTimeout();
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      let opened = false;
+
+      const safeResolve = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+
+      const safeReject = (error: any) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      };
+
       try {
         this.videoStartTime = videoStartTime;
-
         this.ws = new WebSocket(this.config.serverUrl);
 
+        this.connectionTimeout = setTimeout(() => {
+          if (!opened && !this.isManualDisconnect) {
+            this.hasErrored = true;
+            this.config.onError?.('Tiempo de espera agotado al conectar comandos');
+            safeReject(new Error('WS_CONNECT_TIMEOUT'));
+
+            try {
+              this.ws?.close();
+            } catch {}
+          }
+        }, 8000);
+
         this.ws.onopen = () => {
+          opened = true;
+          this.clearConnectionTimeout();
           this.reconnectAttempts = 0;
           this.hasErrored = false;
           this.config.onConnected?.();
-          resolve();
+          safeResolve();
         };
 
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
             this.handleMessage(data);
-          } catch (error) {}
+          } catch {
+            console.warn('⚠️ Mensaje WS no válido:', event.data);
+          }
         };
 
         this.ws.onerror = (error) => {
+          this.clearConnectionTimeout();
+
           if (!this.hasErrored && !this.isManualDisconnect) {
             this.hasErrored = true;
             this.config.onError?.('Error de conexión WebSocket');
-            reject(error);
+            safeReject(error);
           }
         };
 
         this.ws.onclose = () => {
+          this.clearConnectionTimeout();
+
           if (!this.isManualDisconnect) {
             this.config.onDisconnected?.();
+
+            if (!opened) {
+              if (!this.hasErrored) {
+                this.hasErrored = true;
+                this.config.onError?.('La conexión de comandos se cerró antes de abrir');
+              }
+              safeReject(new Error('WS_CLOSED_BEFORE_OPEN'));
+              return;
+            }
+
             this.attemptReconnect();
           }
         };
       } catch (error) {
+        this.clearConnectionTimeout();
+
         if (!this.hasErrored) {
           this.hasErrored = true;
           this.config.onError?.('No se pudo crear la conexión WebSocket');
-          reject(error);
+          safeReject(error);
         }
       }
     });
@@ -118,7 +173,7 @@ export class WebSocketService {
 
     try {
       this.ws!.send(JSON.stringify(payload));
-    } catch (error) {}
+    } catch {}
   }
 
   sendVelocityCommand(linear: number, angular: number) {
@@ -138,7 +193,7 @@ export class WebSocketService {
 
       this.ws!.send(JSON.stringify(command));
       this.commandCount++;
-    } catch (error) {}
+    } catch {}
   }
 
   stopRobot() {
@@ -262,6 +317,7 @@ export class WebSocketService {
   disconnect() {
     this.isManualDisconnect = true;
     this.hasErrored = true;
+    this.clearConnectionTimeout();
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -271,7 +327,7 @@ export class WebSocketService {
     if (this.ws) {
       try {
         this.ws.close();
-      } catch (error) {}
+      } catch {}
       this.ws = null;
     }
 
