@@ -23,15 +23,17 @@ export default function ConnectingScreen() {
   const router = useRouter();
 
   const hasStartedRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const minDelayDoneRef = useRef(false);
-  const isConnectedRef = useRef(false);
+  const minDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorShownRef = useRef(false);
+  const minDelayDoneRef = useRef(false);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
 
   const {
     connectionStatus,
+    isConnecting,
     errorMessage,
     showConnectionError,
     connectToRobot,
@@ -40,13 +42,17 @@ export default function ConnectingScreen() {
   } = useCameraConnectionContext();
 
   const [timedOut, setTimedOut] = useState(false);
-  const [, forceUpdate] = useState(0);
 
   const hasAnyConnection =
     connectionStatus.video === 'connected' ||
     connectionStatus.commands === 'connected';
 
+  const shouldShowError =
+    showConnectionError || (timedOut && !hasAnyConnection);
+
   useEffect(() => {
+    console.log('[ConnectingScreen] mounted');
+
     const loop = Animated.loop(
       Animated.timing(spinAnim, {
         toValue: 1,
@@ -59,8 +65,12 @@ export default function ConnectingScreen() {
     loop.start();
 
     return () => {
+      console.log('[ConnectingScreen] unmounted');
       loop.stop();
       spinAnim.stopAnimation();
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (minDelayRef.current) clearTimeout(minDelayRef.current);
     };
   }, [spinAnim]);
 
@@ -68,49 +78,41 @@ export default function ConnectingScreen() {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
-    connectToRobot().catch(() => {});
+    console.log('[ConnectingScreen] starting robot connection');
+
+    connectToRobot().catch((error) => {
+      console.log('[ConnectingScreen] connectToRobot rejected:', error);
+    });
 
     timeoutRef.current = setTimeout(() => {
+      console.log('[ConnectingScreen] timeout reached');
       setTimedOut(true);
     }, CONNECTION_TIMEOUT_MS);
 
-    const minDelay = setTimeout(() => {
+    minDelayRef.current = setTimeout(() => {
+      console.log('[ConnectingScreen] minimum splash delay completed');
       minDelayDoneRef.current = true;
-
-      if (isConnectedRef.current) {
-        router.replace('/(tabs)');
-      } else {
-        forceUpdate((v) => v + 1);
-      }
     }, MIN_SPLASH_DURATION_MS);
-
-    return () => {
-      clearTimeout(minDelay);
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    };
-  }, [connectToRobot, router]);
+  }, [connectToRobot]);
 
   useEffect(() => {
-    if (!hasAnyConnection) return;
-
-    isConnectedRef.current = true;
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    if (minDelayDoneRef.current) {
-      router.replace('/(tabs)');
-    }
-  }, [hasAnyConnection, router]);
-
-  const shouldShowError =
-    showConnectionError || (timedOut && !hasAnyConnection);
+    console.log('[ConnectingScreen] state snapshot', {
+      video: connectionStatus.video,
+      commands: connectionStatus.commands,
+      hasAnyConnection,
+      isConnecting,
+      timedOut,
+      shouldShowError,
+      minDelayDone: minDelayDoneRef.current,
+    });
+  }, [
+    connectionStatus.video,
+    connectionStatus.commands,
+    hasAnyConnection,
+    isConnecting,
+    timedOut,
+    shouldShowError,
+  ]);
 
   useEffect(() => {
     if (shouldShowError && !errorShownRef.current) {
@@ -123,40 +125,87 @@ export default function ConnectingScreen() {
     }
   }, [shouldShowError]);
 
-  const handleRetry = () => {
-    void hapticLight();
+  useEffect(() => {
+    if (hasNavigatedRef.current) return;
+    if (!hasAnyConnection) return;
+    if (isConnecting) return;
+    if (!minDelayDoneRef.current) return;
 
-    setTimedOut(false);
-    isConnectedRef.current = false;
-    minDelayDoneRef.current = false;
-    errorShownRef.current = false;
+    hasNavigatedRef.current = true;
+
+    console.log('[ConnectingScreen] navigating to /(tabs)');
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
+
+    router.replace('/(tabs)');
+  }, [hasAnyConnection, isConnecting, router]);
+
+  useEffect(() => {
+    if (hasNavigatedRef.current) return;
+    if (!hasAnyConnection) return;
+    if (isConnecting) return;
+
+    if (!minDelayDoneRef.current) {
+      const waitForMinDelay = setInterval(() => {
+        if (minDelayDoneRef.current && !hasNavigatedRef.current) {
+          clearInterval(waitForMinDelay);
+          hasNavigatedRef.current = true;
+
+          console.log('[ConnectingScreen] navigating after min delay to /(tabs)');
+
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+
+          router.replace('/(tabs)');
+        }
+      }, 100);
+
+      return () => clearInterval(waitForMinDelay);
+    }
+  }, [hasAnyConnection, isConnecting, router]);
+
+  const handleRetry = () => {
+    console.log('[ConnectingScreen] retry tapped');
+    void hapticLight();
+
+    setTimedOut(false);
+    errorShownRef.current = false;
+    hasNavigatedRef.current = false;
+    minDelayDoneRef.current = false;
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (minDelayRef.current) clearTimeout(minDelayRef.current);
 
     handleRetryConnection();
 
     timeoutRef.current = setTimeout(() => {
+      console.log('[ConnectingScreen] timeout reached after retry');
       setTimedOut(true);
     }, CONNECTION_TIMEOUT_MS);
 
-    setTimeout(() => {
+    minDelayRef.current = setTimeout(() => {
+      console.log('[ConnectingScreen] minimum splash delay completed after retry');
       minDelayDoneRef.current = true;
-      if (isConnectedRef.current) {
-        router.replace('/(tabs)');
-      } else {
-        forceUpdate((v) => v + 1);
-      }
     }, MIN_SPLASH_DURATION_MS);
   };
 
   const handleCancel = () => {
+    console.log('[ConnectingScreen] cancel tapped');
     void hapticLight();
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+    }
+
+    if (minDelayRef.current) {
+      clearTimeout(minDelayRef.current);
+      minDelayRef.current = null;
     }
 
     handleCancelConnection();
