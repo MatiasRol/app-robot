@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/robotNav.png",
-    "scheme": "approbot",
+    "scheme": "Nibo",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -22,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/robotNav.png"
+        "foregroundImage": "./assets/images/logo_app.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -49,14 +49,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/robotNav.png"
+      "favicon": "./assets/images/logo_app.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/robotNav.png",
+          "image": "./assets/images/logo_app.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

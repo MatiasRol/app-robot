@@ -224,10 +224,11 @@ const styles = StyleSheet.create({
     color: '#1B1B1B',
   },
   robotImage: {
-    width: '118%',
-    height: 360,
-    marginTop: 'auto',
-    marginBottom: -8,
+    width: '800%',
+    height: 850,
+    marginTop: '-60',
+    marginBottom: -7,
+    transform: [{ translateX: 85 }],
   },
   bottomPanel: {
     backgroundColor: Colors.background,
