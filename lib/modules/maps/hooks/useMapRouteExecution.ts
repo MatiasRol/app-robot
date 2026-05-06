@@ -5,6 +5,7 @@ import { Route } from '../../../core/types';
 interface UseMapRouteExecutionParams {
   routes: Route[];
   commandsConnected: boolean;
+  sendRecordingCommand: (value: 'on' | 'off') => void;
   sendFollowWaypoints: (
     waypoints: Array<{
       worldX: number;
@@ -22,6 +23,7 @@ interface UseMapRouteExecutionParams {
 export function useMapRouteExecution({
   routes,
   commandsConnected,
+  sendRecordingCommand,
   sendFollowWaypoints,
   showStatus,
 }: UseMapRouteExecutionParams) {
@@ -112,12 +114,20 @@ export function useMapRouteExecution({
       return;
     }
 
+    const shouldRecord = Boolean((route as any)?.recordRoute);
+
+    if (shouldRecord) {
+      sendRecordingCommand('on');
+    }
+
     sendFollowWaypoints(waypointsForRos);
     setPendingPlayRouteId(null);
 
     showStatus(
       'Ruta enviada',
-      `La ruta "${route.name}" se envió para ejecutarse.`,
+      shouldRecord
+        ? `La ruta "${route.name}" se envió para ejecutarse y se activó la grabación.`
+        : `La ruta "${route.name}" se envió para ejecutarse.`,
       'success'
     );
   };

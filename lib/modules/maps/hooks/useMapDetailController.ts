@@ -85,6 +85,7 @@ export function useMapDetailController(onBack: () => void) {
   } = useMapRouteExecution({
     routes: mapRoutes.routes,
     commandsConnected,
+    sendRecordingCommand,
     sendFollowWaypoints,
     showStatus,
   });
