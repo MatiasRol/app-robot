@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { MapMode, Route } from '../../../lib/core/types';
+import { Colors } from '../../../lib/core/constants/Colors';
 import { MapDetailBackButton } from '../atoms/MapDetailBackButton';
 import { ActionStatusAlert } from '../molecules/ActionStatusAlert';
 import { MapNavigateBar } from '../molecules/MapNavigateBar';
@@ -63,6 +65,9 @@ interface MapDetailOverlayProps {
   onCloseStatus: () => void;
 
   modeAlertProps: any;
+
+  showStopRecordingButton: boolean;
+  onStopRecording: () => void;
 }
 
 export function MapDetailOverlay({
@@ -106,10 +111,22 @@ export function MapDetailOverlay({
   statusAlert,
   onCloseStatus,
   modeAlertProps,
+  showStopRecordingButton,
+  onStopRecording,
 }: MapDetailOverlayProps) {
   return (
     <>
       <MapDetailBackButton onPress={onBack} />
+
+      {showStopRecordingButton && (
+        <TouchableOpacity
+          style={styles.stopRecordingButton}
+          onPress={onStopRecording}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.stopRecordingText}>DETENER GRABACIÓN</Text>
+        </TouchableOpacity>
+      )}
 
       <MapFloatingActions
         visible={mapMode === 'idle'}
@@ -170,3 +187,27 @@ export function MapDetailOverlay({
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  stopRecordingButton: {
+    position: 'absolute',
+    top: 54,
+    right: 16,
+    zIndex: 10,
+    backgroundColor: '#D93535',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  stopRecordingText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+});

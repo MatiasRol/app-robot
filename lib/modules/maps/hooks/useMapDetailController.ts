@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { MapMode } from '../../../core/types';
+import { hapticLight } from '../../../core/utils/haptics';
 import { useCameraConnectionContext } from '../../camera/context/CameraConnectionContext';
 import { useBottomSheet } from './useBottomSheet';
 import { useMapDetail } from './useMapDetail';
@@ -40,6 +41,8 @@ export function useMapDetailController(onExitToHome: () => void) {
     sendRecordingCommand,
     sendNavigateToPose,
     sendFollowWaypoints,
+    isRobotRecording,
+    robotRecordingState,
   } = useCameraConnectionContext();
 
   const [mapMode, setMapMode] = React.useState<MapMode>('idle');
@@ -80,17 +83,17 @@ export function useMapDetailController(onExitToHome: () => void) {
   });
 
   const {
-      pendingPlayRouteId,
-      handlePlayRoute,
-      cancelPlayRoute,
-      confirmPlayRoute,
-    } = useMapRouteExecution({
-      routes: mapRoutes.routes,
-      commandsConnected,
-      sendRecordingCommand,
-      sendFollowWaypoints,
-      showStatus,
-    });
+    pendingPlayRouteId,
+    handlePlayRoute,
+    cancelPlayRoute,
+    confirmPlayRoute,
+  } = useMapRouteExecution({
+    routes: mapRoutes.routes,
+    commandsConnected,
+    sendRecordingCommand,
+    sendFollowWaypoints,
+    showStatus,
+  });
 
   const {
     isNavigatingNow,
@@ -193,14 +196,39 @@ export function useMapDetailController(onExitToHome: () => void) {
     setExecuteAt(sanitizeTimeInput(value));
   };
 
+  const isBusyRecordingTransition =
+    robotRecordingState === 'starting' || robotRecordingState === 'stopping';
+
+  const handleStopRouteRecording = () => {
+    if (!commandsConnected) {
+      showStatus(
+        'Sin conexión',
+        'No hay conexión de comandos para detener la grabación.',
+        'warning'
+      );
+      return;
+    }
+
+    if (!isRobotRecording || isBusyRecordingTransition) {
+      return;
+    }
+
+    void hapticLight();
+    sendRecordingCommand('off');
+
+    showStatus(
+      'Deteniendo grabación',
+      'Se envió la orden para detener la grabación del robot.',
+      'info'
+    );
+  };
+
   const handleBack = () => {
-    // 1) Si está en crear/editar ruta con modal abierto -> volver al selector principal del mapa
     if (showCreateRouteModal) {
       closeCreateRouteToIdle();
       return;
     }
 
-    // 2) Si está en edición/lista de rutas -> volver al selector Ruta/Navegación
     if (mapMode === 'route_edit' || mapMode === 'route_list') {
       waypointEditor.clearWaypoints();
       bottomSheet.collapseBottomSheet();
@@ -210,19 +238,16 @@ export function useMapDetailController(onExitToHome: () => void) {
       return;
     }
 
-    // 3) Si está en navegación en curso -> cancelar navegación y volver al selector
     if (isNavigatingNow) {
       handleCancelRunningNavigate();
       return;
     }
 
-    // 4) Si está en navegación seleccionando punto -> volver al selector
     if (mapMode === 'navigate') {
       handleCancelIdleNavigate();
       return;
     }
 
-    // 5) Si está en el selector Ruta/Navegación -> volver a la principal
     onExitToHome();
   };
 
@@ -279,6 +304,8 @@ export function useMapDetailController(onExitToHome: () => void) {
       statusAlert,
       onCloseStatus: closeStatus,
       modeAlertProps: opMode.alertProps,
+      showStopRecordingButton: isRobotRecording && !isBusyRecordingTransition,
+      onStopRecording: handleStopRouteRecording,
     },
 
     pointConfirmProps: {
