@@ -42,7 +42,16 @@ export function useMapRouteExecution({
   const confirmPlayRoute = () => {
     if (!pendingPlayRouteId) return;
 
-    const route = routes.find((r) => r.id === pendingPlayRouteId);
+    const route = routes.find((r) => r.id === pendingPlayRouteId) as
+      | (Route & {
+          scheduleMeta?: {
+            days?: string[];
+            time?: string;
+            recordRoute?: boolean;
+            label?: string;
+          } | null;
+        })
+      | undefined;
 
     if (!route?.waypoints?.length) {
       setPendingPlayRouteId(null);
@@ -114,8 +123,11 @@ export function useMapRouteExecution({
       return;
     }
 
-    const shouldRecord = Boolean((route as any)?.recordRoute);
+    // AQUÍ está la corrección real:
+    const shouldRecord = Boolean(route.scheduleMeta?.recordRoute);
 
+    // Manda exactamente la misma función de grabación
+    // que usa la principal
     if (shouldRecord) {
       sendRecordingCommand('on');
     }

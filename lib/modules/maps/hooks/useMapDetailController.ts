@@ -80,17 +80,17 @@ export function useMapDetailController(onExitToHome: () => void) {
   });
 
   const {
-    pendingPlayRouteId,
-    handlePlayRoute,
-    cancelPlayRoute,
-    confirmPlayRoute,
-  } = useMapRouteExecution({
-    routes: mapRoutes.routes,
-    commandsConnected,
-    sendRecordingCommand,
-    sendFollowWaypoints,
-    showStatus,
-  });
+      pendingPlayRouteId,
+      handlePlayRoute,
+      cancelPlayRoute,
+      confirmPlayRoute,
+    } = useMapRouteExecution({
+      routes: mapRoutes.routes,
+      commandsConnected,
+      sendRecordingCommand,
+      sendFollowWaypoints,
+      showStatus,
+    });
 
   const {
     isNavigatingNow,
