@@ -20,6 +20,7 @@ interface UseMapRouteFormParams {
   sendRecordingCommand: (value: 'on' | 'off') => void;
   setMapMode: (mode: MapMode) => void;
   expandBottomSheet: () => void;
+  collapseBottomSheet: () => void;
   showStatus: (
     title: string,
     message: string,
@@ -43,6 +44,7 @@ export function useMapRouteForm({
   sendRecordingCommand,
   setMapMode,
   expandBottomSheet,
+  collapseBottomSheet,
   showStatus,
   getRouteEditData,
   mapMetadata,
@@ -87,6 +89,14 @@ export function useMapRouteForm({
     resetRouteForm();
     setMapMode('route_list');
     expandBottomSheet();
+  };
+
+  const closeCreateRouteToIdle = () => {
+    void hapticLight();
+    setShowCreateRouteModal(false);
+    resetRouteForm();
+    setMapMode('idle');
+    collapseBottomSheet();
   };
 
   const openEditRoute = (routeId: string) => {
@@ -173,6 +183,7 @@ export function useMapRouteForm({
     resetRouteForm,
     openCreateRoute,
     closeCreateRoute,
+    closeCreateRouteToIdle,
     openEditRoute,
     toggleDay,
     handleToggleRecordRoute,

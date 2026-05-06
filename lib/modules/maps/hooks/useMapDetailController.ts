@@ -25,7 +25,7 @@ function sanitizeTimeInput(value: string) {
   return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
 
-export function useMapDetailController(onBack: () => void) {
+export function useMapDetailController(onExitToHome: () => void) {
   const { id } = useLocalSearchParams();
 
   const { mapData, mapName, loading: mapLoading, error: mapError } =
@@ -62,6 +62,7 @@ export function useMapDetailController(onBack: () => void) {
     setRouteNameDraft,
     setExecuteAt,
     closeCreateRoute,
+    closeCreateRouteToIdle,
     openCreateRoute,
     openEditRoute,
     toggleDay,
@@ -71,6 +72,7 @@ export function useMapDetailController(onBack: () => void) {
     sendRecordingCommand,
     setMapMode,
     expandBottomSheet: bottomSheet.expandBottomSheet,
+    collapseBottomSheet: bottomSheet.collapseBottomSheet,
     showStatus,
     getRouteEditData: mapRoutes.getRouteEditData,
     mapMetadata: mapData?.metadata as any,
@@ -191,6 +193,39 @@ export function useMapDetailController(onBack: () => void) {
     setExecuteAt(sanitizeTimeInput(value));
   };
 
+  const handleBack = () => {
+    // 1) Si está en crear/editar ruta con modal abierto -> volver al selector principal del mapa
+    if (showCreateRouteModal) {
+      closeCreateRouteToIdle();
+      return;
+    }
+
+    // 2) Si está en edición/lista de rutas -> volver al selector Ruta/Navegación
+    if (mapMode === 'route_edit' || mapMode === 'route_list') {
+      waypointEditor.clearWaypoints();
+      bottomSheet.collapseBottomSheet();
+      navigate.reset();
+      resetNavigationExecution();
+      setMapMode('idle');
+      return;
+    }
+
+    // 3) Si está en navegación en curso -> cancelar navegación y volver al selector
+    if (isNavigatingNow) {
+      handleCancelRunningNavigate();
+      return;
+    }
+
+    // 4) Si está en navegación seleccionando punto -> volver al selector
+    if (mapMode === 'navigate') {
+      handleCancelIdleNavigate();
+      return;
+    }
+
+    // 5) Si está en el selector Ruta/Navegación -> volver a la principal
+    onExitToHome();
+  };
+
   return {
     mapViewerProps: {
       mapData,
@@ -203,7 +238,7 @@ export function useMapDetailController(onBack: () => void) {
     },
 
     overlayProps: {
-      onBack,
+      onBack: handleBack,
       mapMode,
       setMapMode,
       mapName,
